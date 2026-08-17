@@ -1,0 +1,7 @@
+﻿@Users.API_HostAddress = http://localhost:5002
+
+### Health check (pendiente de implementar)
+GET {{Users.API_HostAddress}}/health
+Accept: application/json
+
+###

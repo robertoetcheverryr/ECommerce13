@@ -1,0 +1,7 @@
+﻿@Cart.API_HostAddress = http://localhost:5004
+
+### Health check (pendiente de implementar)
+GET {{Cart.API_HostAddress}}/health
+Accept: application/json
+
+###

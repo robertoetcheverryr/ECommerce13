@@ -1,0 +1,7 @@
+﻿@Orders.API_HostAddress = http://localhost:5003
+
+### Health check (pendiente de implementar)
+GET {{Orders.API_HostAddress}}/health
+Accept: application/json
+
+###

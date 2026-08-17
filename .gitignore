@@ -1,0 +1,28 @@
+﻿# Build
+bin/
+obj/
+[Bb]in/
+[Oo]bj/
+out/
+
+# Logs
+**/logs/*
+!**/logs/.gitkeep
+*.log
+
+# IDE / herramientas locales
+.idea/
+.junie/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
+appsettings.*.local.json
+*.env
