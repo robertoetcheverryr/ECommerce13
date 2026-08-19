@@ -37,6 +37,8 @@ ECommerce13/
 │   ├── Orders.API/
 │   ├── Cart.API/
 │   └── Notifications.API/
+├── tests/
+│   └── Products.API.Tests/
 ├── docs/
 └── README.md
 ```
@@ -91,22 +93,19 @@ Desde la raíz de la solución:
 dotnet restore
 ```
 
-### 4. Paquete OpenAPI (si hiciera falta)
-
-```powershell
-$projects = @("Products.API", "Users.API", "Orders.API", "Cart.API", "Notifications.API")
-foreach ($p in $projects) {
-    dotnet add "src/$p" package Microsoft.AspNetCore.OpenApi
-}
-```
-
-### 5. Compilar
+### 4. Compilar
 
 ```powershell
 dotnet build
 ```
 
-Los puertos configurados son:
+### 5. Ejecutar un microservicio
+
+```powershell
+dotnet run --project src/Products.API
+```
+
+Puertos configurados:
 
 - Products.API → http://localhost:5001
 - Users.API → http://localhost:5002
@@ -114,20 +113,36 @@ Los puertos configurados son:
 - Cart.API → http://localhost:5004
 - Notifications.API → http://localhost:5005
 
+### 6. Swagger UI
+
+Con el microservicio corriendo, abrir en el navegador:
+
+- Products: http://localhost:5001/swagger
+- Users: http://localhost:5002/swagger
+- Orders: http://localhost:5003/swagger
+- Cart: http://localhost:5004/swagger
+- Notifications: http://localhost:5005/swagger
+
+Desde ahí se pueden probar los endpoints interactivos.
+
+### 7. Tests
+
+```powershell
+dotnet test
+```
+
 ## Estado actual
 
-- **Commit 0**: Estructura inicial de la solución y proyectos creados.
-- Próximo paso: Asistir a clase y entender pasos proximos esperados.
-
-## Cómo ejecutar
-
-La ejecución local de los microservicios será documentada en próximos commits.
+- Estructura inicial de la solución y proyectos
+- Products.API: endpoints base, modelo Product, error PRD-001, Swagger
+- Tests de integración para Products.API
+- CI con GitHub Actions
 
 ## Tecnologías previstas
 
 - .NET 10
 - ASP.NET Core Web API
-- Swagger / OpenAPI
+- Swagger / OpenAPI (Swashbuckle)
 - Serilog
 - Health Checks
 - IExceptionHandler
