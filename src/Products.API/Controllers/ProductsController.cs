@@ -5,6 +5,9 @@ using Products.API.Models;
 
 namespace Products.API.Controllers;
 
+/// <summary>
+/// Endpoints de gestión de productos.
+/// </summary>
 [ApiController]
 [Route("api/[controller]")]
 public class ProductsController : ControllerBase
