@@ -1,0 +1,97 @@
+﻿using System.Net;                              // Contains HttpStatusCode (OK, NotFound, etc.)
+using FluentAssertions;                        // Library for readable assertions (.Should().Be(...))
+using Microsoft.AspNetCore.Mvc.Testing;        // Contains WebApplicationFactory (spins up the API in-memory)
+
+namespace Products.API.Tests;
+
+// IClassFixture<> tells xUnit:
+// "Create ONE single instance of WebApplicationFactory and share it across all tests in this class"
+// This way we don't restart the API from scratch for every test (that would be very slow).
+public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+{
+    // HttpClient is the object we use to make HTTP requests
+    // (same idea as the "requests" library in Python or fetch in JavaScript).
+    private readonly HttpClient _client;
+
+    // Constructor: xUnit calls it automatically and injects the factory.
+    public ProductsEndpointsTests(WebApplicationFactory<Program> factory)
+    {
+        // CreateClient() starts the API in-memory (no real port is opened)
+        // and returns an HttpClient already configured to talk to it.
+        _client = factory.CreateClient();
+    }
+
+    // [Fact] = "this is a test".
+    // xUnit finds every method marked with [Fact] and runs it.
+    // It is the equivalent of "def test_something():" in pytest.
+    [Fact]
+    public async Task GetAll_ShouldReturnOk_WithHelloMessage()
+    {
+        // async + Task  →  this method is asynchronous.
+        // In C# network operations (HTTP) are asynchronous.
+        // "Task" is similar to a Promise/Future: it represents an operation
+        // that will finish in the future.
+        // "async" allows us to use "await" inside the method.
+
+        // Send a GET request to /api/products
+        var response = await _client.GetAsync("/api/products");
+
+        // Assert that the status code is 200 OK
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Read the response body as a string
+        var content = await response.Content.ReadAsStringAsync();
+
+        // Assert that the body contains the expected Hello World message
+        content.Should().Contain("GET /api/products");
+    }
+
+    [Fact]
+    public async Task GetById_ShouldReturnOk_WithHelloMessage()
+    {
+        var id = Guid.NewGuid();
+        var response = await _client.GetAsync($"/api/products/{id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var content = await response.Content.ReadAsStringAsync();
+        content.Should().Contain($"GET /api/products/{id}");
+    }
+
+    [Fact]
+    public async Task Create_ShouldReturnOk_WithHelloMessage()
+    {
+        // PostAsync requires a body. We pass null because the Hello World
+        // endpoint doesn't care about the body yet.
+        var response = await _client.PostAsync("/api/products", null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var content = await response.Content.ReadAsStringAsync();
+        content.Should().Contain("POST /api/products");
+    }
+
+    [Fact]
+    public async Task Update_ShouldReturnOk_WithHelloMessage()
+    {
+        var id = Guid.NewGuid();
+        var response = await _client.PutAsync($"/api/products/{id}", null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var content = await response.Content.ReadAsStringAsync();
+        content.Should().Contain($"PUT /api/products/{id}");
+    }
+
+    [Fact]
+    public async Task Delete_ShouldReturnOk_WithHelloMessage()
+    {
+        var id = Guid.NewGuid();
+        var response = await _client.DeleteAsync($"/api/products/{id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var content = await response.Content.ReadAsStringAsync();
+        content.Should().Contain($"DELETE /api/products/{id}");
+    }
+}
