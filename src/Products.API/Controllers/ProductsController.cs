@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Products.API.Models;
+using Products.API.Exceptions;
 
 namespace Products.API.Controllers;
 
@@ -29,7 +30,7 @@ public class ProductsController : ControllerBase
     public ActionResult<Product> GetById(Guid id)
     {
         if (id != DemoProduct.Id)
-            return NotFound();
+            throw new NotFoundException("PRD-001", "Producto no encontrado.");
 
         return Ok(DemoProduct);
     }

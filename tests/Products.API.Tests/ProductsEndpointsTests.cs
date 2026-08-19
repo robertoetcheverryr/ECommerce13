@@ -76,16 +76,28 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
     }
 
     [Fact]
-    public async Task GetById_WhenProductDoesNotExist_ShouldReturnNotFound()
+    public async Task GetById_WhenProductDoesNotExist_ShouldReturnNotFound_WithPrd001()
     {
-        // Error case (still a plain 404, without the errorCode format yet).
-        // Later we will harden the assertions to check
-        // errorCode = "PRD-001" and the Problem Details body.
-        var id = Guid.NewGuid();
+        // Fixed GUID that is guaranteed not to match the demo product.
+        var id = Guid.Parse("00000000-0000-0000-0000-000000000099");
 
         var response = await _client.GetAsync($"/api/products/{id}");
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+        var body = await response.Content.ReadFromJsonAsync<Dictionary<string, object>>();
+        body.Should().NotBeNull();
+
+        // Validate the entire error response
+        body.Should().ContainKeys(
+            "type", "title", "status", "detail", "instance", "errorCode", "errorMessage");
+        body["type"].ToString().Should().Be("https://tools.ietf.org/html/rfc7231#section-6.5.4");
+        body["title"].ToString().Should().Be("Not Found");
+        body["status"].ToString().Should().Be("404");
+        body["detail"].ToString().Should().Be("El recurso solicitado no fue encontrado.");
+        body["instance"].ToString().Should().Be($"/api/products/{id}");
+        body["errorCode"].ToString().Should().Be("PRD-001");
+        body["errorMessage"].ToString().Should().Be("Producto no encontrado.");
     }
 
     [Fact]
