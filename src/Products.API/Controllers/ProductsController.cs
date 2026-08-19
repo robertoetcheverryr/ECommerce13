@@ -25,9 +25,12 @@ public class ProductsController : ControllerBase
         return Ok(new[] { DemoProduct });
     }
 
-    [HttpGet("{id}")]
-    public ActionResult<Product> GetById(string id)
+    [HttpGet("{id:guid}")]
+    public ActionResult<Product> GetById(Guid id)
     {
+        if (id != DemoProduct.Id)
+            return NotFound();
+
         return Ok(DemoProduct);
     }
 

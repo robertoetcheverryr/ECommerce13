@@ -1,8 +1,8 @@
-﻿using System.Net;                              // Contains HttpStatusCode (OK, NotFound, etc.)
-using System.Net.Http.Json;                    // Contains ReadFromJsonAsync (deserialize JSON body)
-using FluentAssertions;                        // Library for readable assertions (.Should().Be(...))
-using Microsoft.AspNetCore.Mvc.Testing;        // Contains WebApplicationFactory (spins up the API in-memory)
-using Products.API.Models;                     // Product domain model
+﻿using System.Net; // Contains HttpStatusCode (OK, NotFound, etc.)
+using System.Net.Http.Json; // Contains ReadFromJsonAsync (deserialize JSON body)
+using FluentAssertions; // Library for readable assertions (.Should().Be(...))
+using Microsoft.AspNetCore.Mvc.Testing; // Contains WebApplicationFactory (spins up the API in-memory)
+using Products.API.Models; // Product domain model
 
 namespace Products.API.Tests;
 
@@ -52,9 +52,12 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
     }
 
     [Fact]
-    public async Task GetById_ShouldReturnOk_WithProduct()
+    public async Task GetById_WhenProductExists_ShouldReturnOk_WithProduct()
     {
-        var id = Guid.NewGuid();
+        // Permanent success case (at least until persistence is implemented)
+        // Uses the exact ID of the hardcoded demo product.
+        var id = Guid.Parse("3fa85f64-5717-4562-b3fc-2c963f66afa6");
+
         var response = await _client.GetAsync($"/api/products/{id}");
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -62,12 +65,27 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
         var product = await response.Content.ReadFromJsonAsync<Product>();
 
         product.Should().NotBeNull();
-        // The ! here indicates to the compiler "Trust me, this is NOT null
-        // The IDE complains because FluentAssertions is smart enough to say "we JUST tested it is NOT null"
-        // So it complains it is redundant. Kept here to know this interesting feature
+        // The ! here indicates to the compiler "Trust me, this is NOT null".
+        // The IDE complains because FluentAssertions is smart enough to say
+        // "we JUST tested it is NOT null", so it marks the ! as redundant.
+        // Kept here on purpose to document this interesting feature.
         // ReSharper disable once RedundantSuppressNullableWarningExpression
-        product!.Nombre.Should().Be("Notebook Dell XPS 15");
+        product!.Id.Should().Be(id);
+        product.Nombre.Should().Be("Notebook Dell XPS 15");
         product.Categoria.Should().Be("Electrónica");
+    }
+
+    [Fact]
+    public async Task GetById_WhenProductDoesNotExist_ShouldReturnNotFound()
+    {
+        // Error case (still a plain 404, without the errorCode format yet).
+        // Later we will harden the assertions to check
+        // errorCode = "PRD-001" and the Problem Details body.
+        var id = Guid.NewGuid();
+
+        var response = await _client.GetAsync($"/api/products/{id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     [Fact]
