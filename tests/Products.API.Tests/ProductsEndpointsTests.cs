@@ -1,12 +1,15 @@
 ﻿using System.Net;                              // Contains HttpStatusCode (OK, NotFound, etc.)
+using System.Net.Http.Json;                    // Contains ReadFromJsonAsync (deserialize JSON body)
 using FluentAssertions;                        // Library for readable assertions (.Should().Be(...))
 using Microsoft.AspNetCore.Mvc.Testing;        // Contains WebApplicationFactory (spins up the API in-memory)
+using Products.API.Models;                     // Product domain model
 
 namespace Products.API.Tests;
 
 // IClassFixture<> tells xUnit:
 // "Create ONE single instance of WebApplicationFactory and share it across all tests in this class"
 // This way we don't restart the API from scratch for every test (that would be very slow).
+// Roughly comparable to a session-scoped fixture in pytest.
 public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
 {
     // HttpClient is the object we use to make HTTP requests
@@ -25,9 +28,9 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
     // xUnit finds every method marked with [Fact] and runs it.
     // It is the equivalent of "def test_something():" in pytest.
     [Fact]
-    public async Task GetAll_ShouldReturnOk_WithHelloMessage()
+    public async Task GetAll_ShouldReturnOk_WithProductList()
     {
-        // async + Task  →  this method is asynchronous.
+        // async + Task → this method is asynchronous.
         // In C# network operations (HTTP) are asynchronous.
         // "Task" is similar to a Promise/Future: it represents an operation
         // that will finish in the future.
@@ -39,23 +42,32 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
         // Assert that the status code is 200 OK
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        // Read the response body as a string
-        var content = await response.Content.ReadAsStringAsync();
+        // ReadFromJsonAsync deserializes the JSON body into a List<Product>
+        // (similar to response.json() in Python requests)
+        var products = await response.Content.ReadFromJsonAsync<List<Product>>();
 
-        // Assert that the body contains the expected Hello World message
-        content.Should().Contain("GET /api/products");
+        products.Should().NotBeNull();
+        products.Should().HaveCount(1);
+        products[0].Nombre.Should().Be("Notebook Dell XPS 15");
     }
 
     [Fact]
-    public async Task GetById_ShouldReturnOk_WithHelloMessage()
+    public async Task GetById_ShouldReturnOk_WithProduct()
     {
         var id = Guid.NewGuid();
         var response = await _client.GetAsync($"/api/products/{id}");
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var content = await response.Content.ReadAsStringAsync();
-        content.Should().Contain($"GET /api/products/{id}");
+        var product = await response.Content.ReadFromJsonAsync<Product>();
+
+        product.Should().NotBeNull();
+        // The ! here indicates to the compiler "Trust me, this is NOT null
+        // The IDE complains because FluentAssertions is smart enough to say "we JUST tested it is NOT null"
+        // So it complains it is redundant. Kept here to know this interesting feature
+        // ReSharper disable once RedundantSuppressNullableWarningExpression
+        product!.Nombre.Should().Be("Notebook Dell XPS 15");
+        product.Categoria.Should().Be("Electrónica");
     }
 
     [Fact]

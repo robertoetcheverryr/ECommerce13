@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Products.API.Models;
 
 namespace Products.API.Controllers;
 
@@ -6,16 +7,28 @@ namespace Products.API.Controllers;
 [Route("api/[controller]")]
 public class ProductsController : ControllerBase
 {
-    [HttpGet]
-    public IActionResult GetAll()
+    // Gen a readonly product to have something to return for now
+    private static readonly Product DemoProduct = new()
     {
-        return Ok("yes, you have reached the GET /api/products endpoint");
+        Id = Guid.Parse("3fa85f64-5717-4562-b3fc-2c963f66afa6"),
+        Nombre = "Notebook Dell XPS 15",
+        Descripcion = "Laptop 15 pulgadas, 32GB RAM",
+        Precio = 1500.00m,
+        Stock = 10,
+        Categoria = "Electrónica",
+        FechaCreacion = new DateTime(2024, 1, 15, 10, 30, 0, DateTimeKind.Utc)
+    };
+
+    [HttpGet]
+    public ActionResult<IEnumerable<Product>> GetAll()
+    {
+        return Ok(new[] { DemoProduct });
     }
 
     [HttpGet("{id}")]
-    public IActionResult GetById(string id)
+    public ActionResult<Product> GetById(string id)
     {
-        return Ok($"yes, you have reached the GET /api/products/{id} endpoint");
+        return Ok(DemoProduct);
     }
 
     [HttpPost]
