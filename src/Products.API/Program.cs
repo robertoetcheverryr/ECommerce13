@@ -12,6 +12,8 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 // Services
+// BTW remember that a Singleton means that there will be a single instance in all of the code of this
+// thus, everybody who asks for IProductService or ProductService will get the same exact object
 builder.Services.AddSingleton<Products.API.Services.IProductService, Products.API.Services.ProductService>();
 
 // Exception handlers (order matters: specific first)

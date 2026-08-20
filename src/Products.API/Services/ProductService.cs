@@ -29,7 +29,9 @@ public class ProductService : IProductService
     {
         return Products;
     }
-
+    
+    // inheritdoc tells doc tools and IntelliSense to copy the docs from the member being implemented
+    // or overriden
     /// <inheritdoc />
     public Product GetById(Guid id)
     {
