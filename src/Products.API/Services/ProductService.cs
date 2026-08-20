@@ -51,7 +51,7 @@ public class ProductService : IProductService
         }
 
         if (product is null)
-            throw new NotFoundException("PRD-001", "Producto no encontrado.");
+            throw new NotFoundException(ErrorCodes.PRD_001, ErrorCodes.PRD_001_Message);
 
         return product;
     }
@@ -78,8 +78,8 @@ public class ProductService : IProductService
 
         if (exists)
             throw new BusinessRuleException(
-                "PRD-003",
-                $"Ya existe un producto con ese nombre en la categoría '{request.Categoria}'.");
+                ErrorCodes.PRD_003,
+                string.Format(ErrorCodes.PRD_003_Message, request.Categoria));
 
         var product = new Product
         {
