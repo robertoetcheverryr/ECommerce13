@@ -1,8 +1,11 @@
-﻿using System.Net; // Contains HttpStatusCode (OK, NotFound, etc.)
-using System.Net.Http.Json; // Contains ReadFromJsonAsync (deserialize JSON body)
-using FluentAssertions; // Library for readable assertions (.Should().Be(...))
-using Microsoft.AspNetCore.Mvc.Testing; // Contains WebApplicationFactory (spins up the API in-memory)
-using Products.API.Models; // Product domain model
+﻿using System.Net;                          // HttpStatusCode (OK, NotFound, Created, etc.)
+using System.Net.Http.Json;                // PostAsJsonAsync, ReadFromJsonAsync
+using FluentAssertions;                    // Readable assertions (.Should().Be(...))
+using Microsoft.AspNetCore.Mvc.Testing;    // WebApplicationFactory (spins up the API in-memory)
+using Microsoft.Extensions.DependencyInjection; // Needed to replace services in WithWebHostBuilder
+using Products.API.DTOs;                   // CreateProductRequest
+using Products.API.Models;                 // Product domain model
+using Products.API.Services;               // IProductService (for the throwing fake)
 
 namespace Products.API.Tests;
 
@@ -14,6 +17,8 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
 {
     // HttpClient is the object we use to make HTTP requests
     // (same idea as the "requests" library in Python or fetch in JavaScript).
+    // The factory is needed to build our own service with its own behavior.
+    private readonly WebApplicationFactory<Program> _factory;
     private readonly HttpClient _client;
 
     // Constructor: xUnit calls it automatically and injects the factory.
@@ -21,6 +26,7 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
     {
         // CreateClient() starts the API in-memory (no real port is opened)
         // and returns an HttpClient already configured to talk to it.
+        _factory = factory;
         _client = factory.CreateClient();
     }
 
@@ -118,7 +124,7 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
 
         var product = await response.Content.ReadFromJsonAsync<Product>();
         product.Should().NotBeNull();
-        product!.Nombre.Should().Be("Auriculares Sony WH-1000XM5");
+        product.Nombre.Should().Be("Auriculares Sony WH-1000XM5");
         product.Descripcion.Should().Be("Auriculares inalámbricos con cancelación de ruido");
         product.Precio.Should().Be(349.99m);
         product.Stock.Should().Be(25);
@@ -146,7 +152,7 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
         var body = await response.Content.ReadFromJsonAsync<Dictionary<string, object>>();
         body.Should().NotBeNull();
         body.Should().ContainKeys("type", "title", "status", "detail", "instance", "errorCode", "errorMessage");
-        body!["status"].ToString().Should().Be("400");
+        body["status"].ToString().Should().Be("400");
         body["errorCode"].ToString().Should().Be("PRD-002");
         body["errorMessage"].ToString().Should().NotBeNullOrWhiteSpace();
     }
@@ -171,7 +177,7 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
         var body = await response.Content.ReadFromJsonAsync<Dictionary<string, object>>();
         body.Should().NotBeNull();
         body.Should().ContainKeys("type", "title", "status", "detail", "instance", "errorCode", "errorMessage");
-        body!["status"].ToString().Should().Be("409");
+        body["status"].ToString().Should().Be("409");
         body["errorCode"].ToString().Should().Be("PRD-003");
         body["errorMessage"].ToString().Should().Contain("Electrónica");
     }
@@ -198,5 +204,41 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
 
         var content = await response.Content.ReadAsStringAsync();
         content.Should().Contain($"DELETE /api/products/{id}");
+    }
+
+    [Fact]
+    public async Task WhenUnexpectedExceptionOccurs_ShouldReturnInternalServerError_WithPrd005()
+    {
+        var factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureServices(services =>
+            {
+                var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(IProductService));
+
+                if (descriptor is not null)
+                    services.Remove(descriptor);
+
+                services.AddSingleton<IProductService, ThrowingProductService>();
+            });
+        });
+
+        var client = factory.CreateClient();
+        var response = await client.GetAsync("/api/products");
+
+        response.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
+
+        var body = await response.Content.ReadFromJsonAsync<Dictionary<string, object>>();
+        body.Should().NotBeNull();
+        body.Should().ContainKeys("type", "title", "status", "detail", "instance", "errorCode", "errorMessage");
+        body["status"].ToString().Should().Be("500");
+        body["errorCode"].ToString().Should().Be("PRD-005");
+        body["errorMessage"].ToString().Should().Be("Error interno al procesar el producto.");
+    }
+
+    private class ThrowingProductService : IProductService
+    {
+        public IEnumerable<Product> GetAll() => throw new Exception("Unexpected failure");
+        public Product GetById(Guid id) => throw new Exception("Unexpected failure");
+        public Product Create(CreateProductRequest request) => throw new Exception("Unexpected failure");
     }
 }

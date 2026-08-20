@@ -22,10 +22,11 @@ builder.Services.Configure<Microsoft.AspNetCore.Mvc.ApiBehaviorOptions>(options 
 // thus, everybody who asks for IProductService or ProductService will get the same exact object
 builder.Services.AddSingleton<Products.API.Services.IProductService, Products.API.Services.ProductService>();
 
-// Exception handlers (order matters: most specific first)
+// Exception handlers (order matters: most specific first, generic last)
 builder.Services.AddExceptionHandler<Products.API.ExceptionHandlers.NotFoundExceptionHandler>();
 builder.Services.AddExceptionHandler<Products.API.ExceptionHandlers.ValidationExceptionHandler>();
 builder.Services.AddExceptionHandler<Products.API.ExceptionHandlers.BusinessRuleExceptionHandler>();
+builder.Services.AddExceptionHandler<Products.API.ExceptionHandlers.GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 
 var app = builder.Build();
