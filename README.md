@@ -137,10 +137,17 @@ dotnet test
 
 ## Estado actual
 
-- Estructura inicial de la solución y proyectos
-- Products.API: endpoints base, modelo Product, error PRD-001, Swagger
-- Tests de integración para Products.API
-- CI con GitHub Actions
+- Estructura de la solución + 5 microservicios + tests + CI (GitHub Actions)
+- **Products.API**
+    - Endpoints: GET (con filtros `?categoria=` y `?nombre=`), GET by id, POST
+    - Capa de servicios (`IProductService` / `ProductService`) con persistencia in-memory
+    - Validaciones con Data Annotations
+    - Códigos de error propios (`ErrorCodes`) + excepciones de dominio
+    - `IExceptionHandler`s: NotFound, Validation, BusinessRule, Global
+    - Swagger con XML comments
+    - Tests E2E (xUnit + WebApplicationFactory + FluentAssertions) cubriendo éxito y errores
+    - Tests para validar que todo tiene sus XML comments
+- README con instrucciones de setup
 
 ## Tecnologías previstas
 
