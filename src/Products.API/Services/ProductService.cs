@@ -11,24 +11,37 @@ using Products.API.Models;
 public class ProductService : IProductService
 {
     // Store in-memory compartido. En el futuro se reemplazará por la librería de persistencia.
-    private static readonly List<Product> Products =
-    [
-        new Product
-        {
-            Id = Guid.Parse("3fa85f64-5717-4562-b3fc-2c963f66afa6"),
-            Nombre = "Notebook Dell XPS 15",
-            Descripcion = "Laptop 15 pulgadas, 32GB RAM",
-            Precio = 1500.00m,
-            Stock = 10,
-            Categoria = "Electrónica",
-            FechaCreacion = new DateTime(2024, 1, 15, 10, 30, 0, DateTimeKind.Utc)
-        }
-    ];
+    private static readonly List<Product> Products = new();
 
     /// <inheritdoc />
-    public IEnumerable<Product> GetAll()
+    public IEnumerable<Product> GetAll(string? categoria = null, string? nombre = null)
     {
-        return Products;
+        /* In real life (LINQ):
+        return Products
+            .Where(p => categoria == null || p.Categoria.Equals(categoria, StringComparison.OrdinalIgnoreCase))
+            .Where(p => nombre == null || p.Nombre.Contains(nombre, StringComparison.OrdinalIgnoreCase));
+        */
+
+        var result = new List<Product>();
+
+        foreach (var p in Products)
+        {
+            if (categoria is not null &&
+                !p.Categoria.Equals(categoria, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (nombre is not null &&
+                !p.Nombre.Contains(nombre, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            result.Add(p);
+        }
+
+        return result;
     }
     
     // inheritdoc tells doc tools and IntelliSense to copy the docs from the member being implemented

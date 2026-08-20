@@ -15,11 +15,14 @@ using Products.API.Models;
 /// </summary>
 public interface IProductService
 {
+    // Executive decision, partial filter on name as it is not specified and makes sense.
     /// <summary>
-    /// Obtiene todos los productos.
+    /// Obtiene todos los productos, con filtros opcionales.
     /// </summary>
-    /// <returns>Lista de productos.</returns>
-    IEnumerable<Product> GetAll();
+    /// <param name="categoria">Filtrar por categoría (opcional).</param>
+    /// <param name="nombre">Filtrar por nombre (opcional, búsqueda parcial).</param>
+    /// <returns>Lista de productos (puede estar vacía).</returns>
+    IEnumerable<Product> GetAll(string? categoria = null, string? nombre = null);
 
     /// <summary>
     /// Obtiene un producto por su identificador.

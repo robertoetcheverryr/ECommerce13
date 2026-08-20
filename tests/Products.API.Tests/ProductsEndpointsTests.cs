@@ -1,11 +1,11 @@
-﻿using System.Net;                          // HttpStatusCode (OK, NotFound, Created, etc.)
-using System.Net.Http.Json;                // PostAsJsonAsync, ReadFromJsonAsync
-using FluentAssertions;                    // Readable assertions (.Should().Be(...))
-using Microsoft.AspNetCore.Mvc.Testing;    // WebApplicationFactory (spins up the API in-memory)
+﻿using System.Net; // HttpStatusCode (OK, NotFound, Created, etc.)
+using System.Net.Http.Json; // PostAsJsonAsync, ReadFromJsonAsync
+using FluentAssertions; // Readable assertions (.Should().Be(...))
+using Microsoft.AspNetCore.Mvc.Testing; // WebApplicationFactory (spins up the API in-memory)
 using Microsoft.Extensions.DependencyInjection; // Needed to replace services in WithWebHostBuilder
-using Products.API.DTOs;                   // CreateProductRequest
-using Products.API.Models;                 // Product domain model
-using Products.API.Services;               // IProductService (for the throwing fake)
+using Products.API.DTOs; // CreateProductRequest
+using Products.API.Models; // Product domain model
+using Products.API.Services; // IProductService (for the throwing fake)
 
 namespace Products.API.Tests;
 
@@ -28,6 +28,8 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
         // and returns an HttpClient already configured to talk to it.
         _factory = factory;
         _client = factory.CreateClient();
+        // Seed once for the whole test class
+        SeedProductsAsync().GetAwaiter().GetResult();
     }
 
     // [Fact] = "this is a test".
@@ -52,19 +54,60 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
         // (similar to response.json() in Python requests)
         var products = await response.Content.ReadFromJsonAsync<List<Product>>();
 
+        // This test is brittle once we get persistence see how to improve it
         products.Should().NotBeNull();
-        products.Should().HaveCount(1);
+        products.Should().HaveCountGreaterThan(1);
         products[0].Nombre.Should().Be("Notebook Dell XPS 15");
+    }
+
+    [Fact]
+    public async Task GetAll_FilterByCategoria_ShouldReturnMatchingProducts()
+    {
+        var response = await _client.GetAsync("/api/products?categoria=Deportes");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var products = await response.Content.ReadFromJsonAsync<List<Product>>();
+        products.Should().NotBeNull();
+        products.Should().OnlyContain(p => p.Categoria == "Deportes");
+        products.Should().Contain(p => p.Nombre == "Pelota Adidas");
+    }
+
+    [Fact]
+    public async Task GetAll_FilterByNombre_ShouldReturnMatchingProducts()
+    {
+        var response = await _client.GetAsync("/api/products?nombre=Silla");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var products = await response.Content.ReadFromJsonAsync<List<Product>>();
+        products.Should().NotBeNull();
+        products.Should().OnlyContain(p =>
+            p.Nombre.Contains("Silla", StringComparison.OrdinalIgnoreCase));
+        products.Should().Contain(p => p.Nombre == "Silla Gamer Pro");
+    }
+
+    [Fact]
+    public async Task GetAll_FilterByCategoriaAndNombre_ShouldReturnMatchingProducts()
+    {
+        var response = await _client.GetAsync("/api/products?categoria=Electrónica&nombre=Notebook");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var products = await response.Content.ReadFromJsonAsync<List<Product>>();
+        products.Should().NotBeNull();
+        products.Should().OnlyContain(p =>
+            p.Categoria == "Electrónica" &&
+            p.Nombre.Contains("Notebook", StringComparison.OrdinalIgnoreCase));
+        products.Should().Contain(p => p.Nombre == "Notebook Dell XPS 15");
     }
 
     [Fact]
     public async Task GetById_WhenProductExists_ShouldReturnOk_WithProduct()
     {
-        // Permanent success case (at least until persistence is implemented)
-        // Uses the exact ID of the hardcoded demo product.
-        var id = Guid.Parse("3fa85f64-5717-4562-b3fc-2c963f66afa6");
+        // Find the ID of the notebook after seeding
+        var listResponse = await _client.GetAsync("/api/products?nombre=Notebook Dell XPS 15");
+        var products = await listResponse.Content.ReadFromJsonAsync<List<Product>>();
+        var notebook = products!.First(p => p.Nombre == "Notebook Dell XPS 15");
 
-        var response = await _client.GetAsync($"/api/products/{id}");
+        var response = await _client.GetAsync($"/api/products/{notebook.Id}");
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
@@ -76,7 +119,7 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
         // "we JUST tested it is NOT null", so it marks the ! as redundant.
         // Kept here on purpose to document this interesting feature.
         // ReSharper disable once RedundantSuppressNullableWarningExpression
-        product!.Id.Should().Be(id);
+        product!.Id.Should().Be(notebook.Id);
         product.Nombre.Should().Be("Notebook Dell XPS 15");
         product.Categoria.Should().Be("Electrónica");
     }
@@ -237,8 +280,46 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
 
     private class ThrowingProductService : IProductService
     {
-        public IEnumerable<Product> GetAll() => throw new Exception("Unexpected failure");
-        public Product GetById(Guid id) => throw new Exception("Unexpected failure");
-        public Product Create(CreateProductRequest request) => throw new Exception("Unexpected failure");
+        public IEnumerable<Product> GetAll(string? categoria = null, string? nombre = null)
+            => throw new Exception("Unexpected failure");
+
+        public Product GetById(Guid id)
+            => throw new Exception("Unexpected failure");
+
+        public Product Create(CreateProductRequest request)
+            => throw new Exception("Unexpected failure");
+    }
+
+    /// <summary>
+    /// Loads three known products into the in-memory store.
+    /// </summary>
+    private async Task SeedProductsAsync()
+    {
+        var products = new[]
+        {
+            new
+            {
+                nombre = "Notebook Dell XPS 15", descripcion = "Laptop 15 pulgadas, 32GB RAM", precio = 1500.00m,
+                stock = 10, categoria = "Electrónica",
+            },
+            new
+            {
+                nombre = "Silla Gamer Pro", descripcion = "Silla ergonómica", precio = 250.00m, stock = 8,
+                categoria = "Hogar y Deco",
+            },
+            new
+            {
+                nombre = "Pelota Adidas", descripcion = "Pelota de fútbol", precio = 45.00m, stock = 30,
+                categoria = "Deportes",
+            }
+        };
+
+        foreach (var p in products)
+        {
+            var response = await _client.PostAsJsonAsync("/api/products", p);
+
+            // Accept both Created (first time) and Conflict (already exists)
+            response.StatusCode.Should().BeOneOf(HttpStatusCode.Created, HttpStatusCode.Conflict);
+        }
     }
 }

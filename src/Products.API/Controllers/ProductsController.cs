@@ -27,13 +27,17 @@ public class ProductsController : ControllerBase
     /// <summary>
     /// Lista todos los productos.
     /// </summary>
+    /// <param name="categoria">Filtrar por categoría (opcional).</param>
+    /// <param name="nombre">Filtrar por nombre (opcional, búsqueda parcial).</param>
     /// <returns>Lista de productos.</returns>
     /// <response code="200">Lista de productos (puede estar vacía).</response>
     [HttpGet]
     [ProducesResponseType(typeof(IEnumerable<Product>), StatusCodes.Status200OK)]
-    public ActionResult<IEnumerable<Product>> GetAll()
+    public ActionResult<IEnumerable<Product>> GetAll(
+        [FromQuery] string? categoria = null,
+        [FromQuery] string? nombre = null)
     {
-        var products = _productService.GetAll();
+        var products = _productService.GetAll(categoria, nombre);
         return Ok(products);
     }
 
