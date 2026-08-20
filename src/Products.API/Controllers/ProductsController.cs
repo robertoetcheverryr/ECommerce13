@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Products.API.DTOs;
+using Products.API.Exceptions;
 using Products.API.Models;
 using Products.API.Services;
 
@@ -53,12 +54,49 @@ public class ProductsController : ControllerBase
     }
 
     /// <summary>
-    /// Crea un nuevo producto. (Hello World - TODO)
+    /// Crea un nuevo producto.
     /// </summary>
+    /// <param name="request">Datos del producto a crear.</param>
+    /// <returns>El producto creado.</returns>
+    /// <response code="201">Producto creado correctamente.</response>
+    /// <response code="400">Los datos del producto son inválidos (PRD-002).</response>
+    /// <response code="409">Ya existe un producto con ese nombre en la categoría (PRD-003).</response>
     [HttpPost]
-    public IActionResult Create()
+    [ProducesResponseType(typeof(Product), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status409Conflict)]
+    public ActionResult<Product> Create([FromBody] CreateProductRequest request)
     {
-        return Ok("yes, you have reached the POST /api/products endpoint");
+        if (!ModelState.IsValid)
+        {
+            /* In real life (LINQ):
+            var errors = string.Join("; ", ModelState.Values
+                .SelectMany(v => v.Errors)
+                .Select(e => e.ErrorMessage));
+            */
+
+            var errorMessages = new List<string>();
+            foreach (var entry in ModelState)
+            {
+                foreach (var error in entry.Value.Errors)
+                {
+                    errorMessages.Add(error.ErrorMessage);
+                }
+            }
+
+            var errors = string.Join("; ", errorMessages);
+            
+            // Ternary operator, equivalent to 
+            //"Los datos del producto son inválidos." if not errors or errors.isspace() else errors
+            throw new ValidationException(
+                "PRD-002",
+                string.IsNullOrWhiteSpace(errors)
+                    ? "Los datos del producto son inválidos."
+                    : errors);
+        }
+
+        var product = _productService.Create(request);
+        return CreatedAtAction(nameof(GetById), new { id = product.Id }, product);
     }
 
     /// <summary>

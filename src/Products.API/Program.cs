@@ -11,13 +11,21 @@ builder.Services.AddSwaggerGen(options =>
     options.IncludeXmlComments(xmlPath);
 });
 
+// Disable automatic 400 so we can return our custom error format (PRD-002)
+builder.Services.Configure<Microsoft.AspNetCore.Mvc.ApiBehaviorOptions>(options =>
+{
+    options.SuppressModelStateInvalidFilter = true;
+});
+
 // Services
 // BTW remember that a Singleton means that there will be a single instance in all of the code of this
 // thus, everybody who asks for IProductService or ProductService will get the same exact object
 builder.Services.AddSingleton<Products.API.Services.IProductService, Products.API.Services.ProductService>();
 
-// Exception handlers (order matters: specific first)
+// Exception handlers (order matters: most specific first)
 builder.Services.AddExceptionHandler<Products.API.ExceptionHandlers.NotFoundExceptionHandler>();
+builder.Services.AddExceptionHandler<Products.API.ExceptionHandlers.ValidationExceptionHandler>();
+builder.Services.AddExceptionHandler<Products.API.ExceptionHandlers.BusinessRuleExceptionHandler>();
 builder.Services.AddProblemDetails();
 
 var app = builder.Build();

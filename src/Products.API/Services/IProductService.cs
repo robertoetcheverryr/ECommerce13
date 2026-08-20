@@ -1,5 +1,6 @@
 ﻿namespace Products.API.Services;
 
+using Products.API.DTOs;
 using Products.API.Models;
 
 // IProductService is the contract: it only declares what methods the product service must expose,
@@ -17,7 +18,7 @@ public interface IProductService
     /// <summary>
     /// Obtiene todos los productos.
     /// </summary>
-    /// <returns>Lista de productos (puede estar vacía).</returns>
+    /// <returns>Lista de productos.</returns>
     IEnumerable<Product> GetAll();
 
     /// <summary>
@@ -27,4 +28,12 @@ public interface IProductService
     /// <returns>El producto si existe.</returns>
     /// <exception cref="Exceptions.NotFoundException">Cuando el producto no existe (PRD-001).</exception>
     Product GetById(Guid id);
+
+    /// <summary>
+    /// Crea un nuevo producto.
+    /// </summary>
+    /// <param name="request">Datos del producto a crear.</param>
+    /// <returns>El producto creado.</returns>
+    /// <exception cref="Exceptions.BusinessRuleException">Cuando ya existe un producto con el mismo nombre en la categoría (PRD-003).</exception>
+    Product Create(CreateProductRequest request);
 }
