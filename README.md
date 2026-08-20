@@ -127,6 +127,10 @@ Desde ahí se pueden probar los endpoints interactivos.
 
 ### 7. Tests
 
+Trato de agregar la mayor cantidad posible de tests.
+De automatizarlos para evitar olvidos. 
+Y de seguir dentro de lo posible una metodologia TDD.
+
 ```powershell
 dotnet test
 ```

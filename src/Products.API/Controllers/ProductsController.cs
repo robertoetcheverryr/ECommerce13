@@ -1,28 +1,27 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Products.API.DTOs;
-using Products.API.Exceptions;
 using Products.API.Models;
+using Products.API.Services;
 
 namespace Products.API.Controllers;
 
 /// <summary>
-/// Endpoints de gestión de productos.
+/// Endpoints de la API de productos.
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
 public class ProductsController : ControllerBase
 {
-    // Gen a readonly product to have something to return for now
-    private static readonly Product DemoProduct = new()
+    private readonly IProductService _productService;
+
+    /// <summary>
+    /// Constructor. Inyecta el servicio de productos.
+    /// </summary>
+    /// <param name="productService">Servicio de productos.</param>
+    public ProductsController(IProductService productService)
     {
-        Id = Guid.Parse("3fa85f64-5717-4562-b3fc-2c963f66afa6"),
-        Nombre = "Notebook Dell XPS 15",
-        Descripcion = "Laptop 15 pulgadas, 32GB RAM",
-        Precio = 1500.00m,
-        Stock = 10,
-        Categoria = "Electrónica",
-        FechaCreacion = new DateTime(2024, 1, 15, 10, 30, 0, DateTimeKind.Utc)
-    };
+        _productService = productService;
+    }
 
     /// <summary>
     /// Lista todos los productos.
@@ -33,7 +32,8 @@ public class ProductsController : ControllerBase
     [ProducesResponseType(typeof(IEnumerable<Product>), StatusCodes.Status200OK)]
     public ActionResult<IEnumerable<Product>> GetAll()
     {
-        return Ok(new[] { DemoProduct });
+        var products = _productService.GetAll();
+        return Ok(products);
     }
 
     /// <summary>
@@ -48,10 +48,8 @@ public class ProductsController : ControllerBase
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
     public ActionResult<Product> GetById(Guid id)
     {
-        if (id != DemoProduct.Id)
-            throw new NotFoundException("PRD-001", "Producto no encontrado.");
-
-        return Ok(DemoProduct);
+        var product = _productService.GetById(id);
+        return Ok(product);
     }
 
     /// <summary>

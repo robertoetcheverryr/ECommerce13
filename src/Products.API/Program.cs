@@ -11,6 +11,9 @@ builder.Services.AddSwaggerGen(options =>
     options.IncludeXmlComments(xmlPath);
 });
 
+// Services
+builder.Services.AddSingleton<Products.API.Services.IProductService, Products.API.Services.ProductService>();
+
 // Exception handlers (order matters: specific first)
 builder.Services.AddExceptionHandler<Products.API.ExceptionHandlers.NotFoundExceptionHandler>();
 builder.Services.AddProblemDetails();
