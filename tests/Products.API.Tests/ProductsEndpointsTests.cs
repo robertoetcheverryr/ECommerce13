@@ -101,16 +101,79 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
     }
 
     [Fact]
-    public async Task Create_ShouldReturnOk_WithHelloMessage()
+    public async Task Create_WithValidData_ShouldReturnCreated_WithProduct()
     {
-        // PostAsync requires a body. We pass null because the Hello World
-        // endpoint doesn't care about the body yet.
-        var response = await _client.PostAsync("/api/products", null);
+        var request = new
+        {
+            nombre = "Auriculares Sony WH-1000XM5",
+            descripcion = "Auriculares inalámbricos con cancelación de ruido",
+            precio = 349.99m,
+            stock = 25,
+            categoria = "Electrónica"
+        };
 
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var response = await _client.PostAsJsonAsync("/api/products", request);
 
-        var content = await response.Content.ReadAsStringAsync();
-        content.Should().Contain("POST /api/products");
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var product = await response.Content.ReadFromJsonAsync<Product>();
+        product.Should().NotBeNull();
+        product!.Nombre.Should().Be("Auriculares Sony WH-1000XM5");
+        product.Descripcion.Should().Be("Auriculares inalámbricos con cancelación de ruido");
+        product.Precio.Should().Be(349.99m);
+        product.Stock.Should().Be(25);
+        product.Categoria.Should().Be("Electrónica");
+        product.Id.Should().NotBeEmpty();
+        product.FechaCreacion.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
+    }
+
+    [Fact]
+    public async Task Create_WithInvalidData_ShouldReturnBadRequest_WithPrd002()
+    {
+        // Missing required fields + invalid price
+        var request = new
+        {
+            nombre = "",
+            precio = -10m,
+            stock = -5,
+            categoria = ""
+        };
+
+        var response = await _client.PostAsJsonAsync("/api/products", request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var body = await response.Content.ReadFromJsonAsync<Dictionary<string, object>>();
+        body.Should().NotBeNull();
+        body.Should().ContainKeys("type", "title", "status", "detail", "instance", "errorCode", "errorMessage");
+        body!["status"].ToString().Should().Be("400");
+        body["errorCode"].ToString().Should().Be("PRD-002");
+        body["errorMessage"].ToString().Should().NotBeNullOrWhiteSpace();
+    }
+
+    [Fact]
+    public async Task Create_WithDuplicateNameInSameCategory_ShouldReturnConflict_WithPrd003()
+    {
+        // Same name + category as the seeded demo product
+        var request = new
+        {
+            nombre = "Notebook Dell XPS 15",
+            descripcion = "Otro notebook",
+            precio = 1600.00m,
+            stock = 5,
+            categoria = "Electrónica"
+        };
+
+        var response = await _client.PostAsJsonAsync("/api/products", request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+
+        var body = await response.Content.ReadFromJsonAsync<Dictionary<string, object>>();
+        body.Should().NotBeNull();
+        body.Should().ContainKeys("type", "title", "status", "detail", "instance", "errorCode", "errorMessage");
+        body!["status"].ToString().Should().Be("409");
+        body["errorCode"].ToString().Should().Be("PRD-003");
+        body["errorMessage"].ToString().Should().Contain("Electrónica");
     }
 
     [Fact]
