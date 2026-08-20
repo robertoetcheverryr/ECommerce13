@@ -1,4 +1,8 @@
-﻿var builder = WebApplication.CreateBuilder(args);
+﻿using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using System.Text.Json;
+
+var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
@@ -28,6 +32,7 @@ builder.Services.AddExceptionHandler<Products.API.ExceptionHandlers.ValidationEx
 builder.Services.AddExceptionHandler<Products.API.ExceptionHandlers.BusinessRuleExceptionHandler>();
 builder.Services.AddExceptionHandler<Products.API.ExceptionHandlers.GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
+builder.Services.AddHealthChecks(); // Only the base functionality by dot net, no custom checks yet TODO
 
 var app = builder.Build();
 
@@ -42,6 +47,25 @@ app.UseExceptionHandler();
 app.UseHttpsRedirection();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    ResponseWriter = WriteHealthResponse
+});
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    ResponseWriter = WriteHealthResponse
+});
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    ResponseWriter = WriteHealthResponse
+});
+
+static Task WriteHealthResponse(HttpContext context, HealthReport report)
+{
+    context.Response.ContentType = "application/json";
+    var payload = new { status = report.Status.ToString() };
+    return context.Response.WriteAsync(JsonSerializer.Serialize(payload));
+}
 
 app.Run();
 
