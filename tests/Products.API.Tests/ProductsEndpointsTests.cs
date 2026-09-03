@@ -4,8 +4,11 @@ using FluentAssertions; // Readable assertions (.Should().Be(...))
 using Microsoft.AspNetCore.Mvc.Testing; // WebApplicationFactory (spins up the API in-memory)
 using Microsoft.Extensions.DependencyInjection; // Needed to replace services in WithWebHostBuilder
 using Products.API.DTOs; // CreateProductRequest, UpdateProductRequest
+using Products.API.Exceptions; // ErrorCodes
 using Products.API.Models; // Product domain model
 using Products.API.Services; // IProductService (for the throwing fake)
+using static Products.API.Tests.ErrorResponseAssertions;
+using static Products.API.Tests.ProductResponseAssertions;
 
 namespace Products.API.Tests;
 
@@ -53,10 +56,9 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
 
         // ReadFromJsonAsync deserializes the JSON body into a List<Product>
         // (similar to response.json() in Python requests)
-        var products = await response.Content.ReadFromJsonAsync<List<Product>>();
+        var products = await AssertProductListOk(response);
 
         // This test is brittle once we get persistence see how to improve it
-        products.Should().NotBeNull();
         products.Should().HaveCountGreaterThan(1);
         products[0].Nombre.Should().Be("Notebook Dell XPS 15");
     }
@@ -66,9 +68,7 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
     {
         var response = await _client.GetAsync("/api/products?categoria=Deportes");
 
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var products = await response.Content.ReadFromJsonAsync<List<Product>>();
-        products.Should().NotBeNull();
+        var products = await AssertProductListOk(response);
         products.Should().OnlyContain(p => p.Categoria == "Deportes");
         products.Should().Contain(p => p.Nombre == "Pelota Adidas");
     }
@@ -78,9 +78,7 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
     {
         var response = await _client.GetAsync("/api/products?nombre=Silla");
 
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var products = await response.Content.ReadFromJsonAsync<List<Product>>();
-        products.Should().NotBeNull();
+        var products = await AssertProductListOk(response);
         products.Should().OnlyContain(p =>
             p.Nombre.Contains("Silla", StringComparison.OrdinalIgnoreCase));
         products.Should().Contain(p => p.Nombre == "Silla Gamer Pro");
@@ -91,9 +89,7 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
     {
         var response = await _client.GetAsync("/api/products?categoria=Electrónica&nombre=Notebook");
 
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var products = await response.Content.ReadFromJsonAsync<List<Product>>();
-        products.Should().NotBeNull();
+        var products = await AssertProductListOk(response);
         products.Should().OnlyContain(p =>
             p.Categoria == "Electrónica" &&
             p.Nombre.Contains("Notebook", StringComparison.OrdinalIgnoreCase));
@@ -105,16 +101,12 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
     {
         // Find the ID of the notebook after seeding
         var listResponse = await _client.GetAsync("/api/products?nombre=Notebook Dell XPS 15");
-        var products = await listResponse.Content.ReadFromJsonAsync<List<Product>>();
-        var notebook = products!.First(p => p.Nombre == "Notebook Dell XPS 15");
+        var products = await AssertProductListOk(listResponse);
+        var notebook = products.First(p => p.Nombre == "Notebook Dell XPS 15");
 
         var response = await _client.GetAsync($"/api/products/{notebook.Id}");
 
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
-
-        var product = await response.Content.ReadFromJsonAsync<Product>();
-
-        product.Should().NotBeNull();
+        var product = await AssertProductOk(response);
         // The ! here indicates to the compiler "Trust me, this is NOT null".
         // The IDE complains because FluentAssertions is smart enough to say
         // "we JUST tested it is NOT null", so it marks the ! as redundant.
@@ -133,21 +125,11 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
 
         var response = await _client.GetAsync($"/api/products/{id}");
 
-        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
-
-        var body = await response.Content.ReadFromJsonAsync<Dictionary<string, object>>();
-        body.Should().NotBeNull();
-
-        // Validate the entire error response
-        body.Should().ContainKeys(
-            "type", "title", "status", "detail", "instance", "errorCode", "errorMessage");
-        body["type"].ToString().Should().Be("https://tools.ietf.org/html/rfc7231#section-6.5.4");
-        body["title"].ToString().Should().Be("Not Found");
-        body["status"].ToString().Should().Be("404");
-        body["detail"].ToString().Should().Be("El recurso solicitado no fue encontrado.");
-        body["instance"].ToString().Should().Be($"/api/products/{id}");
-        body["errorCode"].ToString().Should().Be("PRD-001");
-        body["errorMessage"].ToString().Should().Be("Producto no encontrado.");
+        await AssertNotFound(
+            response,
+            $"/api/products/{id}",
+            ErrorCodes.PRD_001,
+            ErrorCodes.PRD_001_Message);
     }
 
     [Fact]
@@ -164,10 +146,7 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
 
         var response = await _client.PostAsJsonAsync("/api/products", request);
 
-        response.StatusCode.Should().Be(HttpStatusCode.Created);
-
-        var product = await response.Content.ReadFromJsonAsync<Product>();
-        product.Should().NotBeNull();
+        var product = await AssertProductCreated(response);
         product.Nombre.Should().Be("Auriculares Sony WH-1000XM5");
         product.Descripcion.Should().Be("Auriculares inalámbricos con cancelación de ruido");
         product.Precio.Should().Be(349.99m);
@@ -191,14 +170,7 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
 
         var response = await _client.PostAsJsonAsync("/api/products", request);
 
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-
-        var body = await response.Content.ReadFromJsonAsync<Dictionary<string, object>>();
-        body.Should().NotBeNull();
-        body.Should().ContainKeys("type", "title", "status", "detail", "instance", "errorCode", "errorMessage");
-        body["status"].ToString().Should().Be("400");
-        body["errorCode"].ToString().Should().Be("PRD-002");
-        body["errorMessage"].ToString().Should().NotBeNullOrWhiteSpace();
+        await AssertBadRequestWithFieldErrors(response, "/api/products", ErrorCodes.PRD_002);
     }
 
     [Fact]
@@ -216,14 +188,11 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
 
         var response = await _client.PostAsJsonAsync("/api/products", request);
 
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
-
-        var body = await response.Content.ReadFromJsonAsync<Dictionary<string, object>>();
-        body.Should().NotBeNull();
-        body.Should().ContainKeys("type", "title", "status", "detail", "instance", "errorCode", "errorMessage");
-        body["status"].ToString().Should().Be("409");
-        body["errorCode"].ToString().Should().Be("PRD-003");
-        body["errorMessage"].ToString().Should().Contain("Electrónica");
+        await AssertConflict(
+            response,
+            "/api/products",
+            ErrorCodes.PRD_003,
+            string.Format(ErrorCodes.PRD_003_Message, "Electrónica"));
     }
 
     [Fact]
@@ -239,9 +208,7 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
         };
 
         var createResponse = await _client.PostAsJsonAsync("/api/products", createRequest);
-        createResponse.StatusCode.Should().Be(HttpStatusCode.Created);
-        var created = await createResponse.Content.ReadFromJsonAsync<Product>();
-        created.Should().NotBeNull();
+        var created = await AssertProductCreated(createResponse);
 
         var updateRequest = new
         {
@@ -254,10 +221,7 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
 
         var response = await _client.PutAsJsonAsync($"/api/products/{created.Id}", updateRequest);
 
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
-
-        var updated = await response.Content.ReadFromJsonAsync<Product>();
-        updated.Should().NotBeNull();
+        var updated = await AssertProductOk(response);
         updated.Id.Should().Be(created.Id);
         updated.Nombre.Should().Be(updateRequest.nombre);
         updated.Descripcion.Should().Be(updateRequest.descripcion);
@@ -267,9 +231,7 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
         updated.FechaCreacion.Should().Be(created.FechaCreacion);
 
         var getResponse = await _client.GetAsync($"/api/products/{created.Id}");
-        getResponse.StatusCode.Should().Be(HttpStatusCode.OK);
-        var fetched = await getResponse.Content.ReadFromJsonAsync<Product>();
-        fetched.Should().NotBeNull();
+        var fetched = await AssertProductOk(getResponse);
         fetched.Descripcion.Should().Be(updateRequest.descripcion);
         fetched.Precio.Should().Be(updateRequest.precio);
         fetched.Stock.Should().Be(updateRequest.stock);
@@ -279,8 +241,7 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
     public async Task Update_WithInvalidData_ShouldReturnBadRequest_WithPrd002()
     {
         var listResponse = await _client.GetAsync("/api/products?nombre=Notebook Dell XPS 15");
-        var products = await listResponse.Content.ReadFromJsonAsync<List<Product>>();
-        products.Should().NotBeNull();
+        var products = await AssertProductListOk(listResponse);
         var notebook = products.First(p => p.Nombre == "Notebook Dell XPS 15");
 
         var request = new
@@ -293,19 +254,10 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
 
         var response = await _client.PutAsJsonAsync($"/api/products/{notebook.Id}", request);
 
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-
-        var body = await response.Content.ReadFromJsonAsync<Dictionary<string, object>>();
-        body.Should().NotBeNull();
-        body.Should().ContainKeys(
-            "type", "title", "status", "detail", "instance", "errorCode", "errorMessage");
-        body["type"].ToString().Should().Be("https://tools.ietf.org/html/rfc7231#section-6.5.1");
-        body["title"].ToString().Should().Be("Bad Request");
-        body["status"].ToString().Should().Be("400");
-        body["detail"].ToString().Should().Be("Los datos enviados no son válidos.");
-        body["instance"].ToString().Should().Be($"/api/products/{notebook.Id}");
-        body["errorCode"].ToString().Should().Be("PRD-002");
-        body["errorMessage"].ToString().Should().NotBeNullOrWhiteSpace();
+        await AssertBadRequestWithFieldErrors(
+            response,
+            $"/api/products/{notebook.Id}",
+            ErrorCodes.PRD_002);
     }
 
     [Fact]
@@ -323,19 +275,11 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
 
         var response = await _client.PutAsJsonAsync($"/api/products/{id}", request);
 
-        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
-
-        var body = await response.Content.ReadFromJsonAsync<Dictionary<string, object>>();
-        body.Should().NotBeNull();
-        body.Should().ContainKeys(
-            "type", "title", "status", "detail", "instance", "errorCode", "errorMessage");
-        body["type"].ToString().Should().Be("https://tools.ietf.org/html/rfc7231#section-6.5.4");
-        body["title"].ToString().Should().Be("Not Found");
-        body["status"].ToString().Should().Be("404");
-        body["detail"].ToString().Should().Be("El recurso solicitado no fue encontrado.");
-        body["instance"].ToString().Should().Be($"/api/products/{id}");
-        body["errorCode"].ToString().Should().Be("PRD-001");
-        body["errorMessage"].ToString().Should().Be("Producto no encontrado.");
+        await AssertNotFound(
+            response,
+            $"/api/products/{id}",
+            ErrorCodes.PRD_001,
+            ErrorCodes.PRD_001_Message);
     }
 
     [Fact]
@@ -351,18 +295,18 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
         };
 
         var createResponse = await _client.PostAsJsonAsync("/api/products", createRequest);
-        createResponse.StatusCode.Should().Be(HttpStatusCode.Created);
-        var created = await createResponse.Content.ReadFromJsonAsync<Product>();
-        created.Should().NotBeNull();
+        var created = await AssertProductCreated(createResponse);
 
         var response = await _client.DeleteAsync($"/api/products/{created.Id}");
 
-        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
-        var content = await response.Content.ReadAsStringAsync();
-        content.Should().BeEmpty();
+        await AssertNoContent(response);
 
         var getResponse = await _client.GetAsync($"/api/products/{created.Id}");
-        getResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        await AssertNotFound(
+            getResponse,
+            $"/api/products/{created.Id}",
+            ErrorCodes.PRD_001,
+            ErrorCodes.PRD_001_Message);
     }
 
     [Fact]
@@ -372,19 +316,11 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
 
         var response = await _client.DeleteAsync($"/api/products/{id}");
 
-        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
-
-        var body = await response.Content.ReadFromJsonAsync<Dictionary<string, object>>();
-        body.Should().NotBeNull();
-        body.Should().ContainKeys(
-            "type", "title", "status", "detail", "instance", "errorCode", "errorMessage");
-        body["type"].ToString().Should().Be("https://tools.ietf.org/html/rfc7231#section-6.5.4");
-        body["title"].ToString().Should().Be("Not Found");
-        body["status"].ToString().Should().Be("404");
-        body["detail"].ToString().Should().Be("El recurso solicitado no fue encontrado.");
-        body["instance"].ToString().Should().Be($"/api/products/{id}");
-        body["errorCode"].ToString().Should().Be("PRD-001");
-        body["errorMessage"].ToString().Should().Be("Producto no encontrado.");
+        await AssertNotFound(
+            response,
+            $"/api/products/{id}",
+            ErrorCodes.PRD_001,
+            ErrorCodes.PRD_001_Message);
     }
 
     [Fact]
@@ -400,10 +336,9 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
         };
 
         var createResponse = await _client.PostAsJsonAsync("/api/products", createRequest);
-        createResponse.StatusCode.Should().Be(HttpStatusCode.Created);
-        var created = await createResponse.Content.ReadFromJsonAsync<Product>();
-        created.Should().NotBeNull();
+        var created = await AssertProductCreated(createResponse);
 
+        // Temporal workaround while Orders is built, inject a mocked checker that returns true
         var factory = _factory.WithWebHostBuilder(builder =>
         {
             builder.ConfigureServices(services =>
@@ -420,19 +355,11 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
         var client = factory.CreateClient();
         var response = await client.DeleteAsync($"/api/products/{created.Id}");
 
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
-
-        var body = await response.Content.ReadFromJsonAsync<Dictionary<string, object>>();
-        body.Should().NotBeNull();
-        body.Should().ContainKeys(
-            "type", "title", "status", "detail", "instance", "errorCode", "errorMessage");
-        body["type"].ToString().Should().Be("https://tools.ietf.org/html/rfc7231#section-6.5.9");
-        body["title"].ToString().Should().Be("Conflict");
-        body["status"].ToString().Should().Be("409");
-        body["detail"].ToString().Should().Be("Ya existe un recurso con esos datos.");
-        body["instance"].ToString().Should().Be($"/api/products/{created.Id}");
-        body["errorCode"].ToString().Should().Be("PRD-004");
-        body["errorMessage"].ToString().Should().Be("El producto tiene órdenes activas y no puede eliminarse.");
+        await AssertConflict(
+            response,
+            $"/api/products/{created.Id}",
+            ErrorCodes.PRD_004,
+            ErrorCodes.PRD_004_Message);
     }
 
     [Fact]
@@ -454,14 +381,11 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
         var client = factory.CreateClient();
         var response = await client.GetAsync("/api/products");
 
-        response.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
-
-        var body = await response.Content.ReadFromJsonAsync<Dictionary<string, object>>();
-        body.Should().NotBeNull();
-        body.Should().ContainKeys("type", "title", "status", "detail", "instance", "errorCode", "errorMessage");
-        body["status"].ToString().Should().Be("500");
-        body["errorCode"].ToString().Should().Be("PRD-005");
-        body["errorMessage"].ToString().Should().Be("Error interno al procesar el producto.");
+        await AssertInternalError(
+            response,
+            "/api/products",
+            ErrorCodes.PRD_005,
+            ErrorCodes.PRD_005_Message);
     }
 
     private class ThrowingProductService : IProductService

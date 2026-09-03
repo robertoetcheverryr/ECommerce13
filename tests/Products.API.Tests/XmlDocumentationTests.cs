@@ -1,5 +1,5 @@
-﻿using System.Reflection;           // For inspecting types, properties and methods at runtime
-using System.Xml.Linq;             // For reading the generated Products.API.xml documentation file
+﻿using System.Reflection; // For inspecting types, properties and methods at runtime
+using System.Xml.Linq; // For reading the generated Products.API.xml documentation file
 using FluentAssertions;
 using Products.API.Models;
 
@@ -83,7 +83,7 @@ public class XmlDocumentationTests
             // --- Public methods declared on this type ---
             // IsSpecialName filters out property getters/setters (get_Nombre, set_Nombre, etc.)
             foreach (var method in type.GetMethods(
-                         BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+                             BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
                          .Where(m => !m.IsSpecialName))
             {
                 // Full XML method ids include parameter types, e.g.:
