@@ -73,14 +73,15 @@ internal static class ErrorResponseAssertions
         HttpResponseMessage response,
         string instance,
         string errorCode,
-        string errorMessage)
+        string errorMessage,
+        string detail)
     {
         return AssertErrorBody(
             response,
             HttpStatusCode.Conflict,
             "https://tools.ietf.org/html/rfc7231#section-6.5.9",
             "Conflict",
-            "Ya existe un recurso con esos datos.",
+            detail,
             instance,
             errorCode,
             errorMessage);

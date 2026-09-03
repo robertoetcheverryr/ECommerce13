@@ -17,7 +17,7 @@ public class ProductService : IProductService
     /// <summary>
     /// Constructor. Inyecta el verificador de órdenes activas.
     /// </summary>
-    /// <param name="activeOrdersChecker">Verificador de órdenes activas.</param>
+    /// <param name="activeOrdersChecker">Puerto hacia órdenes activas.</param>
     public ProductService(IActiveOrdersChecker activeOrdersChecker)
     {
         _activeOrdersChecker = activeOrdersChecker;
@@ -102,7 +102,8 @@ public class ProductService : IProductService
         if (exists)
             throw new BusinessRuleException(
                 ErrorCodes.PRD_003,
-                string.Format(ErrorCodes.PRD_003_Message, request.Categoria));
+                string.Format(ErrorCodes.PRD_003_Message, request.Categoria),
+                ErrorCodes.PRD_003_Detail);
 
         var product = new Product
         {
@@ -140,8 +141,10 @@ public class ProductService : IProductService
 
         if (_activeOrdersChecker.HasActiveOrders(id))
         {
-            //TODO specialize the error message
-            throw new BusinessRuleException(ErrorCodes.PRD_004, ErrorCodes.PRD_004_Message);
+            throw new BusinessRuleException(
+                ErrorCodes.PRD_004,
+                ErrorCodes.PRD_004_Message,
+                ErrorCodes.PRD_004_Detail);
         }
 
         Products.Remove(product);

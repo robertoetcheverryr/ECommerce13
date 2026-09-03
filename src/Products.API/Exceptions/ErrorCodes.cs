@@ -13,9 +13,11 @@ public static class ErrorCodes
 
     public const string PRD_003 = "PRD-003";
     public const string PRD_003_Message = "Ya existe un producto con ese nombre en la categoría '{0}'.";
+    public const string PRD_003_Detail = "Ya existe un recurso con esos datos.";
 
     public const string PRD_004 = "PRD-004";
     public const string PRD_004_Message = "El producto tiene órdenes activas y no puede eliminarse.";
+    public const string PRD_004_Detail = "No se puede eliminar el recurso.";
 
     public const string PRD_005 = "PRD-005";
     public const string PRD_005_Message = "Error interno al procesar el producto.";

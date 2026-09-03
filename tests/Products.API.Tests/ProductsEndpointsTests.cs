@@ -51,9 +51,6 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
         // Send a GET request to /api/products
         var response = await _client.GetAsync("/api/products");
 
-        // Assert that the status code is 200 OK
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
-
         // ReadFromJsonAsync deserializes the JSON body into a List<Product>
         // (similar to response.json() in Python requests)
         var products = await AssertProductListOk(response);
@@ -192,7 +189,8 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
             response,
             "/api/products",
             ErrorCodes.PRD_003,
-            string.Format(ErrorCodes.PRD_003_Message, "Electrónica"));
+            string.Format(ErrorCodes.PRD_003_Message, "Electrónica"),
+            ErrorCodes.PRD_003_Detail);
     }
 
     [Fact]
@@ -337,7 +335,7 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
 
         var createResponse = await _client.PostAsJsonAsync("/api/products", createRequest);
         var created = await AssertProductCreated(createResponse);
-
+        
         // Temporal workaround while Orders is built, inject a mocked checker that returns true
         var factory = _factory.WithWebHostBuilder(builder =>
         {
@@ -359,7 +357,8 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
             response,
             $"/api/products/{created.Id}",
             ErrorCodes.PRD_004,
-            ErrorCodes.PRD_004_Message);
+            ErrorCodes.PRD_004_Message,
+            ErrorCodes.PRD_004_Detail);
     }
 
     [Fact]
