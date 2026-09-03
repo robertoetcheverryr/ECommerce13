@@ -39,4 +39,13 @@ public interface IProductService
     /// <returns>El producto creado.</returns>
     /// <exception cref="Exceptions.BusinessRuleException">Cuando ya existe un producto con el mismo nombre en la categoría (PRD-003).</exception>
     Product Create(CreateProductRequest request);
+
+    /// <summary>
+    /// Actualiza un producto existente.
+    /// </summary>
+    /// <param name="id">Identificador del producto.</param>
+    /// <param name="request">Datos actualizados del producto.</param>
+    /// <returns>El producto actualizado.</returns>
+    /// <exception cref="Exceptions.NotFoundException">Cuando el producto no existe (PRD-001).</exception>
+    Product Update(Guid id, UpdateProductRequest request);
 }

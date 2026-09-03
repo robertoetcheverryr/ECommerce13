@@ -108,4 +108,18 @@ public class ProductService : IProductService
         Products.Add(product);
         return product;
     }
+
+    /// <inheritdoc />
+    public Product Update(Guid id, UpdateProductRequest request)
+    {
+        var product = GetById(id);
+
+        product.Nombre = request.Nombre;
+        product.Descripcion = request.Descripcion;
+        product.Precio = request.Precio;
+        product.Stock = request.Stock;
+        product.Categoria = request.Categoria;
+
+        return product;
+    }
 }
