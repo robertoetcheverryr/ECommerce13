@@ -394,6 +394,14 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
             => throw new Exception("Unexpected failure");
     }
 
+    private class AlwaysActiveOrdersChecker : IActiveOrdersChecker
+    {
+        public bool HasActiveOrders(Guid productId)
+        {
+            return true;
+        }
+    }
+
     /// <summary>
     /// Loads three known products into the in-memory store.
     /// </summary>
