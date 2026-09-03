@@ -143,11 +143,19 @@ public class ProductsController : ControllerBase
     }
 
     /// <summary>
-    /// Elimina un producto. (Hello World - TODO)
+    /// Elimina un producto.
     /// </summary>
-    [HttpDelete("{id}")]
-    public IActionResult Delete(string id)
+    /// <param name="id">Identificador del producto.</param>
+    /// <response code="204">Producto eliminado correctamente.</response>
+    /// <response code="404">Producto no encontrado (PRD-001).</response>
+    /// <response code="409">El producto tiene órdenes activas y no puede eliminarse (PRD-004).</response>
+    [HttpDelete("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status409Conflict)]
+    public IActionResult Delete(Guid id)
     {
-        return Ok($"yes, you have reached the DELETE /api/products/{id} endpoint");
+        _productService.Delete(id);
+        return NoContent();
     }
 }

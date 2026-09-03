@@ -12,6 +12,16 @@ public class ProductService : IProductService
 {
     // Store in-memory compartido. En el futuro se reemplazará por la librería de persistencia.
     private static readonly List<Product> Products = new();
+    private readonly IActiveOrdersChecker _activeOrdersChecker;
+
+    /// <summary>
+    /// Constructor. Inyecta el verificador de órdenes activas.
+    /// </summary>
+    /// <param name="activeOrdersChecker">Verificador de órdenes activas.</param>
+    public ProductService(IActiveOrdersChecker activeOrdersChecker)
+    {
+        _activeOrdersChecker = activeOrdersChecker;
+    }
 
     /// <inheritdoc />
     public IEnumerable<Product> GetAll(string? categoria = null, string? nombre = null)
@@ -121,5 +131,19 @@ public class ProductService : IProductService
         product.Categoria = request.Categoria;
 
         return product;
+    }
+
+    /// <inheritdoc />
+    public void Delete(Guid id)
+    {
+        var product = GetById(id);
+
+        if (_activeOrdersChecker.HasActiveOrders(id))
+        {
+            //TODO specialize the error message
+            throw new BusinessRuleException(ErrorCodes.PRD_004, ErrorCodes.PRD_004_Message);
+        }
+
+        Products.Remove(product);
     }
 }

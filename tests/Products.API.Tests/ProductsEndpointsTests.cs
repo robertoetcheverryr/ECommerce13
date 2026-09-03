@@ -339,15 +339,100 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
     }
 
     [Fact]
-    public async Task Delete_ShouldReturnOk_WithHelloMessage()
+    public async Task Delete_WhenProductExists_ShouldReturnNoContent_AndRemoveProduct()
     {
-        var id = Guid.NewGuid();
+        var createRequest = new
+        {
+            nombre = $"Mouse Inalambrico {Guid.NewGuid():N}",
+            descripcion = "Mouse de prueba para delete",
+            precio = 25.00m,
+            stock = 4,
+            categoria = "Electrónica"
+        };
+
+        var createResponse = await _client.PostAsJsonAsync("/api/products", createRequest);
+        createResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+        var created = await createResponse.Content.ReadFromJsonAsync<Product>();
+        created.Should().NotBeNull();
+
+        var response = await _client.DeleteAsync($"/api/products/{created.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        var content = await response.Content.ReadAsStringAsync();
+        content.Should().BeEmpty();
+
+        var getResponse = await _client.GetAsync($"/api/products/{created.Id}");
+        getResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task Delete_WhenProductDoesNotExist_ShouldReturnNotFound_WithPrd001()
+    {
+        var id = Guid.Parse("00000000-0000-0000-0000-000000000099");
+
         var response = await _client.DeleteAsync($"/api/products/{id}");
 
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
 
-        var content = await response.Content.ReadAsStringAsync();
-        content.Should().Contain($"DELETE /api/products/{id}");
+        var body = await response.Content.ReadFromJsonAsync<Dictionary<string, object>>();
+        body.Should().NotBeNull();
+        body.Should().ContainKeys(
+            "type", "title", "status", "detail", "instance", "errorCode", "errorMessage");
+        body["type"].ToString().Should().Be("https://tools.ietf.org/html/rfc7231#section-6.5.4");
+        body["title"].ToString().Should().Be("Not Found");
+        body["status"].ToString().Should().Be("404");
+        body["detail"].ToString().Should().Be("El recurso solicitado no fue encontrado.");
+        body["instance"].ToString().Should().Be($"/api/products/{id}");
+        body["errorCode"].ToString().Should().Be("PRD-001");
+        body["errorMessage"].ToString().Should().Be("Producto no encontrado.");
+    }
+
+    [Fact]
+    public async Task Delete_WhenProductHasActiveOrders_ShouldReturnConflict_WithPrd004()
+    {
+        var createRequest = new
+        {
+            nombre = $"Auriculares Activos {Guid.NewGuid():N}",
+            descripcion = "No deberia poder borrarse",
+            precio = 80.00m,
+            stock = 2,
+            categoria = "Electrónica"
+        };
+
+        var createResponse = await _client.PostAsJsonAsync("/api/products", createRequest);
+        createResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+        var created = await createResponse.Content.ReadFromJsonAsync<Product>();
+        created.Should().NotBeNull();
+
+        var factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureServices(services =>
+            {
+                var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(IActiveOrdersChecker));
+
+                if (descriptor is not null)
+                    services.Remove(descriptor);
+
+                services.AddSingleton<IActiveOrdersChecker, AlwaysActiveOrdersChecker>();
+            });
+        });
+
+        var client = factory.CreateClient();
+        var response = await client.DeleteAsync($"/api/products/{created.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+
+        var body = await response.Content.ReadFromJsonAsync<Dictionary<string, object>>();
+        body.Should().NotBeNull();
+        body.Should().ContainKeys(
+            "type", "title", "status", "detail", "instance", "errorCode", "errorMessage");
+        body["type"].ToString().Should().Be("https://tools.ietf.org/html/rfc7231#section-6.5.9");
+        body["title"].ToString().Should().Be("Conflict");
+        body["status"].ToString().Should().Be("409");
+        body["detail"].ToString().Should().Be("Ya existe un recurso con esos datos.");
+        body["instance"].ToString().Should().Be($"/api/products/{created.Id}");
+        body["errorCode"].ToString().Should().Be("PRD-004");
+        body["errorMessage"].ToString().Should().Be("El producto tiene órdenes activas y no puede eliminarse.");
     }
 
     [Fact]
@@ -391,6 +476,9 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
             => throw new Exception("Unexpected failure");
 
         public Product Update(Guid id, UpdateProductRequest request)
+            => throw new Exception("Unexpected failure");
+
+        public void Delete(Guid id)
             => throw new Exception("Unexpected failure");
     }
 

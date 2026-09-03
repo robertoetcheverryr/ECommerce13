@@ -48,4 +48,12 @@ public interface IProductService
     /// <returns>El producto actualizado.</returns>
     /// <exception cref="Exceptions.NotFoundException">Cuando el producto no existe (PRD-001).</exception>
     Product Update(Guid id, UpdateProductRequest request);
+
+    /// <summary>
+    /// Elimina un producto.
+    /// </summary>
+    /// <param name="id">Identificador del producto.</param>
+    /// <exception cref="Exceptions.NotFoundException">Cuando el producto no existe (PRD-001).</exception>
+    /// <exception cref="Exceptions.BusinessRuleException">Cuando el producto tiene órdenes activas (PRD-004).</exception>
+    void Delete(Guid id);
 }
