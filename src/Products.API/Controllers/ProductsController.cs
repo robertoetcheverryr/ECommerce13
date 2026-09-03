@@ -104,12 +104,42 @@ public class ProductsController : ControllerBase
     }
 
     /// <summary>
-    /// Actualiza un producto existente. (Hello World - TODO)
+    /// Actualiza un producto existente.
     /// </summary>
-    [HttpPut("{id}")]
-    public IActionResult Update(string id)
+    /// <param name="id">Identificador del producto.</param>
+    /// <param name="request">Datos actualizados del producto.</param>
+    /// <returns>El producto actualizado.</returns>
+    /// <response code="200">Producto actualizado correctamente.</response>
+    /// <response code="400">Los datos del producto son inválidos (PRD-002).</response>
+    /// <response code="404">Producto no encontrado (PRD-001).</response>
+    [HttpPut("{id:guid}")]
+    [ProducesResponseType(typeof(Product), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+    public ActionResult<Product> Update(Guid id, [FromBody] UpdateProductRequest request)
     {
-        return Ok($"yes, you have reached the PUT /api/products/{id} endpoint");
+        if (!ModelState.IsValid)
+        {
+            var errorMessages = new List<string>();
+            foreach (var entry in ModelState)
+            {
+                foreach (var error in entry.Value.Errors)
+                {
+                    errorMessages.Add(error.ErrorMessage);
+                }
+            }
+
+            var errors = string.Join("; ", errorMessages);
+
+            throw new ValidationException(
+                ErrorCodes.PRD_002,
+                string.IsNullOrWhiteSpace(errors)
+                    ? ErrorCodes.PRD_002_Message
+                    : errors);
+        }
+
+        var product = _productService.Update(id, request);
+        return Ok(product);
     }
 
     /// <summary>

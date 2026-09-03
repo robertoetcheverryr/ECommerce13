@@ -3,7 +3,7 @@ using System.Net.Http.Json; // PostAsJsonAsync, ReadFromJsonAsync
 using FluentAssertions; // Readable assertions (.Should().Be(...))
 using Microsoft.AspNetCore.Mvc.Testing; // WebApplicationFactory (spins up the API in-memory)
 using Microsoft.Extensions.DependencyInjection; // Needed to replace services in WithWebHostBuilder
-using Products.API.DTOs; // CreateProductRequest
+using Products.API.DTOs; // CreateProductRequest, UpdateProductRequest
 using Products.API.Models; // Product domain model
 using Products.API.Services; // IProductService (for the throwing fake)
 
@@ -388,6 +388,9 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
             => throw new Exception("Unexpected failure");
 
         public Product Create(CreateProductRequest request)
+            => throw new Exception("Unexpected failure");
+
+        public Product Update(Guid id, UpdateProductRequest request)
             => throw new Exception("Unexpected failure");
     }
 
