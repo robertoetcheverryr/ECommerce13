@@ -93,9 +93,9 @@ public class ProductsController : ControllerBase
             // Ternary operator, equivalent to 
             //"Los datos del producto son inválidos." if not errors or errors.isspace() else errors
             throw new ValidationException(
-                "PRD-002",
+                ErrorCodes.PRD_002,
                 string.IsNullOrWhiteSpace(errors)
-                    ? "Los datos del producto son inválidos."
+                    ? ErrorCodes.PRD_002_Message
                     : errors);
         }
 
