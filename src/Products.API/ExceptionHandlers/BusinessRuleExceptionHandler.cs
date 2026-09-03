@@ -20,7 +20,7 @@ public class BusinessRuleExceptionHandler : IExceptionHandler
             type = "https://tools.ietf.org/html/rfc7231#section-6.5.9",
             title = "Conflict",
             status = 409,
-            detail = "Ya existe un recurso con esos datos.",
+            detail = ex.Detail,
             instance = context.Request.Path.Value,
             errorCode = ex.ErrorCode,
             errorMessage = ex.Message

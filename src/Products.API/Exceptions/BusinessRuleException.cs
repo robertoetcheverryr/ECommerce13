@@ -4,8 +4,11 @@ public class BusinessRuleException : Exception
 {
     public string ErrorCode { get; }
 
-    public BusinessRuleException(string errorCode, string message) : base(message)
+    public string Detail { get; }
+
+    public BusinessRuleException(string errorCode, string message, string detail) : base(message)
     {
         ErrorCode = errorCode;
+        Detail = detail;
     }
 }
