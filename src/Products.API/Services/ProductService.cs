@@ -123,6 +123,8 @@ public class ProductService : IProductService
     /// <inheritdoc />
     public Product Update(Guid id, UpdateProductRequest request)
     {
+        // Nota: PRD-003 por la spec aplica solo a CREATE.
+        // Nada dice que haya que validar duplicados durante UPDATE.
         var product = GetById(id);
 
         product.Nombre = request.Nombre;

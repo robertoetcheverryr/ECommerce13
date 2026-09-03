@@ -31,8 +31,10 @@ public class ProductsController : ControllerBase
     /// <param name="nombre">Filtrar por nombre (opcional, búsqueda parcial).</param>
     /// <returns>Lista de productos.</returns>
     /// <response code="200">Lista de productos (puede estar vacía).</response>
+    /// <response code="500">Error interno al procesar el producto (PRD-005).</response>
     [HttpGet]
     [ProducesResponseType(typeof(IEnumerable<Product>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
     public ActionResult<IEnumerable<Product>> GetAll(
         [FromQuery] string? categoria = null,
         [FromQuery] string? nombre = null)
@@ -48,9 +50,11 @@ public class ProductsController : ControllerBase
     /// <returns>El producto si existe.</returns>
     /// <response code="200">Producto encontrado.</response>
     /// <response code="404">Producto no encontrado (PRD-001).</response>
+    /// <response code="500">Error interno al procesar el producto (PRD-005).</response>
     [HttpGet("{id:guid}")]
     [ProducesResponseType(typeof(Product), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
     public ActionResult<Product> GetById(Guid id)
     {
         var product = _productService.GetById(id);
@@ -65,10 +69,12 @@ public class ProductsController : ControllerBase
     /// <response code="201">Producto creado correctamente.</response>
     /// <response code="400">Los datos del producto son inválidos (PRD-002).</response>
     /// <response code="409">Ya existe un producto con ese nombre en la categoría (PRD-003).</response>
+    /// <response code="500">Error interno al procesar el producto (PRD-005).</response>
     [HttpPost]
     [ProducesResponseType(typeof(Product), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
     public ActionResult<Product> Create([FromBody] CreateProductRequest request)
     {
         if (!ModelState.IsValid)
@@ -112,10 +118,12 @@ public class ProductsController : ControllerBase
     /// <response code="200">Producto actualizado correctamente.</response>
     /// <response code="400">Los datos del producto son inválidos (PRD-002).</response>
     /// <response code="404">Producto no encontrado (PRD-001).</response>
+    /// <response code="500">Error interno al procesar el producto (PRD-005).</response>
     [HttpPut("{id:guid}")]
     [ProducesResponseType(typeof(Product), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
     public ActionResult<Product> Update(Guid id, [FromBody] UpdateProductRequest request)
     {
         if (!ModelState.IsValid)
@@ -149,10 +157,12 @@ public class ProductsController : ControllerBase
     /// <response code="204">Producto eliminado correctamente.</response>
     /// <response code="404">Producto no encontrado (PRD-001).</response>
     /// <response code="409">El producto tiene órdenes activas y no puede eliminarse (PRD-004).</response>
+    /// <response code="500">Error interno al procesar el producto (PRD-005).</response>
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
     public IActionResult Delete(Guid id)
     {
         _productService.Delete(id);
