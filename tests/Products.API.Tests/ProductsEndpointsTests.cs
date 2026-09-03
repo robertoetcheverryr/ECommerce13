@@ -227,15 +227,115 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
     }
 
     [Fact]
-    public async Task Update_ShouldReturnOk_WithHelloMessage()
+    public async Task Update_WhenProductExists_ShouldReturnOk_WithUpdatedProduct()
     {
-        var id = Guid.NewGuid();
-        var response = await _client.PutAsync($"/api/products/{id}", null);
+        var createRequest = new
+        {
+            nombre = $"Teclado Mecanico {Guid.NewGuid():N}",
+            descripcion = "Switch red",
+            precio = 120.00m,
+            stock = 15,
+            categoria = "Electrónica"
+        };
+
+        var createResponse = await _client.PostAsJsonAsync("/api/products", createRequest);
+        createResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+        var created = await createResponse.Content.ReadFromJsonAsync<Product>();
+        created.Should().NotBeNull();
+
+        var updateRequest = new
+        {
+            nombre = created.Nombre,
+            descripcion = "Switch brown, 64GB layout",
+            precio = 145.50m,
+            stock = 9,
+            categoria = "Electrónica"
+        };
+
+        var response = await _client.PutAsJsonAsync($"/api/products/{created.Id}", updateRequest);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var content = await response.Content.ReadAsStringAsync();
-        content.Should().Contain($"PUT /api/products/{id}");
+        var updated = await response.Content.ReadFromJsonAsync<Product>();
+        updated.Should().NotBeNull();
+        updated.Id.Should().Be(created.Id);
+        updated.Nombre.Should().Be(updateRequest.nombre);
+        updated.Descripcion.Should().Be(updateRequest.descripcion);
+        updated.Precio.Should().Be(updateRequest.precio);
+        updated.Stock.Should().Be(updateRequest.stock);
+        updated.Categoria.Should().Be(updateRequest.categoria);
+        updated.FechaCreacion.Should().Be(created.FechaCreacion);
+
+        var getResponse = await _client.GetAsync($"/api/products/{created.Id}");
+        getResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var fetched = await getResponse.Content.ReadFromJsonAsync<Product>();
+        fetched.Should().NotBeNull();
+        fetched.Descripcion.Should().Be(updateRequest.descripcion);
+        fetched.Precio.Should().Be(updateRequest.precio);
+        fetched.Stock.Should().Be(updateRequest.stock);
+    }
+
+    [Fact]
+    public async Task Update_WithInvalidData_ShouldReturnBadRequest_WithPrd002()
+    {
+        var listResponse = await _client.GetAsync("/api/products?nombre=Notebook Dell XPS 15");
+        var products = await listResponse.Content.ReadFromJsonAsync<List<Product>>();
+        products.Should().NotBeNull();
+        var notebook = products.First(p => p.Nombre == "Notebook Dell XPS 15");
+
+        var request = new
+        {
+            nombre = "",
+            precio = -10m,
+            stock = -5,
+            categoria = ""
+        };
+
+        var response = await _client.PutAsJsonAsync($"/api/products/{notebook.Id}", request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var body = await response.Content.ReadFromJsonAsync<Dictionary<string, object>>();
+        body.Should().NotBeNull();
+        body.Should().ContainKeys(
+            "type", "title", "status", "detail", "instance", "errorCode", "errorMessage");
+        body["type"].ToString().Should().Be("https://tools.ietf.org/html/rfc7231#section-6.5.1");
+        body["title"].ToString().Should().Be("Bad Request");
+        body["status"].ToString().Should().Be("400");
+        body["detail"].ToString().Should().Be("Los datos enviados no son válidos.");
+        body["instance"].ToString().Should().Be($"/api/products/{notebook.Id}");
+        body["errorCode"].ToString().Should().Be("PRD-002");
+        body["errorMessage"].ToString().Should().NotBeNullOrWhiteSpace();
+    }
+
+    [Fact]
+    public async Task Update_WhenProductDoesNotExist_ShouldReturnNotFound_WithPrd001()
+    {
+        var id = Guid.Parse("00000000-0000-0000-0000-000000000099");
+        var request = new
+        {
+            nombre = "Producto Inexistente",
+            descripcion = "No deberia persistirse",
+            precio = 10.00m,
+            stock = 1,
+            categoria = "Otros"
+        };
+
+        var response = await _client.PutAsJsonAsync($"/api/products/{id}", request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+        var body = await response.Content.ReadFromJsonAsync<Dictionary<string, object>>();
+        body.Should().NotBeNull();
+        body.Should().ContainKeys(
+            "type", "title", "status", "detail", "instance", "errorCode", "errorMessage");
+        body["type"].ToString().Should().Be("https://tools.ietf.org/html/rfc7231#section-6.5.4");
+        body["title"].ToString().Should().Be("Not Found");
+        body["status"].ToString().Should().Be("404");
+        body["detail"].ToString().Should().Be("El recurso solicitado no fue encontrado.");
+        body["instance"].ToString().Should().Be($"/api/products/{id}");
+        body["errorCode"].ToString().Should().Be("PRD-001");
+        body["errorMessage"].ToString().Should().Be("Producto no encontrado.");
     }
 
     [Fact]
