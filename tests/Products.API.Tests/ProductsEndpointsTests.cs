@@ -28,7 +28,8 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
         // and returns an HttpClient already configured to talk to it.
         _factory = factory;
         _client = factory.CreateClient();
-        // Seed once for the whole test class
+        // Seed once for the whole test class or that was the idea but in the end
+        // the IClassFixture is built and destroyed once per test...
         SeedProductsAsync().GetAwaiter().GetResult();
     }
 
