@@ -164,6 +164,15 @@ Eso no compila: `Content` y `Example` en las interfaces son get-only.
 La guia de migracion a Swashbuckle v10 dice usar el tipo concreto y escribir ahi:
 https://github.com/domaindrivendev/Swashbuckle.AspNetCore/blob/master/docs/migrating-to-v10.md 
 
+## Logging
+
+El TP pide estos usos de log:
+
+- **Inicio, fin y duración de cada request** — cubierto por `UseSerilogRequestLogging()` en `Program.cs`
+- **Reglas de negocio** — `LogWarning`
+- **Excepción no contemplada** — `LogError`
+- **Trazas útiles** (create, delete, etc.) — `LogInformation`
+
 ## Tecnologías previstas
 
 - .NET 10
