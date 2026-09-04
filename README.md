@@ -1,7 +1,7 @@
 ﻿# E-Commerce - Arquitectura de Microservicios
 
 ![.NET](https://img.shields.io/badge/.NET-10.0-purple)
-![Build](https://github.com/robertoetcheverryr/ECommerce13/actions/workflows/tests.yml/badge.svg)
+![Build](https://github.com/robertoetcheverryr/ECommerce13/actions/workflows/tests.yml/badge.svg)  
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Status](https://img.shields.io/badge/status-in%20progress-yellow)
 
@@ -97,6 +97,7 @@ dotnet restore
 
 ```powershell
 dotnet build
+dotnet test
 ```
 
 ### 5. Ejecutar un microservicio
@@ -139,21 +140,35 @@ dotnet test
 
 - Estructura de la solución + 5 microservicios + tests + CI (GitHub Actions)
 - **Products.API**
-    - Endpoints: GET (con filtros `?categoria=` y `?nombre=`), GET by id, POST
-    - Capa de servicios (`IProductService` / `ProductService`) con persistencia in-memory
-    - Validaciones con Data Annotations
-    - Códigos de error propios (`ErrorCodes`) + excepciones de dominio
-    - `IExceptionHandler`s: NotFound, Validation, BusinessRule, Global
-    - Swagger con XML comments
-    - Tests E2E (xUnit + WebApplicationFactory + FluentAssertions) cubriendo éxito y errores
-    - Tests para validar que todo tiene sus XML comments
-- README con instrucciones de setup
+    - Endpoints 4.1: GET lista (`?categoria=`, `?nombre=` parcial), GET by id, POST, PUT, DELETE
+    - Persistencia in-memory (`List<Product>`). Mientras esperamos la Lib de la catedra.
+    - Validaciones con Data Annotations (PRD-002)
+    - `ErrorCodes` + excepciones de dominio (`NotFound`, `Validation`, `BusinessRule` con `Detail`, `Global`)
+    - `IExceptionHandler`s registrados en orden de especificidad
+    - PRD-003 solo en POST. Ya que no esta en la spec, PUT no revalida unicidad nombre+categoría
+    - PRD-004 vía `IActiveOrdersChecker` + `NoOpActiveOrdersChecker`. Los tests inyectan un checker que siempre devuelve true
+    - Health checks básicos: `/health`, `/health/ready`, `/health/live`
+    - Swagger: XML comments, `[ProducesResponseType]` con los status del contrato (incluye 500/PRD-005)
+    - Ejemplos de request/response por status: `ProductsSwaggerExamplesFilter` (`IOperationFilter`)
+    - Tests E2E (xUnit + WebApplicationFactory + FluentAssertions)
+- Users / Orders / Cart / Notifications: solo el esqueleto
+- Pendiente TP: Serilog, Correlation ID, Users, Orders, Cart, Notifications, Healthchecks completos
+
+## Swagger / OpenAPI
+
+Detalle que me dio dolor de cabeza:
+Swashbuckle.AspNetCore **10.2.3** trae Microsoft.OpenApi **2.7.5**.
+En varios lados de internet asignan `response.Content["application/json"].Example = ...`:
+https://stackoverflow.com/questions/67860252/how-to-use-dependency-injection-with-swaggeroperationfilter
+Eso no compila: `Content` y `Example` en las interfaces son get-only.
+La guia de migracion a Swashbuckle v10 dice usar el tipo concreto y escribir ahi:
+https://github.com/domaindrivendev/Swashbuckle.AspNetCore/blob/master/docs/migrating-to-v10.md 
 
 ## Tecnologías previstas
 
 - .NET 10
 - ASP.NET Core Web API
 - Swagger / OpenAPI (Swashbuckle)
-- Serilog
+- Serilog (TODO)
 - Health Checks
 - IExceptionHandler
