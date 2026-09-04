@@ -53,7 +53,7 @@ public class ProductService : IProductService
 
         return result;
     }
-    
+
     // inheritdoc tells doc tools and IntelliSense to copy the docs from the member being implemented
     // or overriden
     /// <inheritdoc />
@@ -103,7 +103,8 @@ public class ProductService : IProductService
             throw new BusinessRuleException(
                 ErrorCodes.PRD_003,
                 string.Format(ErrorCodes.PRD_003_Message, request.Categoria),
-                ErrorCodes.PRD_003_Detail);
+                ErrorCodes.PRD_003_Detail,
+                StatusCodes.Status409Conflict);
 
         var product = new Product
         {
@@ -146,7 +147,8 @@ public class ProductService : IProductService
             throw new BusinessRuleException(
                 ErrorCodes.PRD_004,
                 ErrorCodes.PRD_004_Message,
-                ErrorCodes.PRD_004_Detail);
+                ErrorCodes.PRD_004_Detail,
+                StatusCodes.Status409Conflict);
         }
 
         Products.Remove(product);
