@@ -1,6 +1,6 @@
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Serilog.Events;
+using static Products.API.Tests.LogEventAssertions;
 
 namespace Products.API.Tests;
 
@@ -31,11 +31,6 @@ public class RequestLoggingTests : IClassFixture<WebApplicationFactory<Program>>
         AssertScalar(requestLog, "RequestPath", "/api/products");
         AssertScalar(requestLog, "StatusCode", "200");
         requestLog.Properties.Should().ContainKey("Elapsed");
-    }
-
-    private static void AssertScalar(LogEvent logEvent, string property, string expected)
-    {
-        logEvent.Properties.Should().ContainKey(property);
-        logEvent.Properties[property].ToString().Trim('"').Should().Be(expected);
+        sink.Events.ShouldAllHaveEndpoint("/api/products");
     }
 }
