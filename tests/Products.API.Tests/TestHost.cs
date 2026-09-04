@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Products.API.Services;
+using Serilog;
+using Serilog.AspNetCore;
 
 namespace Products.API.Tests;
 
@@ -12,35 +14,61 @@ internal sealed class AlwaysActiveOrdersChecker : IActiveOrdersChecker
 
 internal static class TestHost
 {
-    public static HttpClient CreateClientWithActiveOrders(
+    /// <summary>
+    /// Builds a client and optionally taps Serilog request logging via <paramref name="sink"/>.
+    /// Extra DI overrides go in <paramref name="configure"/> (fake checkers, ILogger&lt;T&gt;, etc.).
+    /// </summary>
+    public static HttpClient CreateClientWithLogs(
         this WebApplicationFactory<Program> factory,
+        CollectingSink? sink = null,
         Action<IServiceCollection>? configure = null)
     {
         return factory.WithWebHostBuilder(builder =>
         {
             builder.ConfigureServices(services =>
             {
-                var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(IActiveOrdersChecker));
-                if (descriptor is not null)
-                    services.Remove(descriptor);
+                if (sink is not null)
+                {
+                    var tapLogger = new LoggerConfiguration()
+                        .MinimumLevel.Information()
+                        .WriteTo.Sink(sink)
+                        .CreateLogger();
 
-                services.AddSingleton<IActiveOrdersChecker, AlwaysActiveOrdersChecker>();
+                    services.Configure<RequestLoggingOptions>(opts =>
+                    {
+                        opts.Logger = tapLogger;
+                    });
+                }
+
                 configure?.Invoke(services);
             });
         }).CreateClient();
     }
 
+    public static HttpClient CreateClientWithActiveOrders(
+        this WebApplicationFactory<Program> factory,
+        Action<IServiceCollection>? configure = null)
+    {
+        return factory.CreateClientWithLogs(configure: services =>
+        {
+            var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(IActiveOrdersChecker));
+            if (descriptor is not null)
+                services.Remove(descriptor);
+
+            services.AddSingleton<IActiveOrdersChecker, AlwaysActiveOrdersChecker>();
+            configure?.Invoke(services);
+        });
+    }
+
     public static HttpClient CreateClientWithLogger<THandler>(
         this WebApplicationFactory<Program> factory,
-        CapturingLogger<THandler> logger)
+        CapturingLogger<THandler> logger,
+        CollectingSink? sink = null)
         where THandler : class
     {
-        return factory.WithWebHostBuilder(builder =>
+        return factory.CreateClientWithLogs(sink, services =>
         {
-            builder.ConfigureServices(services =>
-            {
-                services.AddSingleton<ILogger<THandler>>(logger);
-            });
-        }).CreateClient();
+            services.AddSingleton<ILogger<THandler>>(logger);
+        });
     }
 }

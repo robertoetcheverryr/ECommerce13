@@ -1,6 +1,5 @@
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Serilog;
 using Serilog.Events;
 
 namespace Products.API.Tests;
@@ -18,33 +17,20 @@ public class RequestLoggingTests : IClassFixture<WebApplicationFactory<Program>>
     public async Task GetAll_ShouldLogRequestMethodPathStatusAndDuration()
     {
         var sink = new CollectingSink();
-        var previous = Log.Logger;
-        Log.Logger = new LoggerConfiguration()
-            .MinimumLevel.Information()
-            .WriteTo.Logger(previous)
-            .WriteTo.Sink(sink)
-            .CreateLogger();
+        var client = _factory.CreateClientWithLogs(sink);
 
-        try
-        {
-            var client = _factory.CreateClient();
-            var response = await client.GetAsync("/api/products");
-            response.EnsureSuccessStatusCode();
+        var response = await client.GetAsync("/api/products");
+        response.EnsureSuccessStatusCode();
 
-            var requestLog = sink.Events.Should().ContainSingle(e =>
-                e.MessageTemplate.Text.Contains("HTTP {RequestMethod} {RequestPath}") &&
-                e.MessageTemplate.Text.Contains("responded {StatusCode}") &&
-                e.MessageTemplate.Text.Contains("{Elapsed")).Subject;
+        var requestLog = sink.Events.Should().ContainSingle(e =>
+            e.MessageTemplate.Text.Contains("HTTP {RequestMethod} {RequestPath}") &&
+            e.MessageTemplate.Text.Contains("responded {StatusCode}") &&
+            e.MessageTemplate.Text.Contains("{Elapsed")).Subject;
 
-            AssertScalar(requestLog, "RequestMethod", "GET");
-            AssertScalar(requestLog, "RequestPath", "/api/products");
-            AssertScalar(requestLog, "StatusCode", "200");
-            requestLog.Properties.Should().ContainKey("Elapsed");
-        }
-        finally
-        {
-            Log.Logger = previous;
-        }
+        AssertScalar(requestLog, "RequestMethod", "GET");
+        AssertScalar(requestLog, "RequestPath", "/api/products");
+        AssertScalar(requestLog, "StatusCode", "200");
+        requestLog.Properties.Should().ContainKey("Elapsed");
     }
 
     private static void AssertScalar(LogEvent logEvent, string property, string expected)
