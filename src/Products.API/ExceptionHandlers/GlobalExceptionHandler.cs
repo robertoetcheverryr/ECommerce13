@@ -9,13 +9,27 @@ namespace Products.API.ExceptionHandlers;
 /// </summary>
 public class GlobalExceptionHandler : IExceptionHandler
 {
+    private readonly ILogger<GlobalExceptionHandler> _logger;
+
+    public GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger)
+    {
+        _logger = logger;
+    }
+
     public async ValueTask<bool> TryHandleAsync(
         HttpContext context,
         Exception exception,
         CancellationToken cancellationToken)
     {
+        _logger.LogError(
+            exception,
+            "Unhandled error {ErrorCode}: {ErrorMessage}",
+            ErrorCodes.PRD_005,
+            ErrorCodes.PRD_005_Message);
+
         context.Response.StatusCode = StatusCodes.Status500InternalServerError;
 
+        // TODO(correlation-id): agregar correlationId al body (spec 5.5)
         await context.Response.WriteAsJsonAsync(new
         {
             type = "https://tools.ietf.org/html/rfc7231#section-6.6.1",
