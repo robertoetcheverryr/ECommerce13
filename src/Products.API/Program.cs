@@ -13,6 +13,7 @@ builder.Services.AddSwaggerGen(options =>
     var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
     var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
     options.IncludeXmlComments(xmlPath);
+    options.OperationFilter<Products.API.ProductsSwaggerExamplesFilter>();
 });
 
 // Disable automatic 400 so we can return our custom error format (PRD-002)
