@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Diagnostics;
 using Products.API.Exceptions;
 
 namespace Products.API.ExceptionHandlers;
@@ -25,6 +25,7 @@ public class NotFoundExceptionHandler : IExceptionHandler
 
         context.Response.StatusCode = StatusCodes.Status404NotFound;
 
+        // TODO(correlation-id): agregar correlationId al body (spec 5.5)
         await context.Response.WriteAsJsonAsync(new
         {
             type = "https://tools.ietf.org/html/rfc7231#section-6.5.4",

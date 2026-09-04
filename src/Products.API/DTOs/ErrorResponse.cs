@@ -46,4 +46,7 @@ public class ErrorResponse
     /// </summary>
     /// <example>Producto no encontrado.</example>
     public string ErrorMessage { get; set; } = string.Empty;
+
+    // TODO(correlation-id): string CorrelationId { get; set; }
+    // Spec 5.5 — campo extra en respuestas de error. Header: X-Correlation-Id.
 }

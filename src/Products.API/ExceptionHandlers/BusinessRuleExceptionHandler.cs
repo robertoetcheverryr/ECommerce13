@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Diagnostics;
 using Products.API.Exceptions;
 
 namespace Products.API.ExceptionHandlers;
@@ -29,6 +29,7 @@ public class BusinessRuleExceptionHandler : IExceptionHandler
         var status = ex.StatusCode;
         context.Response.StatusCode = status;
 
+        // TODO(correlation-id): agregar correlationId al body (spec 5.5)
         await context.Response.WriteAsJsonAsync(new
         {
             type = TypeFor(status),

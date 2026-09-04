@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Serilog;
 using Serilog.Events;
@@ -64,6 +64,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseSerilogRequestLogging();
+// TODO(correlation-id): leer o generar X-Correlation-Id, agregarlo a LogContext
+// como "CorrelationId" y devolverlo en Response.Headers (spec 5.5)
 app.UseExceptionHandler();
 app.UseHttpsRedirection();
 app.UseAuthorization();
