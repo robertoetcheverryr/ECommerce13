@@ -5,6 +5,14 @@ namespace Products.API.ExceptionHandlers;
 
 public class NotFoundExceptionHandler : IExceptionHandler
 {
+    private readonly ILogger<NotFoundExceptionHandler> _logger;
+
+    public NotFoundExceptionHandler(ILogger<NotFoundExceptionHandler> logger)
+    {
+        // assign to the class' logger the main logger that the program is using
+        _logger = logger;
+    }
+
     public async ValueTask<bool> TryHandleAsync(
         HttpContext context,
         Exception exception,
@@ -12,6 +20,8 @@ public class NotFoundExceptionHandler : IExceptionHandler
     {
         if (exception is not NotFoundException ex)
             return false;
+
+        _logger.LogWarning("Business error {ErrorCode}: {ErrorMessage}", ex.ErrorCode, ex.Message);
 
         context.Response.StatusCode = StatusCodes.Status404NotFound;
 

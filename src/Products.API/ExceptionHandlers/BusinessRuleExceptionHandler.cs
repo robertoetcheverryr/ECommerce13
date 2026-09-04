@@ -9,6 +9,13 @@ namespace Products.API.ExceptionHandlers;
 /// </summary>
 public class BusinessRuleExceptionHandler : IExceptionHandler
 {
+    private readonly ILogger<BusinessRuleExceptionHandler> _logger;
+
+    public BusinessRuleExceptionHandler(ILogger<BusinessRuleExceptionHandler> logger)
+    {
+        _logger = logger;
+    }
+
     public async ValueTask<bool> TryHandleAsync(
         HttpContext context,
         Exception exception,
@@ -16,6 +23,8 @@ public class BusinessRuleExceptionHandler : IExceptionHandler
     {
         if (exception is not BusinessRuleException ex)
             return false;
+
+        _logger.LogWarning("Business error {ErrorCode}: {ErrorMessage}", ex.ErrorCode, ex.Message);
 
         var status = ex.StatusCode;
         context.Response.StatusCode = status;

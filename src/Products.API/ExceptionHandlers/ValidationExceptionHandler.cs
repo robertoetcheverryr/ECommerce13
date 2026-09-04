@@ -5,6 +5,13 @@ namespace Products.API.ExceptionHandlers;
 
 public class ValidationExceptionHandler : IExceptionHandler
 {
+    private readonly ILogger<ValidationExceptionHandler> _logger;
+
+    public ValidationExceptionHandler(ILogger<ValidationExceptionHandler> logger)
+    {
+        _logger = logger;
+    }
+
     public async ValueTask<bool> TryHandleAsync(
         HttpContext context,
         Exception exception,
@@ -12,6 +19,8 @@ public class ValidationExceptionHandler : IExceptionHandler
     {
         if (exception is not ValidationException ex)
             return false;
+
+        _logger.LogWarning("Business error {ErrorCode}: {ErrorMessage}", ex.ErrorCode, ex.Message);
 
         context.Response.StatusCode = StatusCodes.Status400BadRequest;
 
