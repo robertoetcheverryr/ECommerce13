@@ -77,33 +77,7 @@ public class ProductsController : ControllerBase
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
     public ActionResult<Product> Create([FromBody] CreateProductRequest request)
     {
-        if (!ModelState.IsValid)
-        {
-            /* In real life (LINQ):
-            var errors = string.Join("; ", ModelState.Values
-                .SelectMany(v => v.Errors)
-                .Select(e => e.ErrorMessage));
-            */
-
-            var errorMessages = new List<string>();
-            foreach (var entry in ModelState)
-            {
-                foreach (var error in entry.Value.Errors)
-                {
-                    errorMessages.Add(error.ErrorMessage);
-                }
-            }
-
-            var errors = string.Join("; ", errorMessages);
-            
-            // Ternary operator, equivalent to 
-            //"Los datos del producto son inválidos." if not errors or errors.isspace() else errors
-            throw new ValidationException(
-                ErrorCodes.PRD_002,
-                string.IsNullOrWhiteSpace(errors)
-                    ? ErrorCodes.PRD_002_Message
-                    : errors);
-        }
+        EnsureValidModel();
 
         var product = _productService.Create(request);
         return CreatedAtAction(nameof(GetById), new { id = product.Id }, product);
@@ -126,25 +100,7 @@ public class ProductsController : ControllerBase
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
     public ActionResult<Product> Update(Guid id, [FromBody] UpdateProductRequest request)
     {
-        if (!ModelState.IsValid)
-        {
-            var errorMessages = new List<string>();
-            foreach (var entry in ModelState)
-            {
-                foreach (var error in entry.Value.Errors)
-                {
-                    errorMessages.Add(error.ErrorMessage);
-                }
-            }
-
-            var errors = string.Join("; ", errorMessages);
-
-            throw new ValidationException(
-                ErrorCodes.PRD_002,
-                string.IsNullOrWhiteSpace(errors)
-                    ? ErrorCodes.PRD_002_Message
-                    : errors);
-        }
+        EnsureValidModel();
 
         var product = _productService.Update(id, request);
         return Ok(product);
@@ -167,5 +123,37 @@ public class ProductsController : ControllerBase
     {
         _productService.Delete(id);
         return NoContent();
+    }
+
+    /// <summary>
+    /// Convierte ModelState en PRD-002. errorMessage junta los textos de Data Annotations.
+    /// </summary>
+    private void EnsureValidModel()
+    {
+        if (ModelState.IsValid)
+            return;
+        /* In real life (LINQ):
+        // SelectMany flattens the error list and Select gets the ErrorMessage
+        // End result, join of the ErrorMessage of all errors 
+        var errors = string.Join("; ", ModelState.Values
+            .SelectMany(v => v.Errors)
+            .Select(e => e.ErrorMessage));
+        */
+        var errorMessages = new List<string>();
+        foreach (var entry in ModelState)
+        {
+            foreach (var error in entry.Value.Errors)
+            {
+                errorMessages.Add(error.ErrorMessage);
+            }
+        }
+
+        var errors = string.Join("; ", errorMessages);
+
+        throw new ValidationException(
+            ErrorCodes.PRD_002,
+            string.IsNullOrWhiteSpace(errors)
+                ? ErrorCodes.PRD_002_Message
+                : errors);
     }
 }
