@@ -1,8 +1,28 @@
 ﻿using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
-using System.Text.Json;
+using Serilog;
+using Serilog.Events;
+using Serilog.Formatting.Json;
+using Serilog.Sinks.SystemConsole.Themes;
+
+// Start logging before anything else
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
+    .Enrich.FromLogContext()
+    .Enrich.WithProperty("Service", "Products.API")
+    // Configure the two required sinks, console and JSON file
+    .WriteTo.Console(
+        theme: AnsiConsoleTheme.Code,
+        outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Service} {Message:lj}{NewLine}{Exception}")
+    .WriteTo.File(
+        new JsonFormatter(renderMessage: true),
+        path: "logs/products-.json",
+        rollingInterval: RollingInterval.Day)
+    .CreateLogger();
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Host.UseSerilog();
 
 builder.Services.AddControllers();
 
@@ -43,32 +63,20 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseSerilogRequestLogging();
 app.UseExceptionHandler();
 app.UseHttpsRedirection();
 app.UseAuthorization();
 app.MapControllers();
-app.MapHealthChecks("/health", new HealthCheckOptions
-{
-    ResponseWriter = WriteHealthResponse
-});
-app.MapHealthChecks("/health/ready", new HealthCheckOptions
-{
-    ResponseWriter = WriteHealthResponse
-});
-app.MapHealthChecks("/health/live", new HealthCheckOptions
-{
-    ResponseWriter = WriteHealthResponse
-});
 
-static Task WriteHealthResponse(HttpContext context, HealthReport report)
-{
-    context.Response.ContentType = "application/json";
-    var payload = new { status = report.Status.ToString() };
-    return context.Response.WriteAsync(JsonSerializer.Serialize(payload));
-}
+// Rider was complaining that we were using a local function with return, changed to lambda
+var writeHealthResponse = (HttpContext context, HealthReport report) =>
+    context.Response.WriteAsJsonAsync(new { status = report.Status.ToString() });
+
+app.MapHealthChecks("/health", new HealthCheckOptions { ResponseWriter = writeHealthResponse });
+app.MapHealthChecks("/health/ready", new HealthCheckOptions { ResponseWriter = writeHealthResponse });
+app.MapHealthChecks("/health/live", new HealthCheckOptions { ResponseWriter = writeHealthResponse });
 
 app.Run();
 
-public partial class Program
-{
-}
+//Removed partial public program... not needed anymore in .Net10 program is public by default
