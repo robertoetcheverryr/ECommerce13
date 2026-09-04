@@ -63,12 +63,14 @@ internal static class TestHost
     public static HttpClient CreateClientWithLogger<THandler>(
         this WebApplicationFactory<Program> factory,
         CapturingLogger<THandler> logger,
-        CollectingSink? sink = null)
+        CollectingSink? sink = null,
+        Action<IServiceCollection>? configure = null)
         where THandler : class
     {
         return factory.CreateClientWithLogs(sink, services =>
         {
             services.AddSingleton<ILogger<THandler>>(logger);
+            configure?.Invoke(services);
         });
     }
 }
