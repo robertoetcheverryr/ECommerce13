@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Products.API.Services;
 using Serilog;
 using Serilog.AspNetCore;
+using Serilog.Events;
 using Serilog.Extensions.Logging;
 
 namespace Products.API.Tests;
@@ -33,6 +34,8 @@ internal static class TestHost
                 {
                     var tapLogger = new LoggerConfiguration()
                         .MinimumLevel.Information()
+                        // override the events from AspNetCore, the "starting app, listening on port x, etc"
+                        .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
                         .Enrich.FromLogContext()
                         .WriteTo.Sink(sink)
                         .CreateLogger();

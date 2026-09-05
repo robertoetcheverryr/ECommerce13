@@ -35,10 +35,10 @@ public class UnhandledExceptionLoggingTests : IClassFixture<WebApplicationFactor
         var response = await client.GetAsync("/api/products");
 
         response.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
-        var error = sink.Events.Should().Contain(e => e.Level == LogEventLevel.Error).Subject;
-        var rendered = error.RenderMessage();
-        rendered.Should().Contain(ErrorCodes.PRD_005);
-        rendered.Should().Contain(ErrorCodes.PRD_005_Message);
+        var error = sink.Events.Should().ContainSingle(e =>
+            e.Level == LogEventLevel.Error &&
+            e.RenderMessage().Contains(ErrorCodes.PRD_005)).Subject;
+        error.RenderMessage().Should().Contain(ErrorCodes.PRD_005_Message);
         error.Exception.Should().NotBeNull();
         sink.Events.ShouldAllHaveEndpoint("/api/products");
     }

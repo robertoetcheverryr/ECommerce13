@@ -46,8 +46,7 @@ public class BusinessRuleLoggingTests : IClassFixture<WebApplicationFactory<Prog
         });
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-        var warning = sink.Events.Should().Contain(e => e.Level == LogEventLevel.Warning).Subject;
-        warning.RenderMessage().Should().Contain(ErrorCodes.PRD_002);
+        AssertWarning(sink, ErrorCodes.PRD_002, ErrorCodes.PRD_002);
         sink.Events.ShouldAllHaveEndpoint("/api/products");
     }
 
@@ -105,9 +104,9 @@ public class BusinessRuleLoggingTests : IClassFixture<WebApplicationFactory<Prog
 
     private static void AssertWarning(CollectingSink sink, string errorCode, string errorMessage)
     {
-        var warning = sink.Events.Should().Contain(e => e.Level == LogEventLevel.Warning).Subject;
-        var rendered = warning.RenderMessage();
-        rendered.Should().Contain(errorCode);
-        rendered.Should().Contain(errorMessage);
+        var warning = sink.Events.Should().ContainSingle(e =>
+            e.Level == LogEventLevel.Warning &&
+            e.RenderMessage().Contains(errorCode)).Subject;
+        warning.RenderMessage().Should().Contain(errorMessage);
     }
 }
