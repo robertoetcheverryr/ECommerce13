@@ -151,8 +151,9 @@ dotnet test
     - Swagger: XML comments, `[ProducesResponseType]` con los status del contrato (incluye 500/PRD-005)
     - Ejemplos de request/response por status: `ProductsSwaggerExamplesFilter` (`IOperationFilter`)
     - Tests E2E (xUnit + WebApplicationFactory + FluentAssertions)
+    - Serilog: consola + JSON, request log, Warning/Error con errorCode, Endpoint en cada evento del request
 - Users / Orders / Cart / Notifications: solo el esqueleto
-- Pendiente TP: Serilog, Correlation ID, Users, Orders, Cart, Notifications, Healthchecks completos
+- Pendiente TP: Correlation ID, Users, Orders, Cart, Notifications, Healthchecks completos
 
 ## Swagger / OpenAPI
 
@@ -164,11 +165,23 @@ Eso no compila: `Content` y `Example` en las interfaces son get-only.
 La guia de migracion a Swashbuckle v10 dice usar el tipo concreto y escribir ahi:
 https://github.com/domaindrivendev/Swashbuckle.AspNetCore/blob/master/docs/migrating-to-v10.md 
 
+## Logging
+
+El TP pide estos usos de log:
+
+- **Request HTTP** - un solo evento al completar la request
+  (`UseSerilogRequestLogging`): método, path, status y duración.
+  No hay un log de inicio y otro de fin; el spec pide esos datos,
+  Serilog los emite juntos cuando termina el request.
+- **Reglas de negocio** - `LogWarning`
+- **Excepción no contemplada** - `LogError`
+- **Todo evento logeado debe incluir el endpoint que lo genero**
+
 ## Tecnologías previstas
 
 - .NET 10
 - ASP.NET Core Web API
 - Swagger / OpenAPI (Swashbuckle)
-- Serilog (TODO)
+- Serilog
 - Health Checks
 - IExceptionHandler

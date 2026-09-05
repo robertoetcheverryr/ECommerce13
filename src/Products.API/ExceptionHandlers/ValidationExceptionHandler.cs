@@ -1,10 +1,17 @@
-﻿using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Diagnostics;
 using Products.API.Exceptions;
 
 namespace Products.API.ExceptionHandlers;
 
 public class ValidationExceptionHandler : IExceptionHandler
 {
+    private readonly ILogger<ValidationExceptionHandler> _logger;
+
+    public ValidationExceptionHandler(ILogger<ValidationExceptionHandler> logger)
+    {
+        _logger = logger;
+    }
+
     public async ValueTask<bool> TryHandleAsync(
         HttpContext context,
         Exception exception,
@@ -13,8 +20,11 @@ public class ValidationExceptionHandler : IExceptionHandler
         if (exception is not ValidationException ex)
             return false;
 
+        _logger.LogWarning("Business error {ErrorCode}: {ErrorMessage}", ex.ErrorCode, ex.Message);
+
         context.Response.StatusCode = StatusCodes.Status400BadRequest;
 
+        // TODO(correlation-id): agregar correlationId al body (spec 5.5)
         await context.Response.WriteAsJsonAsync(new
         {
             type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",

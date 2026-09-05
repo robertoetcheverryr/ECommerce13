@@ -1,6 +1,7 @@
-﻿using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Serilog;
+using Serilog.Context;
 using Serilog.Events;
 using Serilog.Formatting.Json;
 using Serilog.Sinks.SystemConsole.Themes;
@@ -14,7 +15,7 @@ Log.Logger = new LoggerConfiguration()
     // Configure the two required sinks, console and JSON file
     .WriteTo.Console(
         theme: AnsiConsoleTheme.Code,
-        outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Service} {Message:lj}{NewLine}{Exception}")
+        outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Service} {Endpoint} {Message:lj}{NewLine}{Exception}")
     .WriteTo.File(
         new JsonFormatter(renderMessage: true),
         path: "logs/products-.json",
@@ -63,9 +64,16 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+// Spec 5.3: Endpoint on every log of the request. Correlation ID is a separate TODO (5.5).
+app.Use(async (context, next) =>
+{
+    using (LogContext.PushProperty("Endpoint", context.Request.Path.Value ?? string.Empty))
+    {
+        await next();
+    }
+});
 app.UseSerilogRequestLogging();
 app.UseExceptionHandler();
-app.UseHttpsRedirection();
 app.UseAuthorization();
 app.MapControllers();
 
@@ -79,4 +87,4 @@ app.MapHealthChecks("/health/live", new HealthCheckOptions { ResponseWriter = wr
 
 app.Run();
 
-//Removed partial public program... not needed anymore in .Net10 program is public by default
+//Removed partial public program... not needed anymore in .NET 10 program is public by default

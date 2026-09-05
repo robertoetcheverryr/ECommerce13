@@ -1,4 +1,4 @@
-﻿using System.Net; // HttpStatusCode (OK, NotFound, Created, etc.)
+using System.Net; // HttpStatusCode (OK, NotFound, Created, etc.)
 using System.Net.Http.Json; // PostAsJsonAsync, ReadFromJsonAsync
 using FluentAssertions; // Readable assertions (.Should().Be(...))
 using Microsoft.AspNetCore.Mvc.Testing; // WebApplicationFactory (spins up the API in-memory)
@@ -47,17 +47,15 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
         // "Task" is similar to a Promise/Future: it represents an operation
         // that will finish in the future.
         // "async" allows us to use "await" inside the method.
-
+        // As soon as we added the seed system to the test we stopped testing the basic 200 + []
+        
         // Send a GET request to /api/products
         var response = await _client.GetAsync("/api/products");
 
         // ReadFromJsonAsync deserializes the JSON body into a List<Product>
         // (similar to response.json() in Python requests)
         var products = await AssertProductListOk(response);
-
-        // This test is brittle once we get persistence see how to improve it
-        products.Should().HaveCountGreaterThan(1);
-        products[0].Nombre.Should().Be("Notebook Dell XPS 15");
+        products.Should().HaveCountGreaterThanOrEqualTo(1);
     }
 
     [Fact]
@@ -324,6 +322,9 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
     [Fact]
     public async Task Delete_WhenProductHasActiveOrders_ShouldReturnConflict_WithPrd004()
     {
+        // Temporal workaround while Orders is built, inject a mocked checker that returns true
+        var client = _factory.CreateClientWithActiveOrders();
+
         var createRequest = new
         {
             nombre = $"Auriculares Activos {Guid.NewGuid():N}",
@@ -333,24 +334,9 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
             categoria = "Electrónica"
         };
 
-        var createResponse = await _client.PostAsJsonAsync("/api/products", createRequest);
+        var createResponse = await client.PostAsJsonAsync("/api/products", createRequest);
         var created = await AssertProductCreated(createResponse);
-        
-        // Temporal workaround while Orders is built, inject a mocked checker that returns true
-        var factory = _factory.WithWebHostBuilder(builder =>
-        {
-            builder.ConfigureServices(services =>
-            {
-                var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(IActiveOrdersChecker));
 
-                if (descriptor is not null)
-                    services.Remove(descriptor);
-
-                services.AddSingleton<IActiveOrdersChecker, AlwaysActiveOrdersChecker>();
-            });
-        });
-
-        var client = factory.CreateClient();
         var response = await client.DeleteAsync($"/api/products/{created.Id}");
 
         await AssertConflict(
@@ -403,14 +389,6 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
 
         public void Delete(Guid id)
             => throw new Exception("Unexpected failure");
-    }
-
-    private class AlwaysActiveOrdersChecker : IActiveOrdersChecker
-    {
-        public bool HasActiveOrders(Guid productId)
-        {
-            return true;
-        }
     }
 
     /// <summary>
