@@ -74,7 +74,6 @@ app.Use(async (context, next) =>
 });
 app.UseSerilogRequestLogging();
 app.UseExceptionHandler();
-app.UseHttpsRedirection();
 app.UseAuthorization();
 app.MapControllers();
 
