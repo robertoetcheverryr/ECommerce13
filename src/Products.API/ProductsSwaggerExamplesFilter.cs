@@ -23,6 +23,7 @@ namespace Products.API;
 public class ProductsSwaggerExamplesFilter : IOperationFilter
 {
     private static readonly Guid SampleProductId = Guid.Parse("3fa85f64-5717-4562-b3fc-2c963f66afa6");
+    private static readonly string SampleCorrelationId = SampleProductId.ToString();
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -132,7 +133,8 @@ public class ProductsSwaggerExamplesFilter : IOperationFilter
         Detail = "El recurso solicitado no fue encontrado.",
         Instance = instance,
         ErrorCode = ErrorCodes.PRD_001,
-        ErrorMessage = ErrorCodes.PRD_001_Message
+        ErrorMessage = ErrorCodes.PRD_001_Message,
+        CorrelationId = SampleCorrelationId
     };
 
     private static ErrorResponse BadRequest(string instance) => new()
@@ -143,7 +145,8 @@ public class ProductsSwaggerExamplesFilter : IOperationFilter
         Detail = "Los datos enviados no son válidos.",
         Instance = instance,
         ErrorCode = ErrorCodes.PRD_002,
-        ErrorMessage = "El nombre es obligatorio.; El precio debe ser mayor a 0."
+        ErrorMessage = "El nombre es obligatorio.; El precio debe ser mayor a 0.",
+        CorrelationId = SampleCorrelationId
     };
 
     private static ErrorResponse Conflict(
@@ -158,7 +161,8 @@ public class ProductsSwaggerExamplesFilter : IOperationFilter
         Detail = detail,
         Instance = instance,
         ErrorCode = errorCode,
-        ErrorMessage = errorMessage
+        ErrorMessage = errorMessage,
+        CorrelationId = SampleCorrelationId
     };
 
     private static ErrorResponse InternalError(string instance) => new()
@@ -169,7 +173,8 @@ public class ProductsSwaggerExamplesFilter : IOperationFilter
         Detail = "Ocurrió un error inesperado.",
         Instance = instance,
         ErrorCode = ErrorCodes.PRD_005,
-        ErrorMessage = ErrorCodes.PRD_005_Message
+        ErrorMessage = ErrorCodes.PRD_005_Message,
+        CorrelationId = SampleCorrelationId
     };
 
     private static string ToJson(object value) => JsonSerializer.Serialize(value, JsonOptions);

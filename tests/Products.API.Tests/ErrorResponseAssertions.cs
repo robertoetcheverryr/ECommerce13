@@ -119,7 +119,7 @@ internal static class ErrorResponseAssertions
         var body = await response.Content.ReadFromJsonAsync<Dictionary<string, object>>();
         body.Should().NotBeNull();
         body.Should().ContainKeys(
-            "type", "title", "status", "detail", "instance", "errorCode", "errorMessage");
+            "type", "title", "status", "detail", "instance", "errorCode", "errorMessage", "correlationId");
         body["type"].ToString().Should().Be(type);
         body["title"].ToString().Should().Be(title);
         body["status"].ToString().Should().Be(((int)status).ToString());
@@ -131,5 +131,9 @@ internal static class ErrorResponseAssertions
             body["errorMessage"].ToString().Should().NotBeNullOrWhiteSpace();
         else
             body["errorMessage"].ToString().Should().Be(expectedErrorMessage);
+
+        // Value is request-scoped, so existing tests only check
+        // it is non-empty unless they sent a header.
+        body["correlationId"].ToString().Should().NotBeNullOrWhiteSpace();
     }
 }

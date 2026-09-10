@@ -41,6 +41,7 @@ public class SwaggerTests : IClassFixture<WebApplicationFactory<Program>>
         json.Should().Contain("ErrorResponse");
         json.Should().Contain("errorCode");
         json.Should().Contain("errorMessage");
+        json.Should().Contain("correlationId");
     }
 
     [Fact]
@@ -65,6 +66,8 @@ public class SwaggerTests : IClassFixture<WebApplicationFactory<Program>>
         example200.Should().Contain("Notebook Dell XPS 15");
         example404.Should().Contain(ErrorCodes.PRD_001);
         example404.Should().Contain(ErrorCodes.PRD_001_Message);
+        example404.Should().Contain("correlationId");
+        example404.Should().Contain("3fa85f64-5717-4562-b3fc-2c963f66afa6");
     }
 
     [Fact]
