@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Diagnostics;
+using Products.API.DTOs;
 using Products.API.Exceptions;
 
 namespace Products.API.ExceptionHandlers;
@@ -29,16 +30,16 @@ public class BusinessRuleExceptionHandler : IExceptionHandler
         var status = ex.StatusCode;
         context.Response.StatusCode = status;
 
-        await context.Response.WriteAsJsonAsync(new
+        await context.Response.WriteAsJsonAsync(new ErrorResponse
         {
-            type = TypeFor(status),
-            title = TitleFor(status),
-            status,
-            detail = ex.Detail,
-            instance = context.Request.Path.Value,
-            errorCode = ex.ErrorCode,
-            errorMessage = ex.Message,
-            correlationId = CorrelationId.Get(context)
+            Type = TypeFor(status),
+            Title = TitleFor(status),
+            Status = status,
+            Detail = ex.Detail,
+            Instance = context.Request.Path.Value ?? string.Empty,
+            ErrorCode = ex.ErrorCode,
+            ErrorMessage = ex.Message,
+            CorrelationId = CorrelationId.Get(context)
         }, cancellationToken);
 
         return true;
