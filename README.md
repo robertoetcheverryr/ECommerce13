@@ -151,9 +151,10 @@ dotnet test
     - Swagger: XML comments, `[ProducesResponseType]` con los status del contrato (incluye 500/PRD-005)
     - Ejemplos de request/response por status: `ProductsSwaggerExamplesFilter` (`IOperationFilter`)
     - Tests E2E (xUnit + WebApplicationFactory + FluentAssertions)
-    - Serilog: consola + JSON, request log, Warning/Error con errorCode, Endpoint en cada evento del request
+    - Serilog: consola + JSON, request log, Warning/Error con errorCode, Endpoint y CorrelationId en cada evento del request
+    - Correlation ID (TODO outbound): header `X-Correlation-Id`, campo `correlationId` en errores, propiedad en logs
 - Users / Orders / Cart / Notifications: solo el esqueleto
-- Pendiente TP: Correlation ID, Users, Orders, Cart, Notifications, Healthchecks completos
+- Pendiente TP: Correlation ID outbound + resto de servicios, Users, Orders, Cart, Notifications, Healthchecks completos
 
 ## Swagger / OpenAPI
 
@@ -176,6 +177,18 @@ El TP pide estos usos de log:
 - **Reglas de negocio** - `LogWarning`
 - **Excepción no contemplada** - `LogError`
 - **Todo evento logeado debe incluir el endpoint que lo genero**
+- **Correlation ID** en cada evento del request
+
+## Correlation ID
+
+Implementado en Products.API (inbound). Header: `X-Correlation-Id`.
+
+- Si el cliente manda un valor no vacío (después de trim), se reutiliza. No tiene que ser un Guid.
+- Si falta o viene en blanco, se genera un Guid.
+- El mismo valor sale en el header de respuesta, en los logs (`CorrelationId`) y en el campo `correlationId` de cualquier error 4xx/5xx.
+- Probar: `GET http://localhost:5001/api/products` con y sin el header. Un 404 también debe repetir el id en el body.
+
+Todavía no está: propagación outbound por `HttpClient` (Products no llama a nadie)
 
 ## Tecnologías previstas
 
