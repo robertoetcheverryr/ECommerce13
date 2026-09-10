@@ -29,7 +29,6 @@ public class BusinessRuleExceptionHandler : IExceptionHandler
         var status = ex.StatusCode;
         context.Response.StatusCode = status;
 
-        // TODO(correlation-id): agregar correlationId al body (spec 5.5)
         await context.Response.WriteAsJsonAsync(new
         {
             type = TypeFor(status),
@@ -38,7 +37,8 @@ public class BusinessRuleExceptionHandler : IExceptionHandler
             detail = ex.Detail,
             instance = context.Request.Path.Value,
             errorCode = ex.ErrorCode,
-            errorMessage = ex.Message
+            errorMessage = ex.Message,
+            correlationId = CorrelationId.Get(context)
         }, cancellationToken);
 
         return true;

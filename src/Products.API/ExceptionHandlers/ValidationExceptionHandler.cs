@@ -24,7 +24,6 @@ public class ValidationExceptionHandler : IExceptionHandler
 
         context.Response.StatusCode = StatusCodes.Status400BadRequest;
 
-        // TODO(correlation-id): agregar correlationId al body (spec 5.5)
         await context.Response.WriteAsJsonAsync(new
         {
             type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
@@ -33,7 +32,8 @@ public class ValidationExceptionHandler : IExceptionHandler
             detail = "Los datos enviados no son válidos.",
             instance = context.Request.Path.Value,
             errorCode = ex.ErrorCode,
-            errorMessage = ex.Message
+            errorMessage = ex.Message,
+            correlationId = CorrelationId.Get(context)
         }, cancellationToken);
 
         return true;

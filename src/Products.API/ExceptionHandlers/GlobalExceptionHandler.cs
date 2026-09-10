@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Diagnostics;
 using Products.API.Exceptions;
 
 namespace Products.API.ExceptionHandlers;
@@ -29,7 +29,6 @@ public class GlobalExceptionHandler : IExceptionHandler
 
         context.Response.StatusCode = StatusCodes.Status500InternalServerError;
 
-        // TODO(correlation-id): agregar correlationId al body (spec 5.5)
         await context.Response.WriteAsJsonAsync(new
         {
             type = "https://tools.ietf.org/html/rfc7231#section-6.6.1",
@@ -38,7 +37,8 @@ public class GlobalExceptionHandler : IExceptionHandler
             detail = "Ocurrió un error inesperado.",
             instance = context.Request.Path.Value,
             errorCode = ErrorCodes.PRD_005,
-            errorMessage = ErrorCodes.PRD_005_Message
+            errorMessage = ErrorCodes.PRD_005_Message,
+            correlationId = CorrelationId.Get(context)
         }, cancellationToken);
 
         return true;
