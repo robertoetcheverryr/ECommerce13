@@ -6,11 +6,6 @@ using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace Products.API.Tests;
 
-/// <summary>
-/// Minimum coverage for spec 5.5 on Products.API:
-/// accept or generate X-Correlation-Id, echo it on the response,
-/// push it into Serilog, include it on error bodies.
-/// </summary>
 public class CorrelationIdTests : IClassFixture<WebApplicationFactory<Program>>
 {
     private readonly WebApplicationFactory<Program> _factory;

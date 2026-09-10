@@ -6,8 +6,10 @@ using Products.API.Exceptions;
 
 namespace Products.API.Tests;
 
-// Non-functional tests: Swagger / OpenAPI documentation.
-// These are not business endpoint tests; they verify cross-cutting concerns.
+/*
+Non-functional tests: Swagger / OpenAPI documentation.
+These are not business endpoint tests; they verify cross-cutting concerns.
+*/
 public class SwaggerTests : IClassFixture<WebApplicationFactory<Program>>
 {
     private readonly HttpClient _client;

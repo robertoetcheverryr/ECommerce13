@@ -5,22 +5,22 @@ using Products.API.Models;
 
 namespace Products.API.Tests;
 
-/// <summary>
-/// Dynamically verifies that public API surface (Controllers, Models, DTOs)
-/// has XML documentation. This avoids hardcoding member names so new types
-/// without comments make the test fail automatically.
-///
-/// How it works (high level):
-/// 1. The API project is compiled with GenerateDocumentationFile=true
-/// 2. That produces Products.API.xml next to the DLL
-/// 3. We load that XML and collect every documented member id
-/// 4. We reflect over the assembly and require each public member to appear in the XML
-///
-/// XML member id examples:
-///   T:Products.API.Models.Product
-///   P:Products.API.Models.Product.Nombre
-///   M:Products.API.Controllers.ProductsController.GetById(System.Guid)
-/// </summary>
+/*
+Dynamically verifies that public API surface (Controllers, Models, DTOs)
+has XML documentation. This avoids hardcoding member names so new types
+without comments make the test fail automatically.
+
+How it works (high level):
+1. The API project is compiled with GenerateDocumentationFile=true
+2. That produces Products.API.xml next to the DLL
+3. We load that XML and collect every documented member id
+4. We reflect over the assembly and require each public member to appear in the XML
+
+XML member id examples:
+  T:Products.API.Models.Product
+  P:Products.API.Models.Product.Nombre
+  M:Products.API.Controllers.ProductsController.GetById(System.Guid)
+*/
 public class XmlDocumentationTests
 {
     [Fact]

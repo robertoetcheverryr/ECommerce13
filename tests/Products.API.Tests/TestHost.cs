@@ -16,11 +16,11 @@ internal sealed class AlwaysActiveOrdersChecker : IActiveOrdersChecker
 
 internal static class TestHost
 {
-    /// <summary>
-    /// Builds a client. When <paramref name="sink"/> is set, every Serilog event
-    /// of the request (handlers + request log) goes to that sink, with LogContext
-    /// properties such as Endpoint.
-    /// </summary>
+    /*
+    Builds a client. When <paramref name="sink"/> is set, every Serilog event
+    of the request (handlers + request log) goes to that sink, with LogContext
+    properties such as Endpoint.
+    */
     public static HttpClient CreateClientWithLogs(
         this WebApplicationFactory<Program> factory,
         CollectingSink? sink = null,
