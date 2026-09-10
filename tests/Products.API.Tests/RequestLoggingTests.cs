@@ -32,5 +32,7 @@ public class RequestLoggingTests : IClassFixture<WebApplicationFactory<Program>>
         AssertScalar(requestLog, "StatusCode", "200");
         requestLog.Properties.Should().ContainKey("Elapsed");
         sink.Events.ShouldAllHaveEndpoint("/api/products");
+        sink.Events.ShouldAllHaveCorrelationId(
+            response.Headers.GetValues(CorrelationId.HeaderName).Single());
     }
 }

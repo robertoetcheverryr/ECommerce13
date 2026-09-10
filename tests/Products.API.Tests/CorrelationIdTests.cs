@@ -80,9 +80,10 @@ public class CorrelationIdTests : IClassFixture<WebApplicationFactory<Program>>
     }
 
     [Fact]
-    public async Task GetById_WhenMissing_ShouldRepeatCorrelationIdOnHeaderAndErrorBody()
+    public async Task GetById_WhenMissing_ShouldRepeatCorrelationIdOnHeaderLogsAndErrorBody()
     {
-        var client = _factory.CreateClient();
+        var sink = new CollectingSink();
+        var client = _factory.CreateClientWithLogs(sink);
         var incoming = "corr-error-003";
         var id = Guid.Parse("00000000-0000-0000-0000-000000000099");
         var request = new HttpRequestMessage(HttpMethod.Get, $"/api/products/{id}");
@@ -97,6 +98,9 @@ public class CorrelationIdTests : IClassFixture<WebApplicationFactory<Program>>
         body.Should().NotBeNull();
         body.Should().ContainKey("correlationId");
         body["correlationId"].ToString().Should().Be(incoming);
+
+        sink.Events.ShouldAllHaveEndpoint($"/api/products/{id}");
+        sink.Events.ShouldAllHaveCorrelationId(incoming);
     }
 
     private static string GetHeader(HttpResponseMessage response)

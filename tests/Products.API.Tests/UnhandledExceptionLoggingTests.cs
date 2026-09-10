@@ -41,6 +41,8 @@ public class UnhandledExceptionLoggingTests : IClassFixture<WebApplicationFactor
         error.RenderMessage().Should().Contain(ErrorCodes.PRD_005_Message);
         error.Exception.Should().NotBeNull();
         sink.Events.ShouldAllHaveEndpoint("/api/products");
+        sink.Events.ShouldAllHaveCorrelationId(
+            response.Headers.GetValues(CorrelationId.HeaderName).Single());
     }
 
     private sealed class ThrowingProductService : IProductService

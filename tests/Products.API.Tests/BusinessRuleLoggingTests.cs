@@ -29,6 +29,8 @@ public class BusinessRuleLoggingTests : IClassFixture<WebApplicationFactory<Prog
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
         AssertWarning(sink, ErrorCodes.PRD_001, ErrorCodes.PRD_001_Message);
         sink.Events.ShouldAllHaveEndpoint($"/api/products/{id}");
+        sink.Events.ShouldAllHaveCorrelationId(
+            response.Headers.GetValues(CorrelationId.HeaderName).Single());
     }
 
     [Fact]
@@ -48,6 +50,8 @@ public class BusinessRuleLoggingTests : IClassFixture<WebApplicationFactory<Prog
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         AssertWarning(sink, ErrorCodes.PRD_002, ErrorCodes.PRD_002);
         sink.Events.ShouldAllHaveEndpoint("/api/products");
+        sink.Events.ShouldAllHaveCorrelationId(
+            response.Headers.GetValues(CorrelationId.HeaderName).Single());
     }
 
     [Fact]
@@ -75,6 +79,8 @@ public class BusinessRuleLoggingTests : IClassFixture<WebApplicationFactory<Prog
             ErrorCodes.PRD_003,
             string.Format(ErrorCodes.PRD_003_Message, "Electrónica"));
         sink.Events.ShouldAllHaveEndpoint("/api/products");
+        sink.Events.ShouldAllHaveCorrelationId(
+            response.Headers.GetValues(CorrelationId.HeaderName).Single());
     }
 
     [Fact]
@@ -100,6 +106,8 @@ public class BusinessRuleLoggingTests : IClassFixture<WebApplicationFactory<Prog
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
         AssertWarning(sink, ErrorCodes.PRD_004, ErrorCodes.PRD_004_Message);
         sink.Events.ShouldAllHaveEndpoint($"/api/products/{created.Id}");
+        sink.Events.ShouldAllHaveCorrelationId(
+            response.Headers.GetValues(CorrelationId.HeaderName).Single());
     }
 
     private static void AssertWarning(CollectingSink sink, string errorCode, string errorMessage)
