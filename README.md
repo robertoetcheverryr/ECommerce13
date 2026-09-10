@@ -27,6 +27,63 @@ Cada funcionalidad se expone como una REST API independiente.
 | **Cart.API**          | 5004   | Carrito de compras                       |
 | **Notifications.API** | 5005   | Envío y consulta de notificaciones       |
 
+## Códigos de error
+
+Todas las respuestas 4xx/5xx usan Problem Details más `errorCode` y `errorMessage`.  
+Hoy solo Products.API implementa el catálogo; el resto queda documentado para cuando existan esos servicios.
+
+### Products.API
+
+| errorCode | HTTP | errorMessage | Cuándo |
+|-----------|------|--------------|--------|
+| **PRD-001** | 404 | Producto no encontrado. | GET/PUT/DELETE con ID inexistente |
+| **PRD-002** | 400 | Los datos del producto son inválidos. | POST/PUT con campos faltantes o formato incorrecto |
+| **PRD-003** | 409 | Ya existe un producto con ese nombre en la categoría '{0}'. | POST duplicado nombre+categoría |
+| **PRD-004** | 409 | El producto tiene órdenes activas y no puede eliminarse. | DELETE con órdenes Pendiente o Confirmada |
+| **PRD-005** | 500 | Error interno al procesar el producto. | Error inesperado |
+
+### Users.API
+
+| errorCode | HTTP | errorMessage | Cuándo |
+|-----------|------|--------------|--------|
+| **USR-001** | 409 | El email ya está registrado. | POST /register con email existente |
+| **USR-002** | 400 | Los datos del usuario son inválidos. | POST /register inválido |
+| **USR-003** | 401 | Credenciales incorrectas. | POST /login email o password no coinciden |
+| **USR-004** | 403 | Usuario bloqueado por demasiados intentos fallidos. | 3+ intentos fallidos |
+| **USR-005** | 403 | Usuario bloqueado por detección de fraude. | Bloqueo manual |
+| **USR-006** | 500 | Error interno al procesar el usuario. | Error inesperado |
+
+### Orders.API
+
+| errorCode | HTTP | errorMessage | Cuándo |
+|-----------|------|--------------|--------|
+| **ORD-001** | 404 | Orden no encontrada. | GET/PUT con ID inexistente |
+| **ORD-002** | 400 | Los datos de la orden son inválidos. | POST inválido o items vacíos |
+| **ORD-003** | 404 | Usuario no encontrado al crear la orden. | UsuarioId no existe en Users |
+| **ORD-004** | 404 | Producto no encontrado al crear la orden. | ProductoId no existe en Products |
+| **ORD-005** | 422 | Stock insuficiente para uno o más productos. | Cantidad > stock |
+| **ORD-006** | 409 | El estado de la orden no puede ser modificado. | Transición de estado inválida |
+| **ORD-007** | 500 | Error interno al procesar la orden. | Error inesperado |
+
+### Cart.API
+
+| errorCode | HTTP | errorMessage | Cuándo |
+|-----------|------|--------------|--------|
+| **CRT-001** | 404 | Carrito no encontrado. | userId sin carrito activo |
+| **CRT-002** | 404 | Producto no encontrado. | ProductoId no existe en Products |
+| **CRT-003** | 422 | Stock insuficiente para agregar al carrito. | Cantidad > stock |
+| **CRT-004** | 400 | Cantidad inválida. | Cantidad ≤ 0 |
+| **CRT-005** | 500 | Error interno al procesar el carrito. | Error inesperado |
+
+### Notifications.API
+
+| errorCode | HTTP | errorMessage | Cuándo |
+|-----------|------|--------------|--------|
+| **NTF-001** | 404 | Usuario no encontrado. | UsuarioId no existe en Users |
+| **NTF-002** | 400 | Los datos de la notificación son inválidos. | Campos faltantes o tipo no reconocido |
+| **NTF-003** | 404 | No se encontraron notificaciones para el usuario. | userId sin notificaciones |
+| **NTF-004** | 500 | Error interno al procesar la notificación. | Error inesperado |
+
 ## Estructura del proyecto
 
 ```
