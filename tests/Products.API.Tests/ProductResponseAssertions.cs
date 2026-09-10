@@ -5,10 +5,10 @@ using Products.API.Models;
 
 namespace Products.API.Tests;
 
-/// <summary>
-/// Shared assertions for product success payloads.
-/// Checks HTTP status and the JSON key set before deserializing.
-/// </summary>
+/*
+Shared assertions for product success payloads.
+Checks HTTP status and the JSON key set before deserializing.
+*/
 internal static class ProductResponseAssertions
 {
     private static readonly string[] ProductKeys =

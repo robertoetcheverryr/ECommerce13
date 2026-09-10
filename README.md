@@ -27,6 +27,63 @@ Cada funcionalidad se expone como una REST API independiente.
 | **Cart.API**          | 5004   | Carrito de compras                       |
 | **Notifications.API** | 5005   | Envío y consulta de notificaciones       |
 
+## Códigos de error
+
+Todas las respuestas 4xx/5xx usan Problem Details más `errorCode` y `errorMessage`.  
+Hoy solo Products.API implementa el catálogo; el resto queda documentado para cuando existan esos servicios.
+
+### Products.API
+
+| errorCode | HTTP | errorMessage | Cuándo |
+|-----------|------|--------------|--------|
+| **PRD-001** | 404 | Producto no encontrado. | GET/PUT/DELETE con ID inexistente |
+| **PRD-002** | 400 | Los datos del producto son inválidos. | POST/PUT con campos faltantes o formato incorrecto |
+| **PRD-003** | 409 | Ya existe un producto con ese nombre en la categoría '{0}'. | POST duplicado nombre+categoría |
+| **PRD-004** | 409 | El producto tiene órdenes activas y no puede eliminarse. | DELETE con órdenes Pendiente o Confirmada |
+| **PRD-005** | 500 | Error interno al procesar el producto. | Error inesperado |
+
+### Users.API
+
+| errorCode | HTTP | errorMessage | Cuándo |
+|-----------|------|--------------|--------|
+| **USR-001** | 409 | El email ya está registrado. | POST /register con email existente |
+| **USR-002** | 400 | Los datos del usuario son inválidos. | POST /register inválido |
+| **USR-003** | 401 | Credenciales incorrectas. | POST /login email o password no coinciden |
+| **USR-004** | 403 | Usuario bloqueado por demasiados intentos fallidos. | 3+ intentos fallidos |
+| **USR-005** | 403 | Usuario bloqueado por detección de fraude. | Bloqueo manual |
+| **USR-006** | 500 | Error interno al procesar el usuario. | Error inesperado |
+
+### Orders.API
+
+| errorCode | HTTP | errorMessage | Cuándo |
+|-----------|------|--------------|--------|
+| **ORD-001** | 404 | Orden no encontrada. | GET/PUT con ID inexistente |
+| **ORD-002** | 400 | Los datos de la orden son inválidos. | POST inválido o items vacíos |
+| **ORD-003** | 404 | Usuario no encontrado al crear la orden. | UsuarioId no existe en Users |
+| **ORD-004** | 404 | Producto no encontrado al crear la orden. | ProductoId no existe en Products |
+| **ORD-005** | 422 | Stock insuficiente para uno o más productos. | Cantidad > stock |
+| **ORD-006** | 409 | El estado de la orden no puede ser modificado. | Transición de estado inválida |
+| **ORD-007** | 500 | Error interno al procesar la orden. | Error inesperado |
+
+### Cart.API
+
+| errorCode | HTTP | errorMessage | Cuándo |
+|-----------|------|--------------|--------|
+| **CRT-001** | 404 | Carrito no encontrado. | userId sin carrito activo |
+| **CRT-002** | 404 | Producto no encontrado. | ProductoId no existe en Products |
+| **CRT-003** | 422 | Stock insuficiente para agregar al carrito. | Cantidad > stock |
+| **CRT-004** | 400 | Cantidad inválida. | Cantidad ≤ 0 |
+| **CRT-005** | 500 | Error interno al procesar el carrito. | Error inesperado |
+
+### Notifications.API
+
+| errorCode | HTTP | errorMessage | Cuándo |
+|-----------|------|--------------|--------|
+| **NTF-001** | 404 | Usuario no encontrado. | UsuarioId no existe en Users |
+| **NTF-002** | 400 | Los datos de la notificación son inválidos. | Campos faltantes o tipo no reconocido |
+| **NTF-003** | 404 | No se encontraron notificaciones para el usuario. | userId sin notificaciones |
+| **NTF-004** | 500 | Error interno al procesar la notificación. | Error inesperado |
+
 ## Estructura del proyecto
 
 ```
@@ -151,9 +208,10 @@ dotnet test
     - Swagger: XML comments, `[ProducesResponseType]` con los status del contrato (incluye 500/PRD-005)
     - Ejemplos de request/response por status: `ProductsSwaggerExamplesFilter` (`IOperationFilter`)
     - Tests E2E (xUnit + WebApplicationFactory + FluentAssertions)
-    - Serilog: consola + JSON, request log, Warning/Error con errorCode, Endpoint en cada evento del request
+    - Serilog: consola + JSON, request log, Warning/Error con errorCode, Endpoint y CorrelationId en cada evento del request
+    - Correlation ID (TODO outbound): header `X-Correlation-Id`, campo `correlationId` en errores, propiedad en logs
 - Users / Orders / Cart / Notifications: solo el esqueleto
-- Pendiente TP: Correlation ID, Users, Orders, Cart, Notifications, Healthchecks completos
+- Pendiente TP: Correlation ID outbound + resto de servicios, Users, Orders, Cart, Notifications, Healthchecks completos
 
 ## Swagger / OpenAPI
 
@@ -176,6 +234,18 @@ El TP pide estos usos de log:
 - **Reglas de negocio** - `LogWarning`
 - **Excepción no contemplada** - `LogError`
 - **Todo evento logeado debe incluir el endpoint que lo genero**
+- **Correlation ID** en cada evento del request
+
+## Correlation ID
+
+Implementado en Products.API (inbound). Header: `X-Correlation-Id`.
+
+- Si el cliente manda un valor no vacío (después de trim), se reutiliza. No tiene que ser un Guid.
+- Si falta o viene en blanco, se genera un Guid.
+- El mismo valor sale en el header de respuesta, en los logs (`CorrelationId`) y en el campo `correlationId` de cualquier error 4xx/5xx.
+- Probar: `GET http://localhost:5001/api/products` con y sin el header. Un 404 también debe repetir el id en el body.
+
+Todavía no está: propagación outbound por `HttpClient` (Products no llama a nadie)
 
 ## Tecnologías previstas
 

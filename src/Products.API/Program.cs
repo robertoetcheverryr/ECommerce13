@@ -15,7 +15,7 @@ Log.Logger = new LoggerConfiguration()
     // Configure the two required sinks, console and JSON file
     .WriteTo.Console(
         theme: AnsiConsoleTheme.Code,
-        outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Service} {Endpoint} {Message:lj}{NewLine}{Exception}")
+        outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Service} {Endpoint} {CorrelationId} {Message:lj}{NewLine}{Exception}")
     .WriteTo.File(
         new JsonFormatter(renderMessage: true),
         path: "logs/products-.json",
@@ -64,10 +64,15 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-// Spec 5.3: Endpoint on every log of the request. Correlation ID is a separate TODO (5.5).
+// Spec 5.3 + 5.5: Endpoint and CorrelationId on every log of the request.
+// Outbound header propagation still TODO (no HttpClient calls in Products yet).
 app.Use(async (context, next) =>
 {
+    var correlationId = Products.API.CorrelationId.Resolve(context.Request);
+    Products.API.CorrelationId.Assign(context, correlationId);
+
     using (LogContext.PushProperty("Endpoint", context.Request.Path.Value ?? string.Empty))
+    using (LogContext.PushProperty(Products.API.CorrelationId.LogProperty, correlationId))
     {
         await next();
     }

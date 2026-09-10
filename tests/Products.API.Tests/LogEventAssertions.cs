@@ -20,6 +20,14 @@ internal static class LogEventAssertions
                 AssertScalar(logEvent, "Endpoint", endpoint);
         }
 
+        public void ShouldAllHaveCorrelationId(string correlationId)
+        {
+            var requestEvents = events.RequestEvents();
+            requestEvents.Should().NotBeEmpty("the request should produce at least one request-scoped log event");
+            foreach (var logEvent in requestEvents)
+                AssertScalar(logEvent, "CorrelationId", correlationId);
+        }
+
         // [.. seq] == [*seq] / list(seq). Materializes the lazy Where() so we can
         // count and foreach without running the filter twice. Same as .ToList().
         private IReadOnlyList<LogEvent> RequestEvents() =>

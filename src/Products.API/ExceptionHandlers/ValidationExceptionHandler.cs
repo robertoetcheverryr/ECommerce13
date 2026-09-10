@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Diagnostics;
+using Products.API.DTOs;
 using Products.API.Exceptions;
 
 namespace Products.API.ExceptionHandlers;
@@ -24,16 +25,16 @@ public class ValidationExceptionHandler : IExceptionHandler
 
         context.Response.StatusCode = StatusCodes.Status400BadRequest;
 
-        // TODO(correlation-id): agregar correlationId al body (spec 5.5)
-        await context.Response.WriteAsJsonAsync(new
+        await context.Response.WriteAsJsonAsync(new ErrorResponse
         {
-            type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
-            title = "Bad Request",
-            status = 400,
-            detail = "Los datos enviados no son válidos.",
-            instance = context.Request.Path.Value,
-            errorCode = ex.ErrorCode,
-            errorMessage = ex.Message
+            Type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
+            Title = "Bad Request",
+            Status = 400,
+            Detail = "Los datos enviados no son válidos.",
+            Instance = context.Request.Path.Value ?? string.Empty,
+            ErrorCode = ex.ErrorCode,
+            ErrorMessage = ex.Message,
+            CorrelationId = CorrelationId.Get(context)
         }, cancellationToken);
 
         return true;

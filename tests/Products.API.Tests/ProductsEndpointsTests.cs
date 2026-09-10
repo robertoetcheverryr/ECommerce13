@@ -12,10 +12,11 @@ using static Products.API.Tests.ProductResponseAssertions;
 
 namespace Products.API.Tests;
 
-// IClassFixture<> tells xUnit:
-// "Create ONE single instance of WebApplicationFactory and share it across all tests in this class"
-// This way we don't restart the API from scratch for every test (that would be very slow).
-// Roughly comparable to a session-scoped fixture in pytest.
+/* IClassFixture<> tells xUnit:
+"Create ONE single instance of WebApplicationFactory and share it across all tests in this class"
+This way we don't restart the API from scratch for every test (that would be very slow).
+Roughly comparable to a session-scoped fixture in pytest.
+*/
 public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
 {
     // HttpClient is the object we use to make HTTP requests

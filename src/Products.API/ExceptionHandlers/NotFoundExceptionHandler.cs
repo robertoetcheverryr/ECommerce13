@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Diagnostics;
+using Products.API.DTOs;
 using Products.API.Exceptions;
 
 namespace Products.API.ExceptionHandlers;
@@ -25,16 +26,16 @@ public class NotFoundExceptionHandler : IExceptionHandler
 
         context.Response.StatusCode = StatusCodes.Status404NotFound;
 
-        // TODO(correlation-id): agregar correlationId al body (spec 5.5)
-        await context.Response.WriteAsJsonAsync(new
+        await context.Response.WriteAsJsonAsync(new ErrorResponse
         {
-            type = "https://tools.ietf.org/html/rfc7231#section-6.5.4",
-            title = "Not Found",
-            status = 404,
-            detail = "El recurso solicitado no fue encontrado.",
-            instance = context.Request.Path.Value,
-            errorCode = ex.ErrorCode,
-            errorMessage = ex.Message
+            Type = "https://tools.ietf.org/html/rfc7231#section-6.5.4",
+            Title = "Not Found",
+            Status = 404,
+            Detail = "El recurso solicitado no fue encontrado.",
+            Instance = context.Request.Path.Value ?? string.Empty,
+            ErrorCode = ex.ErrorCode,
+            ErrorMessage = ex.Message,
+            CorrelationId = CorrelationId.Get(context)
         }, cancellationToken);
 
         return true;

@@ -1,7 +1,7 @@
 namespace Products.API.DTOs;
 
 /// <summary>
-/// Contrato de error de la API (Problem Details extendido con errorCode y errorMessage).
+/// Contrato de error de la API (Problem Details extendido con errorCode, errorMessage y correlationId).
 /// </summary>
 public class ErrorResponse
 {
@@ -47,6 +47,9 @@ public class ErrorResponse
     /// <example>Producto no encontrado.</example>
     public string ErrorMessage { get; set; } = string.Empty;
 
-    // TODO(correlation-id): string CorrelationId { get; set; }
-    // Spec 5.5 — campo extra en respuestas de error. Header: X-Correlation-Id.
+    /// <summary>
+    /// Identificador de correlación del request. Coincide con el header X-Correlation-Id.
+    /// </summary>
+    /// <example>3fa85f64-5717-4562-b3fc-2c963f66afa6</example>
+    public string CorrelationId { get; set; } = string.Empty;
 }
