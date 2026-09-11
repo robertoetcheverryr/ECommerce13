@@ -210,7 +210,11 @@ dotnet test
     - Tests E2E (xUnit + WebApplicationFactory + FluentAssertions)
     - Serilog: consola + JSON, request log, Warning/Error con errorCode, Endpoint y CorrelationId en cada evento del request
     - Correlation ID (TODO outbound): header `X-Correlation-Id`, campo `correlationId` en errores, propiedad en logs
-- Users / Orders / Cart / Notifications: solo el esqueleto
+- **Users.API**
+  - POST /api/users/register and POST /api/users/login stubs. 
+  - Tests para 201/200 y que la password no se devuelve.
+  - TODO: el resto de Users
+- Orders / Cart / Notifications: solo el esqueleto
 - Pendiente TP: Correlation ID outbound + resto de servicios, Users, Orders, Cart, Notifications, Healthchecks completos
 
 ## Swagger / OpenAPI
