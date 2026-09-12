@@ -1,7 +1,27 @@
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Serilog;
+using Serilog.Context;
+using Serilog.Events;
+using Serilog.Formatting.Json;
+using Serilog.Sinks.SystemConsole.Themes;
+
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
+    .Enrich.FromLogContext()
+    .Enrich.WithProperty("Service", "Users.API")
+    .WriteTo.Console(
+        theme: AnsiConsoleTheme.Code,
+        outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Service} {Endpoint} {CorrelationId} {Message:lj}{NewLine}{Exception}")
+    .WriteTo.File(
+        new JsonFormatter(renderMessage: true),
+        path: "logs/users-.json",
+        rollingInterval: RollingInterval.Day)
+    .CreateLogger();
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Host.UseSerilog();
 
 builder.Services.AddControllers();
 
@@ -11,8 +31,6 @@ builder.Services.AddSwaggerGen(options =>
     var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
     var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
     options.IncludeXmlComments(xmlPath);
-    // NonNullable is required to avoid Swagger thinking something is nullable when it clearly
-    // does not have the ? operator
     options.SupportNonNullableReferenceTypes();
     options.OperationFilter<Users.API.UsersSwaggerExamplesFilter>();
 });
@@ -40,13 +58,20 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-// Spec 5.5 inbound CorrelationId. LogContext / Serilog still TODO (copy from Products next).
+// Spec 5.3 + 5.5: Endpoint and CorrelationId on every log of the request.
+// Outbound header propagation still TODO (no HttpClient calls in Users yet).
 app.Use(async (context, next) =>
 {
     var correlationId = Users.API.CorrelationId.Resolve(context.Request);
     Users.API.CorrelationId.Assign(context, correlationId);
-    await next();
+
+    using (LogContext.PushProperty("Endpoint", context.Request.Path.Value ?? string.Empty))
+    using (LogContext.PushProperty(Users.API.CorrelationId.LogProperty, correlationId))
+    {
+        await next();
+    }
 });
+app.UseSerilogRequestLogging();
 app.UseExceptionHandler();
 app.UseAuthorization();
 app.MapControllers();
