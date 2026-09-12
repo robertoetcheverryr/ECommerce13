@@ -1,7 +1,5 @@
 namespace Users.API.Services;
 
-using System.Security.Cryptography;
-using System.Text;
 using Users.API.DTOs;
 using Users.API.Exceptions;
 using Users.API.Models;
@@ -18,15 +16,17 @@ public class UserService : IUserService
     /// <inheritdoc />
     public User Register(RegisterUserRequest request)
     {
+        var email = Email.Normalize(request.Email);
+
         /* In real life (LINQ):
         var exists = Users.Any(u =>
-            u.Email.Equals(request.Email, StringComparison.OrdinalIgnoreCase));
+            u.Email.Equals(email, StringComparison.OrdinalIgnoreCase));
         */
 
         bool exists = false;
         foreach (var candidate in Users)
         {
-            if (candidate.Email.Equals(request.Email, StringComparison.OrdinalIgnoreCase))
+            if (candidate.Email.Equals(email, StringComparison.OrdinalIgnoreCase))
             {
                 exists = true;
                 break;
@@ -36,7 +36,7 @@ public class UserService : IUserService
         if (exists)
             throw new BusinessRuleException(
                 ErrorCodes.USR_001,
-                string.Format(ErrorCodes.USR_001_Message, request.Email),
+                string.Format(ErrorCodes.USR_001_Message, email),
                 ErrorCodes.USR_001_Detail,
                 StatusCodes.Status409Conflict);
 
@@ -45,8 +45,8 @@ public class UserService : IUserService
             Id = Guid.NewGuid(),
             Nombre = request.Nombre,
             Apellido = request.Apellido,
-            Email = request.Email,
-            PasswordHash = HashPassword(request.Password),
+            Email = email,
+            PasswordHash = Password.Hash(request.Password),
             FechaRegistro = DateTime.UtcNow,
             Activo = true,
             IntentosFallidos = 0
@@ -59,22 +59,24 @@ public class UserService : IUserService
     /// <inheritdoc />
     public User Login(LoginRequest request)
     {
+        var email = Email.Normalize(request.Email);
+
         /* In real life (LINQ):
         var user = Users.FirstOrDefault(u =>
-            u.Email.Equals(request.Email, StringComparison.OrdinalIgnoreCase));
+            u.Email.Equals(email, StringComparison.OrdinalIgnoreCase));
         */
 
         User? user = null;
         foreach (var candidate in Users)
         {
-            if (candidate.Email.Equals(request.Email, StringComparison.OrdinalIgnoreCase))
+            if (candidate.Email.Equals(email, StringComparison.OrdinalIgnoreCase))
             {
                 user = candidate;
                 break;
             }
         }
 
-        if (user is null || user.PasswordHash != HashPassword(request.Password))
+        if (user is null || !Password.Matches(request.Password, user.PasswordHash))
             throw new BusinessRuleException(
                 ErrorCodes.USR_003,
                 ErrorCodes.USR_003_Message,
@@ -82,12 +84,5 @@ public class UserService : IUserService
                 StatusCodes.Status401Unauthorized);
 
         return user;
-    }
-
-    // Temporary stand-in until we decide the real hasher. Never store the raw password.
-    private static string HashPassword(string password)
-    {
-        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(password));
-        return Convert.ToHexString(bytes);
     }
 }
