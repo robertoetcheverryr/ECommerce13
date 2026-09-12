@@ -1,6 +1,8 @@
 using System.Net.Http.Json;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Users.API.Exceptions;
+using static Users.API.Tests.ErrorResponseAssertions;
 using static Users.API.Tests.UserResponseAssertions;
 
 namespace Users.API.Tests;
@@ -21,11 +23,12 @@ public class UsersEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
     [Fact]
     public async Task Register_WithValidData_ShouldReturnCreated_WithUser()
     {
+        var email = $"maria-{Guid.NewGuid()}@email.com";
         var request = new
         {
             nombre = "María",
             apellido = "González",
-            email = "maria@email.com",
+            email,
             password = "MiPassword123!"
         };
 
@@ -34,10 +37,51 @@ public class UsersEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
         var user = await AssertUserCreated(response);
         user.Nombre.Should().Be("María");
         user.Apellido.Should().Be("González");
-        user.Email.Should().Be("maria@email.com");
+        user.Email.Should().Be(email);
         user.Activo.Should().BeTrue();
         user.Id.Should().NotBeEmpty();
         user.FechaRegistro.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
+    }
+
+    [Fact]
+    public async Task Register_WithInvalidData_ShouldReturnBadRequest_WithUsr002()
+    {
+        var request = new
+        {
+            nombre = "",
+            apellido = "",
+            email = "not-an-email",
+            password = ""
+        };
+
+        var response = await _client.PostAsJsonAsync("/api/users/register", request);
+
+        await AssertBadRequestWithFieldErrors(response, "/api/users/register", ErrorCodes.USR_002);
+    }
+
+    [Fact]
+    public async Task Register_WithDuplicateEmail_ShouldReturnConflict_WithUsr001()
+    {
+        var email = $"dup-{Guid.NewGuid()}@email.com";
+        var request = new
+        {
+            nombre = "María",
+            apellido = "González",
+            email,
+            password = "MiPassword123!"
+        };
+
+        var first = await _client.PostAsJsonAsync("/api/users/register", request);
+        await AssertUserCreated(first);
+
+        var second = await _client.PostAsJsonAsync("/api/users/register", request);
+
+        await AssertConflict(
+            second,
+            "/api/users/register",
+            ErrorCodes.USR_001,
+            string.Format(ErrorCodes.USR_001_Message, email),
+            ErrorCodes.USR_001_Detail);
     }
 
     [Fact]
@@ -47,7 +91,7 @@ public class UsersEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
         {
             nombre = "Ana",
             apellido = "Pérez",
-            email = "ana@email.com",
+            email = $"ana-{Guid.NewGuid()}@email.com",
             password = "OtraPassword123!"
         };
 
@@ -65,5 +109,31 @@ public class UsersEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
         user.Nombre.Should().Be(register.nombre);
         user.Apellido.Should().Be(register.apellido);
         user.Email.Should().Be(register.email);
+    }
+
+    [Fact]
+    public async Task Login_WithWrongPassword_ShouldReturnUnauthorized_WithUsr003()
+    {
+        var email = $"wrong-{Guid.NewGuid()}@email.com";
+        var register = await _client.PostAsJsonAsync("/api/users/register", new
+        {
+            nombre = "Ana",
+            apellido = "Pérez",
+            email,
+            password = "OtraPassword123!"
+        });
+        await AssertUserCreated(register);
+
+        var response = await _client.PostAsJsonAsync("/api/users/login", new
+        {
+            email,
+            password = "NotThePassword123!"
+        });
+
+        await AssertUnauthorized(
+            response,
+            "/api/users/login",
+            ErrorCodes.USR_003,
+            ErrorCodes.USR_003_Message);
     }
 }

@@ -14,12 +14,14 @@ public interface IUserService
     /// </summary>
     /// <param name="request">Datos del usuario a registrar.</param>
     /// <returns>El usuario creado.</returns>
+    /// <exception cref="Exceptions.BusinessRuleException">Cuando el email ya existe (USR-001).</exception>
     User Register(RegisterUserRequest request);
 
     /// <summary>
     /// Autentica un usuario por email y contraseña.
     /// </summary>
     /// <param name="request">Credenciales.</param>
-    /// <returns>El usuario si las credenciales coinciden; null si no.</returns>
-    User? Login(LoginRequest request);
+    /// <returns>El usuario autenticado.</returns>
+    /// <exception cref="Exceptions.BusinessRuleException">Cuando las credenciales no coinciden (USR-003).</exception>
+    User Login(LoginRequest request);
 }

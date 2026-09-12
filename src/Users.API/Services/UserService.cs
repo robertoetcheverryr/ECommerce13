@@ -3,6 +3,7 @@ namespace Users.API.Services;
 using System.Security.Cryptography;
 using System.Text;
 using Users.API.DTOs;
+using Users.API.Exceptions;
 using Users.API.Models;
 
 /// <summary>
@@ -17,6 +18,28 @@ public class UserService : IUserService
     /// <inheritdoc />
     public User Register(RegisterUserRequest request)
     {
+        /* In real life (LINQ):
+        var exists = Users.Any(u =>
+            u.Email.Equals(request.Email, StringComparison.OrdinalIgnoreCase));
+        */
+
+        bool exists = false;
+        foreach (var candidate in Users)
+        {
+            if (candidate.Email.Equals(request.Email, StringComparison.OrdinalIgnoreCase))
+            {
+                exists = true;
+                break;
+            }
+        }
+
+        if (exists)
+            throw new BusinessRuleException(
+                ErrorCodes.USR_001,
+                string.Format(ErrorCodes.USR_001_Message, request.Email),
+                ErrorCodes.USR_001_Detail,
+                StatusCodes.Status409Conflict);
+
         var user = new User
         {
             Id = Guid.NewGuid(),
@@ -34,7 +57,7 @@ public class UserService : IUserService
     }
 
     /// <inheritdoc />
-    public User? Login(LoginRequest request)
+    public User Login(LoginRequest request)
     {
         /* In real life (LINQ):
         var user = Users.FirstOrDefault(u =>
@@ -51,11 +74,12 @@ public class UserService : IUserService
             }
         }
 
-        if (user is null)
-            return null;
-
-        if (user.PasswordHash != HashPassword(request.Password))
-            return null;
+        if (user is null || user.PasswordHash != HashPassword(request.Password))
+            throw new BusinessRuleException(
+                ErrorCodes.USR_003,
+                ErrorCodes.USR_003_Message,
+                ErrorCodes.USR_003_Detail,
+                StatusCodes.Status401Unauthorized);
 
         return user;
     }

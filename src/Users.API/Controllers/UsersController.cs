@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Users.API.DTOs;
+using Users.API.Exceptions;
 using Users.API.Services;
 
 namespace Users.API.Controllers;
@@ -38,6 +39,8 @@ public class UsersController : ControllerBase
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
     public ActionResult<UserResponse> Register([FromBody] RegisterUserRequest request)
     {
+        EnsureValidModel();
+
         var user = _userService.Register(request);
         return Created("/api/users/register", ToUserResponse(user));
     }
@@ -60,11 +63,36 @@ public class UsersController : ControllerBase
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
     public ActionResult<LoginResponse> Login([FromBody] LoginRequest request)
     {
-        var user = _userService.Login(request);
-        if (user is null)
-            return Unauthorized();
+        EnsureValidModel();
 
+        var user = _userService.Login(request);
         return Ok(ToLoginResponse(user));
+    }
+
+    /// <summary>
+    /// Convierte ModelState en USR-002. errorMessage junta los textos de Data Annotations.
+    /// </summary>
+    private void EnsureValidModel()
+    {
+        if (ModelState.IsValid)
+            return;
+
+        var errorMessages = new List<string>();
+        foreach (var entry in ModelState)
+        {
+            foreach (var error in entry.Value.Errors)
+            {
+                errorMessages.Add(error.ErrorMessage);
+            }
+        }
+
+        var errors = string.Join("; ", errorMessages);
+
+        throw new ValidationException(
+            ErrorCodes.USR_002,
+            string.IsNullOrWhiteSpace(errors)
+                ? ErrorCodes.USR_002_Message
+                : errors);
     }
 
     // Map here so PasswordHash never leaves the service/controller boundary.
