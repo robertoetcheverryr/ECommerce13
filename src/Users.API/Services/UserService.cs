@@ -10,6 +10,9 @@ using Users.API.Models;
 /// </summary>
 public class UserService : IUserService
 {
+    // Third consecutive miss locks the account. That request stays USR-003.
+    private const int MaxConsecutiveFailedLogins = 3;
+
     // Store in-memory compartido. En el futuro se reemplazará por la librería de persistencia.
     private static readonly List<User> Users = new();
 
@@ -76,13 +79,39 @@ public class UserService : IUserService
             }
         }
 
-        if (user is null || !Password.Matches(request.Password, user.PasswordHash))
-            throw new BusinessRuleException(
-                ErrorCodes.USR_003,
-                ErrorCodes.USR_003_Message,
-                ErrorCodes.USR_003_Detail,
-                StatusCodes.Status401Unauthorized);
+        // Unknown email has no counter. Same USR-003 as a password miss.
+        // It is important to NOT differentiate between them because it lets
+        // an attacker know the existence of the account.
+        if (user is null)
+            throw InvalidCredentials();
 
+        // Check the lock before the password so a blocked account does not confirm it.
+        // USR-004 is the TP pair Activo == false and IntentosFallidos >= 3.
+        // Activo == false with a lower counter is the manual lock (USR-005).
+        if (user.Activo == false && user.IntentosFallidos >= MaxConsecutiveFailedLogins)
+            throw new BusinessRuleException(
+                ErrorCodes.USR_004,
+                ErrorCodes.USR_004_Message,
+                ErrorCodes.USR_004_Detail,
+                StatusCodes.Status403Forbidden);
+
+        if (!Password.Matches(request.Password, user.PasswordHash))
+        {
+            user.IntentosFallidos++;
+            if (user.IntentosFallidos >= MaxConsecutiveFailedLogins)
+                user.Activo = false;
+
+            throw InvalidCredentials();
+        }
+
+        user.IntentosFallidos = 0;
         return user;
     }
+
+    private static BusinessRuleException InvalidCredentials()
+        => new(
+            ErrorCodes.USR_003,
+            ErrorCodes.USR_003_Message,
+            ErrorCodes.USR_003_Detail,
+            StatusCodes.Status401Unauthorized);
 }

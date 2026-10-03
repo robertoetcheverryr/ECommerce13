@@ -22,6 +22,7 @@ public interface IUserService
     /// </summary>
     /// <param name="request">Credenciales.</param>
     /// <returns>El usuario autenticado.</returns>
-    /// <exception cref="Exceptions.BusinessRuleException">Cuando las credenciales no coinciden (USR-003).</exception>
+    /// <exception cref="Exceptions.BusinessRuleException">Cuando las credenciales no coinciden (USR-003)
+    /// o la cuenta está bloqueada por intentos fallidos (USR-004).</exception>
     User Login(LoginRequest request);
 }

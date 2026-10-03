@@ -136,4 +136,124 @@ public class UsersEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
             ErrorCodes.USR_003,
             ErrorCodes.USR_003_Message);
     }
+    
+    [Fact]
+    public async Task Login_WithUnknownEmail_ShouldStayUnauthorized_AndNotBlockLaterRegister()
+    {
+        var email = $"missing-{Guid.NewGuid()}@email.com";
+
+        for (var attempt = 0; attempt < 3; attempt++)
+            await AssertWrongPassword(email);
+
+        var register = await _client.PostAsJsonAsync("/api/users/register", new
+        {
+            nombre = "Ana",
+            apellido = "Pérez",
+            email,
+            password = "OtraPassword123!"
+        });
+        var created = await AssertUserCreated(register);
+        created.Activo.Should().BeTrue();
+
+        var login = await _client.PostAsJsonAsync("/api/users/login", new
+        {
+            email,
+            password = "OtraPassword123!"
+        });
+
+        var user = await AssertUserOk(login);
+        user.Id.Should().Be(created.Id);
+        user.Email.Should().Be(email);
+    }
+
+    // Two misses, success: the counter resets on a good login.
+    [Fact]
+    public async Task Login_AfterTwoFailedAttempts_ShouldSucceed_AndResetTheCounter()
+    {
+        var email = $"reset-{Guid.NewGuid()}@email.com";
+        const string password = "OtraPassword123!";
+        await Register(email, password);
+
+        await AssertWrongPassword(email);
+        await AssertWrongPassword(email);
+        await AssertCorrectPassword(email, password);
+
+        await AssertWrongPassword(email);
+        await AssertWrongPassword(email);
+        await AssertCorrectPassword(email, password);
+    }
+
+    // The miss that reaches 3 is still USR-003. The next login, right or wrong password, is USR-004.
+    [Fact]
+    public async Task Login_OnThirdFailedAttempt_ShouldStayUnauthorized_ThenForbid()
+    {
+        var email = $"lock-{Guid.NewGuid()}@email.com";
+        const string password = "OtraPassword123!";
+        await Register(email, password);
+
+        await AssertWrongPassword(email);
+        await AssertWrongPassword(email);
+        await AssertWrongPassword(email);
+
+        var correctAfterLock = await _client.PostAsJsonAsync("/api/users/login", new
+        {
+            email,
+            password
+        });
+        await AssertForbidden(
+            correctAfterLock,
+            "/api/users/login",
+            ErrorCodes.USR_004,
+            ErrorCodes.USR_004_Message);
+
+        var wrongAfterLock = await _client.PostAsJsonAsync("/api/users/login", new
+        {
+            email,
+            password = "NotThePassword123!"
+        });
+        await AssertForbidden(
+            wrongAfterLock,
+            "/api/users/login",
+            ErrorCodes.USR_004,
+            ErrorCodes.USR_004_Message);
+    }
+
+    private async Task Register(string email, string password)
+    {
+        var response = await _client.PostAsJsonAsync("/api/users/register", new
+        {
+            nombre = "Ana",
+            apellido = "Pérez",
+            email,
+            password
+        });
+        await AssertUserCreated(response);
+    }
+
+    private async Task AssertWrongPassword(string email)
+    {
+        var response = await _client.PostAsJsonAsync("/api/users/login", new
+        {
+            email,
+            password = "NotThePassword123!"
+        });
+
+        await AssertUnauthorized(
+            response,
+            "/api/users/login",
+            ErrorCodes.USR_003,
+            ErrorCodes.USR_003_Message);
+    }
+
+    private async Task AssertCorrectPassword(string email, string password)
+    {
+        var response = await _client.PostAsJsonAsync("/api/users/login", new
+        {
+            email,
+            password
+        });
+
+        var user = await AssertUserOk(response);
+        user.Email.Should().Be(email);
+    }
 }

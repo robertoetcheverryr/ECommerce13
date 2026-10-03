@@ -95,6 +95,46 @@ public class BusinessRuleLoggingTests : IClassFixture<WebApplicationFactory<Prog
             response.Headers.GetValues(CorrelationId.HeaderName).Single());
     }
 
+    [Fact]
+    public async Task Login_AfterThreeFailedAttempts_ShouldLogWarning_WithUsr004()
+    {
+        var sink = new CollectingSink();
+        var client = _factory.CreateClientWithLogs(sink);
+        var email = $"lock-log-{Guid.NewGuid()}@email.com";
+        const string password = "OtraPassword123!";
+
+        (await client.PostAsJsonAsync("/api/users/register", new
+        {
+            nombre = "Ana",
+            apellido = "Pérez",
+            email,
+            password
+        })).StatusCode.Should().Be(HttpStatusCode.Created);
+
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            (await client.PostAsJsonAsync("/api/users/login", new
+            {
+                email,
+                password = "NotThePassword123!"
+            })).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        }
+
+        sink.Events.Clear();
+
+        var response = await client.PostAsJsonAsync("/api/users/login", new
+        {
+            email,
+            password
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        AssertWarning(sink, ErrorCodes.USR_004, ErrorCodes.USR_004_Message);
+        sink.Events.ShouldAllHaveEndpoint("/api/users/login");
+        sink.Events.ShouldAllHaveCorrelationId(
+            response.Headers.GetValues(CorrelationId.HeaderName).Single());
+    }
+
     private static void AssertWarning(CollectingSink sink, string errorCode, string errorMessage)
     {
         var warning = sink.Events.Should().ContainSingle(e =>
