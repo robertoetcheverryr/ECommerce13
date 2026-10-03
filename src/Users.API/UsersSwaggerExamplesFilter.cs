@@ -79,6 +79,10 @@ public class UsersSwaggerExamplesFilter : IOperationFilter
                     "/api/users/login",
                     ErrorCodes.USR_004,
                     ErrorCodes.USR_004_Message)));
+                AddNamedResponseExample(operation, "403", "usr-005", ToJson(Forbidden(
+                    "/api/users/login",
+                    ErrorCodes.USR_005,
+                    ErrorCodes.USR_005_Message)));
                 SetResponseExample(operation, "500", ToJson(InternalError("/api/users/login")));
                 break;
 
@@ -201,5 +205,24 @@ public class UsersSwaggerExamplesFilter : IOperationFilter
         }
 
         mediaType.Example = node;
+    }
+
+    private static void AddNamedResponseExample(
+        OpenApiOperation operation,
+        string statusCode,
+        string name,
+        string json)
+    {
+        if (operation.Responses is null ||
+            !operation.Responses.TryGetValue(statusCode, out var response) ||
+            response.Content is null ||
+            !response.Content.TryGetValue("application/json", out var mediaType))
+            return;
+
+        mediaType.Examples ??= new Dictionary<string, IOpenApiExample>();
+        mediaType.Examples[name] = new OpenApiExample
+        {
+            Value = JsonNode.Parse(json)
+        };
     }
 }
