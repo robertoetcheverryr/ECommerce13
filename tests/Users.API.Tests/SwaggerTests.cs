@@ -107,6 +107,7 @@ public class SwaggerTests : IClassFixture<WebApplicationFactory<Program>>
         var json = swagger.RootElement.GetRawText();
 
         json.Should().Contain(ErrorCodes.USR_005);
+        json.Should().Contain(ErrorCodes.USR_005_Message);
     }
 
     private async Task<JsonDocument> LoadSwaggerAsync()

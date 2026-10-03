@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Users.API.Exceptions;
+using Users.API.Services;
 using Serilog.Events;
 
 namespace Users.API.Tests;
@@ -130,6 +131,37 @@ public class BusinessRuleLoggingTests : IClassFixture<WebApplicationFactory<Prog
 
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
         AssertWarning(sink, ErrorCodes.USR_004, ErrorCodes.USR_004_Message);
+        sink.Events.ShouldAllHaveEndpoint("/api/users/login");
+        sink.Events.ShouldAllHaveCorrelationId(
+            response.Headers.GetValues(CorrelationId.HeaderName).Single());
+    }
+
+    [Fact]
+    public async Task Login_WhenManuallyBlocked_ShouldLogWarning_WithUsr005()
+    {
+        var sink = new CollectingSink();
+        var client = _factory.CreateClientWithLogs(sink);
+        var email = $"manual-log-{Guid.NewGuid()}@email.com";
+        const string password = "OtraPassword123!";
+
+        (await client.PostAsJsonAsync("/api/users/register", new
+        {
+            nombre = "Ana",
+            apellido = "Pérez",
+            email,
+            password
+        })).StatusCode.Should().Be(HttpStatusCode.Created);
+        new UserService().MarkManuallyBlocked(email);
+        sink.Events.Clear();
+
+        var response = await client.PostAsJsonAsync("/api/users/login", new
+        {
+            email,
+            password
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        AssertWarning(sink, ErrorCodes.USR_005, ErrorCodes.USR_005_Message);
         sink.Events.ShouldAllHaveEndpoint("/api/users/login");
         sink.Events.ShouldAllHaveCorrelationId(
             response.Headers.GetValues(CorrelationId.HeaderName).Single());

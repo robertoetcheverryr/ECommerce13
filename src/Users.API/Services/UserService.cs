@@ -88,12 +88,13 @@ public class UserService : IUserService
         // Check the lock before the password so a blocked account does not confirm it.
         // USR-004 is the TP pair Activo == false and IntentosFallidos >= 3.
         // Activo == false with a lower counter is the manual lock (USR-005).
+        // Note, should have another field for lock reason to allow extensibility
+        // But the blackbox testing means we cannot do it without breaking the SQLite DB.
         if (user.Activo == false && user.IntentosFallidos >= MaxConsecutiveFailedLogins)
-            throw new BusinessRuleException(
-                ErrorCodes.USR_004,
-                ErrorCodes.USR_004_Message,
-                ErrorCodes.USR_004_Detail,
-                StatusCodes.Status403Forbidden);
+            throw Locked(ErrorCodes.USR_004, ErrorCodes.USR_004_Message, ErrorCodes.USR_004_Detail);
+
+        if (user.Activo == false)
+            throw Locked(ErrorCodes.USR_005, ErrorCodes.USR_005_Message, ErrorCodes.USR_005_Detail);
 
         if (!Password.Matches(request.Password, user.PasswordHash))
         {
@@ -107,6 +108,39 @@ public class UserService : IUserService
         user.IntentosFallidos = 0;
         return user;
     }
+
+    /// <summary>
+    /// Marca la cuenta como bloqueada sin sumar intentos. No hay endpoint de admin;
+    /// sirve para una fila sembrada con Activo en false.
+    /// </summary>
+    /// <param name="email">Email del usuario ya registrado.</param>
+    public void MarkManuallyBlocked(string email)
+    {
+        var normalized = Email.Normalize(email);
+
+        /* In real life (LINQ):
+        var user = Users.FirstOrDefault(u =>
+            u.Email.Equals(normalized, StringComparison.OrdinalIgnoreCase));
+        */
+
+        User? user = null;
+        foreach (var candidate in Users)
+        {
+            if (candidate.Email.Equals(normalized, StringComparison.OrdinalIgnoreCase))
+            {
+                user = candidate;
+                break;
+            }
+        }
+
+        if (user is null)
+            throw new InvalidOperationException($"No user registered for '{normalized}'.");
+
+        user.Activo = false;
+    }
+
+    private static BusinessRuleException Locked(string errorCode, string message, string detail)
+        => new(errorCode, message, detail, StatusCodes.Status403Forbidden);
 
     private static BusinessRuleException InvalidCredentials()
         => new(

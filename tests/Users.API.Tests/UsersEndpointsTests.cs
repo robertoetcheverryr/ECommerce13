@@ -2,6 +2,7 @@ using System.Net.Http.Json;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Users.API.Exceptions;
+using Users.API.Services;
 using static Users.API.Tests.ErrorResponseAssertions;
 using static Users.API.Tests.UserResponseAssertions;
 
@@ -216,6 +217,61 @@ public class UsersEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
             "/api/users/login",
             ErrorCodes.USR_004,
             ErrorCodes.USR_004_Message);
+    }
+
+    // Activo false with a counter under 3 is the manual lock, not USR-004.
+    [Fact]
+    public async Task Login_WhenManuallyBlocked_ShouldReturnForbidden_WithUsr005()
+    {
+        var email = $"manual-{Guid.NewGuid()}@email.com";
+        const string password = "OtraPassword123!";
+        await Register(email, password);
+        new UserService().MarkManuallyBlocked(email);
+
+        var correct = await _client.PostAsJsonAsync("/api/users/login", new
+        {
+            email,
+            password
+        });
+        await AssertForbidden(
+            correct,
+            "/api/users/login",
+            ErrorCodes.USR_005,
+            ErrorCodes.USR_005_Message);
+
+        var wrong = await _client.PostAsJsonAsync("/api/users/login", new
+        {
+            email,
+            password = "NotThePassword123!"
+        });
+        await AssertForbidden(
+            wrong,
+            "/api/users/login",
+            ErrorCodes.USR_005,
+            ErrorCodes.USR_005_Message);
+    }
+
+    [Fact]
+    public async Task Login_WhenManuallyBlockedAfterTwoFailures_ShouldReturnForbidden_WithUsr005()
+    {
+        var email = $"manual-two-{Guid.NewGuid()}@email.com";
+        const string password = "OtraPassword123!";
+        await Register(email, password);
+
+        await AssertWrongPassword(email);
+        await AssertWrongPassword(email);
+        new UserService().MarkManuallyBlocked(email);
+
+        var response = await _client.PostAsJsonAsync("/api/users/login", new
+        {
+            email,
+            password
+        });
+        await AssertForbidden(
+            response,
+            "/api/users/login",
+            ErrorCodes.USR_005,
+            ErrorCodes.USR_005_Message);
     }
 
     private async Task Register(string email, string password)
