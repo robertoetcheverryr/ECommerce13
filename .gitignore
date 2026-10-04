@@ -1,4 +1,4 @@
-﻿# Build
+# Build
 bin/
 obj/
 [Bb]in/
@@ -9,6 +9,10 @@ out/
 **/logs/*
 !**/logs/.gitkeep
 *.log
+
+# SQLite
+*.db
+*.db-*
 
 # IDE / herramientas locales
 .idea/

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Products.API.Services;
 using Serilog;
 using Serilog.Context;
 using Serilog.Events;
@@ -57,6 +58,13 @@ builder.Services.AddProblemDetails();
 builder.Services.AddHealthChecks(); // Only the base functionality by dot net, no custom checks yet TODO
 
 var app = builder.Build();
+
+// Open the SQLite file and create the products table if it is missing.
+// ProductService still uses the in-memory list.
+// a if a is not None else b == a ?? b
+var connectionString = app.Configuration.GetConnectionString("DefaultConnection")
+    ?? "Data Source=products.db";
+new DatabaseInitializer(connectionString).Initialize();
 
 if (app.Environment.IsDevelopment())
 {
