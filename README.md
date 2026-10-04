@@ -198,7 +198,7 @@ dotnet test
 - Estructura de la solución + 5 microservicios + tests + CI (GitHub Actions)
 - **Products.API**
     - Endpoints 4.1: GET lista (`?categoria=`, `?nombre=` parcial), GET by id, POST, PUT, DELETE
-    - Persistencia in-memory (`List<Product>`). Mientras esperamos la Lib de la catedra.
+    - Persistencia en SQLite con Dapper (`Microsoft.Data.Sqlite`). Al iniciar, `DatabaseInitializer` crea la tabla `products` si no existe, con las columnas del producto: Id, Nombre, Descripcion, Precio, Stock, Categoria, FechaCreacion. Archivo `products.db` (`ConnectionStrings:DefaultConnection`). El patrón de base lo tomamos del ejemplo de la cátedra: [toDoList-2026, branch `feature/completo`](https://github.com/cai-uba/toDoList-2026/tree/feature/completo) (SQLite + Dapper, `CREATE TABLE IF NOT EXISTS` al startup).
     - Validaciones con Data Annotations (PRD-002)
     - `ErrorCodes` + excepciones de dominio (`NotFound`, `Validation`, `BusinessRule` con `Detail`, `Global`)
     - `IExceptionHandler`s registrados en orden de especificidad
@@ -255,3 +255,4 @@ Todavía no está: propagación outbound por `HttpClient` (Products no llama a n
 - Serilog
 - Health Checks
 - IExceptionHandler
+- SQLite (`Microsoft.Data.Sqlite`) y Dapper. Patrón de persistencia tomado del ejemplo de la cátedra: [toDoList-2026, branch `feature/completo`](https://github.com/cai-uba/toDoList-2026/tree/feature/completo)
