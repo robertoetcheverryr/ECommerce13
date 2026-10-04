@@ -11,10 +11,12 @@ using static Products.API.Tests.ProductResponseAssertions;
 
 namespace Products.API.Tests;
 
-/* IClassFixture<> tells xUnit:
-"Create ONE single instance of WebApplicationFactory and share it across all tests in this class"
-This way we don't restart the API from scratch for every test (that would be very slow).
-Roughly comparable to a session-scoped fixture in pytest.
+/* IClassFixture<> tells xUnit to create one ProductsApiFactory and share that
+object across the tests in this class. CreateClient() reuses that host.
+WithWebHostBuilder and CreateClientWithLogs build another host, and
+ProductsApiFactory gives that host its own temp database.
+The test class constructor still runs per test, which is why seeding runs again.
+Roughly comparable to a session-scoped fixture in pytest, not a function-scoped one.
 */
 public class ProductsEndpointsTests : IClassFixture<ProductsApiFactory>
 {
@@ -27,12 +29,11 @@ public class ProductsEndpointsTests : IClassFixture<ProductsApiFactory>
     // Constructor: xUnit calls it automatically and injects the factory.
     public ProductsEndpointsTests(ProductsApiFactory factory)
     {
-        // CreateClient() starts the API in-memory (no real port is opened)
-        // and returns an HttpClient already configured to talk to it.
+        // CreateClient() starts the API without opening a port.
+        // The store is the temp SQLite file from ProductsApiFactory.
         _factory = factory;
         _client = factory.CreateClient();
-        // Seed once for the whole test class or that was the idea but in the end
-        // the IClassFixture is built and destroyed once per test...
+        // Runs per test because the class is constructed per test. The factory is not.
         SeedProductsAsync().GetAwaiter().GetResult();
     }
 

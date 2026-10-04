@@ -55,7 +55,7 @@ public class ProductService : IProductService
     public Product GetById(Guid id)
     {
         /* In real life (LINQ):
-        var product = Products.FirstOrDefault(p => p.Id == id);
+        var product = rows.SingleOrDefault(p => p.Id == id);
         */
 
         using var connection = Open();
@@ -75,7 +75,7 @@ public class ProductService : IProductService
     public Product Create(CreateProductRequest request)
     {
         /* In real life (LINQ):
-        var exists = Products.Any(p =>
+        var exists = rows.Any(p =>
             p.Nombre.Equals(request.Nombre, StringComparison.OrdinalIgnoreCase) &&
             p.Categoria.Equals(request.Categoria, StringComparison.OrdinalIgnoreCase));
         */
