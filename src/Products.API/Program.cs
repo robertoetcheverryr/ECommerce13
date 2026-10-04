@@ -54,7 +54,10 @@ builder.Services.AddExceptionHandler<Products.API.ExceptionHandlers.ValidationEx
 builder.Services.AddExceptionHandler<Products.API.ExceptionHandlers.BusinessRuleExceptionHandler>();
 builder.Services.AddExceptionHandler<Products.API.ExceptionHandlers.GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
-builder.Services.AddHealthChecks(); // Only the base functionality by dot net, no custom checks yet TODO
+
+builder.Services.AddHealthChecks()
+    .AddCheck<Products.API.Services.ApiStatusCheck>("api", tags: ["live"])
+    .AddCheck<Products.API.Services.SqliteHealthCheck>("sqlite", tags: ["ready"]);
 
 var app = builder.Build();
 
@@ -86,9 +89,20 @@ app.MapControllers();
 var writeHealthResponse = (HttpContext context, HealthReport report) =>
     context.Response.WriteAsJsonAsync(new { status = report.Status.ToString() });
 
+// The request hits MapHealthChecks, which calls the IHealthCheck handlers (ready/live only run the tagged one)
+// and gets a HealthReport back. writeHealthResponse is the way back:
+// it writes { status } from report.Status, Healthy, Degraded, or Unhealthy.
 app.MapHealthChecks("/health", new HealthCheckOptions { ResponseWriter = writeHealthResponse });
-app.MapHealthChecks("/health/ready", new HealthCheckOptions { ResponseWriter = writeHealthResponse });
-app.MapHealthChecks("/health/live", new HealthCheckOptions { ResponseWriter = writeHealthResponse });
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready"),
+    ResponseWriter = writeHealthResponse
+});
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("live"),
+    ResponseWriter = writeHealthResponse
+});
 
 app.Run();
 
