@@ -30,7 +30,7 @@ Cada funcionalidad se expone como una REST API independiente.
 ## Códigos de error
 
 Todas las respuestas 4xx/5xx usan Problem Details más `errorCode` y `errorMessage`.  
-Hoy solo Products.API implementa el catálogo; el resto queda documentado para cuando existan esos servicios.
+Hoy Products.API y Users.API implementan el catálogo; el resto queda documentado para cuando existan esos servicios.
 
 ### Products.API
 
@@ -47,10 +47,10 @@ Hoy solo Products.API implementa el catálogo; el resto queda documentado para c
 | errorCode | HTTP | errorMessage | Cuándo |
 |-----------|------|--------------|--------|
 | **USR-001** | 409 | El email ya está registrado. | POST /register con email existente |
-| **USR-002** | 400 | Los datos del usuario son inválidos. | POST /register inválido |
-| **USR-003** | 401 | Credenciales incorrectas. | POST /login email o password no coinciden |
-| **USR-004** | 403 | Usuario bloqueado por demasiados intentos fallidos. | 3+ intentos fallidos |
-| **USR-005** | 403 | Usuario bloqueado por detección de fraude. | Bloqueo manual |
+| **USR-002** | 400 | Los datos del usuario son inválidos. | POST /register o /login inválido |
+| **USR-003** | 401 | Credenciales incorrectas. | POST /login email inexistente o password no coincide |
+| **USR-004** | 403 | Usuario bloqueado por demasiados intentos fallidos. | POST /login con Activo false e IntentosFallidos >= 3. El tercer fallo sigue siendo USR-003 |
+| **USR-005** | 403 | Usuario bloqueado por detección de fraude. | POST /login con Activo false e IntentosFallidos < 3 |
 | **USR-006** | 500 | Error interno al procesar el usuario. | Error inesperado |
 
 ### Orders.API
@@ -211,11 +211,22 @@ dotnet test
     - Serilog: consola + JSON, request log, Warning/Error con errorCode, Endpoint y CorrelationId en cada evento del request
     - Correlation ID (TODO outbound): header `X-Correlation-Id`, campo `correlationId` en errores, propiedad en logs
 - **Users.API**
-  - POST /api/users/register and POST /api/users/login stubs. 
-  - Tests para 201/200 y que la password no se devuelve.
-  - TODO: el resto de Users
+    - Endpoints 4.2: POST /api/users/register, POST /api/users/login. No hay GET ni lock/unlock de admin
+    - Persistencia in-memory (`List<User>`). Mientras esperamos la Lib de la catedra
+    - Validaciones con Data Annotations (USR-002). Email y password delegan en `Services/Email` y `Services/Password`
+    - `ErrorCodes` + excepciones de dominio (`NotFound`, `Validation`, `BusinessRule` con `Detail`, `Global`)
+    - `IExceptionHandler`s registrados en orden de especificidad
+    - USR-003 no distingue email inexistente de password incorrecta para evitar dar informacion a un atacante
+    - USR-004: al tercer fallo consecutivo `Activo` pasa a false y ese request sigue siendo USR-003. El login siguiente es 403. Un login correcto antes resetea `IntentosFallidos`
+    - USR-005: `Activo == false` con `IntentosFallidos < 3`. No hay endpoint para marcarlo; los tests usan `UserService.MarkManuallyBlocked`
+    - PasswordHash nunca sale en register ni login
+    - Health checks básicos: `/health`, `/health/ready`, `/health/live`
+    - Swagger: XML comments, `[ProducesResponseType]`, `UsersSwaggerExamplesFilter`. El 403 de ejemplo es USR-004; USR-005 va como ejemplo nombrado
+    - Tests E2E (xUnit + WebApplicationFactory + FluentAssertions)
+    - Serilog: consola + JSON, request log, Warning/Error con errorCode, Endpoint y CorrelationId en cada evento del request
+    - Correlation ID inbound (TODO outbound, no hay HttpClient): header `X-Correlation-Id`, campo `correlationId` en errores, propiedad en logs
 - Orders / Cart / Notifications: solo el esqueleto
-- Pendiente TP: Correlation ID outbound + resto de servicios, Users, Orders, Cart, Notifications, Healthchecks completos
+- Pendiente TP: Correlation ID outbound, health checks custom, Orders, Cart, Notifications, lib de persistencia de la catedra
 
 ## Swagger / OpenAPI
 
