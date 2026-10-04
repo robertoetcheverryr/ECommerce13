@@ -1,7 +1,6 @@
 using System.Net; // HttpStatusCode (OK, NotFound, Created, etc.)
 using System.Net.Http.Json; // PostAsJsonAsync, ReadFromJsonAsync
 using FluentAssertions; // Readable assertions (.Should().Be(...))
-using Microsoft.AspNetCore.Mvc.Testing; // WebApplicationFactory (spins up the API in-memory)
 using Microsoft.Extensions.DependencyInjection; // Needed to replace services in WithWebHostBuilder
 using Products.API.DTOs; // CreateProductRequest, UpdateProductRequest
 using Products.API.Exceptions; // ErrorCodes
@@ -17,16 +16,16 @@ namespace Products.API.Tests;
 This way we don't restart the API from scratch for every test (that would be very slow).
 Roughly comparable to a session-scoped fixture in pytest.
 */
-public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+public class ProductsEndpointsTests : IClassFixture<ProductsApiFactory>
 {
     // HttpClient is the object we use to make HTTP requests
     // (same idea as the "requests" library in Python or fetch in JavaScript).
     // The factory is needed to build our own service with its own behavior.
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly ProductsApiFactory _factory;
     private readonly HttpClient _client;
 
     // Constructor: xUnit calls it automatically and injects the factory.
-    public ProductsEndpointsTests(WebApplicationFactory<Program> factory)
+    public ProductsEndpointsTests(ProductsApiFactory factory)
     {
         // CreateClient() starts the API in-memory (no real port is opened)
         // and returns an HttpClient already configured to talk to it.
@@ -393,7 +392,7 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
     }
 
     /// <summary>
-    /// Loads three known products into the in-memory store.
+    /// Loads three known products into the SQLite store.
     /// </summary>
     private async Task SeedProductsAsync()
     {

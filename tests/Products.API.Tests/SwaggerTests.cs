@@ -1,7 +1,6 @@
 using System.Net;
 using System.Text.Json;
 using FluentAssertions;
-using Microsoft.AspNetCore.Mvc.Testing;
 using Products.API.Exceptions;
 
 namespace Products.API.Tests;
@@ -10,11 +9,11 @@ namespace Products.API.Tests;
 Non-functional tests: Swagger / OpenAPI documentation.
 These are not business endpoint tests; they verify cross-cutting concerns.
 */
-public class SwaggerTests : IClassFixture<WebApplicationFactory<Program>>
+public class SwaggerTests : IClassFixture<ProductsApiFactory>
 {
     private readonly HttpClient _client;
 
-    public SwaggerTests(WebApplicationFactory<Program> factory)
+    public SwaggerTests(ProductsApiFactory factory)
     {
         _client = factory.CreateClient();
     }

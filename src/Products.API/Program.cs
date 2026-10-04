@@ -47,7 +47,12 @@ builder.Services.Configure<Microsoft.AspNetCore.Mvc.ApiBehaviorOptions>(options 
 // BTW remember that a Singleton means that there will be a single instance in all of the code of this
 // thus, everybody who asks for IProductService or ProductService will get the same exact object
 builder.Services.AddSingleton<Products.API.Services.IActiveOrdersChecker, Products.API.Services.NoOpActiveOrdersChecker>();
-builder.Services.AddSingleton<Products.API.Services.IProductService, Products.API.Services.ProductService>();
+builder.Services.AddSingleton<Products.API.Services.IProductService>(sp =>
+{
+    var connectionString = sp.GetRequiredService<IConfiguration>().GetConnectionString("DefaultConnection")
+        ?? "Data Source=products.db";
+    return new ProductService(sp.GetRequiredService<Products.API.Services.IActiveOrdersChecker>(), connectionString);
+});
 
 // Exception handlers (order matters: most specific first, generic last)
 builder.Services.AddExceptionHandler<Products.API.ExceptionHandlers.NotFoundExceptionHandler>();
@@ -60,7 +65,6 @@ builder.Services.AddHealthChecks(); // Only the base functionality by dot net, n
 var app = builder.Build();
 
 // Open the SQLite file and create the products table if it is missing.
-// ProductService still uses the in-memory list.
 // a if a is not None else b == a ?? b
 var connectionString = app.Configuration.GetConnectionString("DefaultConnection")
     ?? "Data Source=products.db";
