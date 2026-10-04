@@ -1,14 +1,15 @@
-﻿using System.Net;
+using System.Net;
 using System.Net.Http.Json;
 using FluentAssertions;
+using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace Products.API.Tests;
 
-public class HealthChecksTests : IClassFixture<ProductsApiFactory>
+public class HealthChecksTests : IClassFixture<WebApplicationFactory<Program>>
 {
     private readonly HttpClient _client;
 
-    public HealthChecksTests(ProductsApiFactory factory)
+    public HealthChecksTests(WebApplicationFactory<Program> factory)
     {
         _client = factory.CreateClient();
     }
