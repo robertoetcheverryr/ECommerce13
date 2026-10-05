@@ -198,13 +198,13 @@ dotnet test
 - Estructura de la solución + 5 microservicios + tests + CI (GitHub Actions)
 - **Products.API**
     - Endpoints 4.1: GET lista (`?categoria=`, `?nombre=` parcial), GET by id, POST, PUT, DELETE
-    - Persistencia in-memory (`List<Product>`). Mientras esperamos la Lib de la catedra.
+    - Persistencia en SQLite con Dapper (`Microsoft.Data.Sqlite`). Al iniciar, `DatabaseInitializer` crea la tabla `products` si no existe, con las columnas del producto: Id, Nombre, Descripcion, Precio, Stock, Categoria, FechaCreacion. Archivo `products.db` (`ConnectionStrings:DefaultConnection`). El patrón de base lo tomamos del ejemplo de la cátedra: [toDoList-2026, branch `feature/completo`](https://github.com/cai-uba/toDoList-2026/tree/feature/completo) (SQLite + Dapper, `CREATE TABLE IF NOT EXISTS` al startup).
     - Validaciones con Data Annotations (PRD-002)
     - `ErrorCodes` + excepciones de dominio (`NotFound`, `Validation`, `BusinessRule` con `Detail`, `Global`)
     - `IExceptionHandler`s registrados en orden de especificidad
     - PRD-003 solo en POST. Ya que no esta en la spec, PUT no revalida unicidad nombre+categoría
     - PRD-004 vía `IActiveOrdersChecker` + `NoOpActiveOrdersChecker`. Los tests inyectan un checker que siempre devuelve true
-    - Health checks 5.4: `/health` (ambas sondas), `/health/ready` (SQLite `SELECT 1`), `/health/live` (proceso). JSON `{ status }`
+    - Health checks 5.4: `/health` (ambas sondas), `/health/ready` (tabla `products`), `/health/live` (proceso). JSON `{ status }`
     - Swagger: XML comments, `[ProducesResponseType]` con los status del contrato (incluye 500/PRD-005)
     - Ejemplos de request/response por status: `ProductsSwaggerExamplesFilter` (`IOperationFilter`)
     - Tests E2E (xUnit + WebApplicationFactory + FluentAssertions)
@@ -267,14 +267,14 @@ Todavía no está: propagación outbound por `HttpClient` (Products no llama a n
 Spec 5.4, por ahora solo Products.API.
 
 - `GET /health` corre las dos sondas y devuelve el peor estado.
-- `GET /health/ready` solo la de SQLite (`SELECT 1`, tag `ready`).
+- `GET /health/ready` solo la de SQLite (tabla `products`, tag `ready`).
 - `GET /health/live` solo la del proceso (tag `live`).
 - Body: `{ "status": "Healthy" | "Degraded" | "Unhealthy" }`.
 - Unhealthy sale con 503. Healthy y Degraded con 200.
 
-La sonda de ready abre `ConnectionStrings:DefaultConnection` (`Data Source=products.db`).
-`SELECT 1` no mira tablas. Si el archivo no existe, SQLite lo crea vacío. Los productos siguen en la lista en memoria.
-Cuando entre la persistencia, hay que confirmar que la tabla existe y tratar una respuesta vacía como Unhealthy.
+La prueba de ready abre `ConnectionStrings:DefaultConnection` (`Data Source=products.db`) y busca la tabla `products`.
+Healthy significa que ese archivo ya tenía la tabla, o que el startup acaba de crearla.
+Si el archivo abre pero no tiene `products`, la sonda devuelve Unhealthy. Si no se puede abrir, también.
 No hay realmente razon para Degraded en este projecto, por lo chico.
 
 Probar: `GET http://localhost:5001/health`, `/health/ready` y `/health/live`.
@@ -287,3 +287,4 @@ Probar: `GET http://localhost:5001/health`, `/health/ready` y `/health/live`.
 - Serilog
 - Health Checks
 - IExceptionHandler
+- SQLite (`Microsoft.Data.Sqlite`) y Dapper. Patrón de persistencia tomado del ejemplo de la cátedra: [toDoList-2026, branch `feature/completo`](https://github.com/cai-uba/toDoList-2026/tree/feature/completo)

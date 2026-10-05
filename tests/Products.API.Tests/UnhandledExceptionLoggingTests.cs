@@ -1,6 +1,5 @@
 using System.Net;
 using FluentAssertions;
-using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Products.API.DTOs;
 using Products.API.Exceptions;
@@ -10,11 +9,11 @@ using Serilog.Events;
 
 namespace Products.API.Tests;
 
-public class UnhandledExceptionLoggingTests : IClassFixture<WebApplicationFactory<Program>>
+public class UnhandledExceptionLoggingTests : IClassFixture<ProductsApiFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly ProductsApiFactory _factory;
 
-    public UnhandledExceptionLoggingTests(WebApplicationFactory<Program> factory)
+    public UnhandledExceptionLoggingTests(ProductsApiFactory factory)
     {
         _factory = factory;
     }

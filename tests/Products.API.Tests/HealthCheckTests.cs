@@ -1,7 +1,10 @@
 using System.Net;
 using System.Text.Json;
 using FluentAssertions;
-using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Products.API.Services;
 
 namespace Products.API.Tests;
 
@@ -9,24 +12,19 @@ namespace Products.API.Tests;
 Spec 5.4: GET /health, GET /health/ready, GET /health/live.
 Body is JSON and status is Healthy, Degraded, or Unhealthy.
 
-Ready is the SQLite SELECT 1 probe. Live is the process check.
-Tests point the connection at :memory: so no database file is created
-in the test output directory. The failure case uses a missing directory.
+Ready is the products-table probe. Live is the process check.
+ProductsApiFactory points the connection at a temp file so no database file
+is created in the test output directory. The failure case uses a missing directory.
 */
-public class HealthChecksTests : IClassFixture<WebApplicationFactory<Program>>, IDisposable
+public class HealthChecksTests : IClassFixture<ProductsApiFactory>
 {
-    private const string MemoryConnectionString = "Data Source=:memory:";
-
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly ProductsApiFactory _factory;
     private readonly HttpClient _client;
 
-    public HealthChecksTests(WebApplicationFactory<Program> factory)
+    public HealthChecksTests(ProductsApiFactory factory)
     {
-        _factory = factory.WithWebHostBuilder(builder =>
-        {
-            builder.UseSetting("ConnectionStrings:DefaultConnection", MemoryConnectionString);
-        });
-        _client = _factory.CreateClient();
+        _factory = factory;
+        _client = factory.CreateClient();
     }
 
     [Fact]
@@ -62,11 +60,16 @@ public class HealthChecksTests : IClassFixture<WebApplicationFactory<Program>>, 
     [Fact]
     public async Task HealthReady_WhenSqliteCannotOpen_ShouldBeUnhealthy_AndLiveShouldStayHealthy()
     {
+        // Factory config is in-memory and wins over UseSetting, so the bad path is added the same way.
         using var factory = _factory.WithWebHostBuilder(builder =>
         {
-            builder.UseSetting(
-                "ConnectionStrings:DefaultConnection",
-                "Data Source=/this/path/does/not/exist/products-health.db");
+            builder.ConfigureAppConfiguration((_, config) =>
+            {
+                config.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["ConnectionStrings:DefaultConnection"] = "Data Source=/this/path/does/not/exist/products-health.db"
+                });
+            });
         });
         using var client = factory.CreateClient();
 
@@ -83,7 +86,41 @@ public class HealthChecksTests : IClassFixture<WebApplicationFactory<Program>>, 
         live.Status.Should().Be("Healthy");
     }
 
-    public void Dispose() => _factory.Dispose();
+    [Fact]
+    public async Task ReadyCheck_WhenProductsTableIsMissing_ShouldBeUnhealthy()
+    {
+        // Startup would create the table, so this calls the probe directly.
+        var dbPath = Path.Combine(Path.GetTempPath(), $"products-{Guid.NewGuid():N}.db");
+        var connectionString = $"Data Source={dbPath}";
+
+        try
+        {
+            using (var connection = new SqliteConnection(connectionString))
+            {
+                connection.Open();
+                using var other = connection.CreateCommand();
+                other.CommandText = "CREATE TABLE other (Id INTEGER);";
+                other.ExecuteNonQuery();
+            }
+
+            SqliteConnection.ClearAllPools();
+
+            var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:DefaultConnection"] = connectionString
+            }).Build();
+
+            var result = await new SqliteHealthCheck(config).CheckHealthAsync(new HealthCheckContext());
+
+            result.Status.Should().Be(HealthStatus.Unhealthy);
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            if (File.Exists(dbPath))
+                File.Delete(dbPath);
+        }
+    }
 
     private static async Task<StatusBody> GetStatusAsync(HttpClient client, string path)
     {

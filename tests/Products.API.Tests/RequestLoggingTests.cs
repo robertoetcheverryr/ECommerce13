@@ -1,14 +1,13 @@
 using FluentAssertions;
-using Microsoft.AspNetCore.Mvc.Testing;
 using static Products.API.Tests.LogEventAssertions;
 
 namespace Products.API.Tests;
 
-public class RequestLoggingTests : IClassFixture<WebApplicationFactory<Program>>
+public class RequestLoggingTests : IClassFixture<ProductsApiFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly ProductsApiFactory _factory;
 
-    public RequestLoggingTests(WebApplicationFactory<Program> factory)
+    public RequestLoggingTests(ProductsApiFactory factory)
     {
         _factory = factory;
     }
