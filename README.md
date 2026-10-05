@@ -1,4 +1,4 @@
-﻿# E-Commerce - Arquitectura de Microservicios
+# E-Commerce - Arquitectura de Microservicios
 
 ![.NET](https://img.shields.io/badge/.NET-10.0-purple)
 ![Build](https://github.com/robertoetcheverryr/ECommerce13/actions/workflows/tests.yml/badge.svg) 
@@ -204,7 +204,7 @@ dotnet test
     - `IExceptionHandler`s registrados en orden de especificidad
     - PRD-003 solo en POST. Ya que no esta en la spec, PUT no revalida unicidad nombre+categoría
     - PRD-004 vía `IActiveOrdersChecker` + `NoOpActiveOrdersChecker`. Los tests inyectan un checker que siempre devuelve true
-    - Health checks básicos: `/health`, `/health/ready`, `/health/live`
+    - Health checks 5.4: `/health` (ambas sondas), `/health/ready` (SQLite `SELECT 1`), `/health/live` (proceso). JSON `{ status }`
     - Swagger: XML comments, `[ProducesResponseType]` con los status del contrato (incluye 500/PRD-005)
     - Ejemplos de request/response por status: `ProductsSwaggerExamplesFilter` (`IOperationFilter`)
     - Tests E2E (xUnit + WebApplicationFactory + FluentAssertions)
@@ -226,7 +226,7 @@ dotnet test
     - Serilog: consola + JSON, request log, Warning/Error con errorCode, Endpoint y CorrelationId en cada evento del request
     - Correlation ID inbound (TODO outbound, no hay HttpClient): header `X-Correlation-Id`, campo `correlationId` en errores, propiedad en logs
 - Orders / Cart / Notifications: solo el esqueleto
-- Pendiente TP: Correlation ID outbound, health checks custom, Orders, Cart, Notifications, lib de persistencia de la catedra
+- Pendiente TP: Correlation ID outbound + resto de servicios, Orders, Cart, Notifications, health checks en los otros cuatro
 
 ## Swagger / OpenAPI
 
@@ -261,6 +261,23 @@ Implementado en Products.API (inbound). Header: `X-Correlation-Id`.
 - Probar: `GET http://localhost:5001/api/products` con y sin el header. Un 404 también debe repetir el id en el body.
 
 Todavía no está: propagación outbound por `HttpClient` (Products no llama a nadie)
+
+## Health Checks
+
+Spec 5.4, por ahora solo Products.API.
+
+- `GET /health` corre las dos sondas y devuelve el peor estado.
+- `GET /health/ready` solo la de SQLite (`SELECT 1`, tag `ready`).
+- `GET /health/live` solo la del proceso (tag `live`).
+- Body: `{ "status": "Healthy" | "Degraded" | "Unhealthy" }`.
+- Unhealthy sale con 503. Healthy y Degraded con 200.
+
+La sonda de ready abre `ConnectionStrings:DefaultConnection` (`Data Source=products.db`).
+`SELECT 1` no mira tablas. Si el archivo no existe, SQLite lo crea vacío. Los productos siguen en la lista en memoria.
+Cuando entre la persistencia, hay que confirmar que la tabla existe y tratar una respuesta vacía como Unhealthy.
+No hay realmente razon para Degraded en este projecto, por lo chico.
+
+Probar: `GET http://localhost:5001/health`, `/health/ready` y `/health/live`.
 
 ## Tecnologías previstas
 
