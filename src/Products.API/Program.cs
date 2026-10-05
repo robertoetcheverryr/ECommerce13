@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Products.API.Services;
 using Serilog;
 using Serilog.Context;
 using Serilog.Events;
@@ -46,7 +48,12 @@ builder.Services.Configure<Microsoft.AspNetCore.Mvc.ApiBehaviorOptions>(options 
 // BTW remember that a Singleton means that there will be a single instance in all of the code of this
 // thus, everybody who asks for IProductService or ProductService will get the same exact object
 builder.Services.AddSingleton<Products.API.Services.IActiveOrdersChecker, Products.API.Services.NoOpActiveOrdersChecker>();
-builder.Services.AddSingleton<Products.API.Services.IProductService, Products.API.Services.ProductService>();
+builder.Services.AddSingleton<Products.API.Services.IProductService>(sp =>
+{
+    var connectionString = sp.GetRequiredService<IConfiguration>().GetConnectionString("DefaultConnection")
+        ?? "Data Source=products.db";
+    return new ProductService(sp.GetRequiredService<Products.API.Services.IActiveOrdersChecker>(), connectionString);
+});
 
 // Exception handlers (order matters: most specific first, generic last)
 builder.Services.AddExceptionHandler<Products.API.ExceptionHandlers.NotFoundExceptionHandler>();
@@ -60,6 +67,20 @@ builder.Services.AddHealthChecks()
     .AddCheck<Products.API.Services.SqliteHealthCheck>("sqlite", tags: ["ready"]);
 
 var app = builder.Build();
+
+// Open the SQLite file and create the products table if it is missing.
+// a if a is not None else b == a ?? b
+var connectionString = app.Configuration.GetConnectionString("DefaultConnection")
+    ?? "Data Source=products.db";
+try
+{
+    new DatabaseInitializer(connectionString).Initialize();
+}
+catch (SqliteException ex)
+{
+    // Error 14 (missing directory) must not kill the host. Ready reports Unhealthy; live still answers.
+    Log.Error(ex, "SQLite initialization failed. Ready check will be Unhealthy.");
+}
 
 if (app.Environment.IsDevelopment())
 {

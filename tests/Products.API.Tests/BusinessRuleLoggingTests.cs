@@ -1,18 +1,17 @@
 using System.Net;
 using System.Net.Http.Json;
 using FluentAssertions;
-using Microsoft.AspNetCore.Mvc.Testing;
 using Products.API.Exceptions;
 using Products.API.Models;
 using Serilog.Events;
 
 namespace Products.API.Tests;
 
-public class BusinessRuleLoggingTests : IClassFixture<WebApplicationFactory<Program>>
+public class BusinessRuleLoggingTests : IClassFixture<ProductsApiFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly ProductsApiFactory _factory;
 
-    public BusinessRuleLoggingTests(WebApplicationFactory<Program> factory)
+    public BusinessRuleLoggingTests(ProductsApiFactory factory)
     {
         _factory = factory;
     }
