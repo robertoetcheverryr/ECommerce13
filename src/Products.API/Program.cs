@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Products.API.Services;
 using Serilog;
@@ -71,7 +72,15 @@ var app = builder.Build();
 // a if a is not None else b == a ?? b
 var connectionString = app.Configuration.GetConnectionString("DefaultConnection")
     ?? "Data Source=products.db";
-new DatabaseInitializer(connectionString).Initialize();
+try
+{
+    new DatabaseInitializer(connectionString).Initialize();
+}
+catch (SqliteException ex)
+{
+    // Error 14 (missing directory) must not kill the host. Ready reports Unhealthy; live still answers.
+    Log.Error(ex, "SQLite initialization failed. Ready check will be Unhealthy.");
+}
 
 if (app.Environment.IsDevelopment())
 {
