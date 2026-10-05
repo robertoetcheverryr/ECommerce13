@@ -193,6 +193,29 @@ public class ProductsEndpointsTests : IClassFixture<ProductsApiFactory>
     }
 
     [Fact]
+    public async Task Create_WithFoldedDuplicateNameInSameCategory_ShouldReturnConflict_WithPrd003()
+    {
+        // NOCASE would allow this. fold strips the accent and the case.
+        var request = new
+        {
+            nombre = "notebook dell xps 15",
+            descripcion = "Otro notebook",
+            precio = 1600.00m,
+            stock = 5,
+            categoria = "electronica"
+        };
+
+        var response = await _client.PostAsJsonAsync("/api/products", request);
+
+        await AssertConflict(
+            response,
+            "/api/products",
+            ErrorCodes.PRD_003,
+            string.Format(ErrorCodes.PRD_003_Message, "electronica"),
+            ErrorCodes.PRD_003_Detail);
+    }
+
+    [Fact]
     public async Task Update_WhenProductExists_ShouldReturnOk_WithUpdatedProduct()
     {
         var createRequest = new

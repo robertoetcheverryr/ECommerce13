@@ -81,11 +81,13 @@ public class ProductService : IProductService
         */
 
         using var connection = Open();
+        // Same fold as the list filter: accents and case do not make a second product.
+        connection.CreateFunction("fold", (string? value) => Fold(value));
         var exists = connection.ExecuteScalar<int>("""
             SELECT COUNT(1)
             FROM products
-            WHERE Nombre = @Nombre COLLATE NOCASE
-              AND Categoria = @Categoria COLLATE NOCASE
+            WHERE fold(Nombre) = fold(@Nombre)
+              AND fold(Categoria) = fold(@Categoria)
             """, new { request.Nombre, request.Categoria }) > 0;
 
         if (exists)
