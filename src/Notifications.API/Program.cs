@@ -2,13 +2,19 @@
 using Notifications.API.ExceptionHandlers;
 using Serilog;
 using Serilog.Context;
+using Serilog.Formatting.Json;
+using System.Diagnostics;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Configuración de Serilog
 Log.Logger = new LoggerConfiguration()
+    .Enrich.FromLogContext()
+    .Enrich.WithProperty("Service", "Notifications.API")
     .WriteTo.Console()
     .WriteTo.File(
+        new JsonFormatter(),
         "logs/notifications-api-.json",
         rollingInterval: RollingInterval.Day)
     .CreateLogger();
@@ -28,6 +34,11 @@ builder.Services.AddSwaggerGen(options =>
         Version = "v1",
         Description = "API para el registro y envío de notificaciones."
     });
+
+    var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+
+    options.IncludeXmlComments(xmlPath);
 });
 
 // Exception Handlers
@@ -49,9 +60,31 @@ app.Use(async (context, next) =>
     context.Request.Headers["X-Correlation-Id"] = correlationId;
     context.Response.Headers["X-Correlation-Id"] = correlationId;
 
+    var stopwatch = Stopwatch.StartNew();
+
     using (LogContext.PushProperty("CorrelationId", correlationId))
+    using (LogContext.PushProperty("Endpoint", context.Request.Path))
     {
-        await next();
+        Log.Information(
+            "Request iniciado: {Method} {Path}",
+            context.Request.Method,
+            context.Request.Path);
+
+        try
+        {
+            await next();
+        }
+        finally
+        {
+            stopwatch.Stop();
+
+            Log.Information(
+                "Request finalizado: {Method} {Path} - StatusCode: {StatusCode} - DuracionMs: {DurationMs}",
+                context.Request.Method,
+                context.Request.Path,
+                context.Response.StatusCode,
+                stopwatch.ElapsedMilliseconds);
+        }
     }
 });
 // Swagger
@@ -71,7 +104,26 @@ app.UseHttpsRedirection();
 app.MapControllers();
 
 // Health Checks
-app.MapHealthChecks("/health");
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    ResponseWriter = async (context, report) =>
+    {
+        context.Response.ContentType = "application/json";
+
+        var response = new
+        {
+            status = report.Status.ToString(),
+            checks = report.Entries.Select(entry => new
+            {
+                name = entry.Key,
+                status = entry.Value.Status.ToString()
+            })
+        };
+
+        await context.Response.WriteAsJsonAsync(response);
+    }
+});
+
 app.MapHealthChecks("/health/live");
 app.MapHealthChecks("/health/ready");
 
