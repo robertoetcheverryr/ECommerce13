@@ -24,7 +24,7 @@ public class UnhandledExceptionTests : IClassFixture<UsersApiFactory>
     public async Task Register_WhenServiceThrows_ShouldLogError_WithUsr006()
     {
         var sink = new CollectingSink();
-        var client = _factory.CreateClientWithLogs(sink, services =>
+        using var client = _factory.CreateClientWithLogs(sink, services =>
         {
             var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(IUserService));
             if (descriptor is not null)

@@ -21,7 +21,7 @@ public class BusinessRuleLoggingTests : IClassFixture<UsersApiFactory>
     public async Task Register_WithInvalidData_ShouldLogWarning_WithUsr002()
     {
         var sink = new CollectingSink();
-        var client = _factory.CreateClientWithLogs(sink);
+        using var client = _factory.CreateClientWithLogs(sink);
 
         var response = await client.PostAsJsonAsync("/api/users/register", new
         {
@@ -42,7 +42,7 @@ public class BusinessRuleLoggingTests : IClassFixture<UsersApiFactory>
     public async Task Register_WithDuplicateEmail_ShouldLogWarning_WithUsr001()
     {
         var sink = new CollectingSink();
-        var client = _factory.CreateClientWithLogs(sink);
+        using var client = _factory.CreateClientWithLogs(sink);
         var email = $"dup-log-{Guid.NewGuid()}@email.com";
         var body = new
         {
@@ -71,7 +71,7 @@ public class BusinessRuleLoggingTests : IClassFixture<UsersApiFactory>
     public async Task Login_WithWrongPassword_ShouldLogWarning_WithUsr003()
     {
         var sink = new CollectingSink();
-        var client = _factory.CreateClientWithLogs(sink);
+        using var client = _factory.CreateClientWithLogs(sink);
         var email = $"wrong-log-{Guid.NewGuid()}@email.com";
 
         (await client.PostAsJsonAsync("/api/users/register", new
@@ -100,7 +100,7 @@ public class BusinessRuleLoggingTests : IClassFixture<UsersApiFactory>
     public async Task Login_AfterThreeFailedAttempts_ShouldLogWarning_WithUsr004()
     {
         var sink = new CollectingSink();
-        var client = _factory.CreateClientWithLogs(sink);
+        using var client = _factory.CreateClientWithLogs(sink);
         var email = $"lock-log-{Guid.NewGuid()}@email.com";
         const string password = "OtraPassword123!";
 
@@ -140,7 +140,7 @@ public class BusinessRuleLoggingTests : IClassFixture<UsersApiFactory>
     public async Task Login_WhenManuallyBlocked_ShouldLogWarning_WithUsr005()
     {
         var sink = new CollectingSink();
-        var host = _factory.WithLogs(sink);
+        using var host = _factory.WithLogs(sink);
         var client = host.CreateClient();
         var email = $"manual-log-{Guid.NewGuid()}@email.com";
         const string password = "OtraPassword123!";

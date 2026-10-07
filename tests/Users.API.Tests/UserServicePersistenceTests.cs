@@ -11,7 +11,7 @@ public class UserServicePersistenceTests
     public void Register_ShouldBeVisibleToANewServiceInstance()
     {
         var dbPath = Path.Combine(Path.GetTempPath(), $"users-{Guid.NewGuid():N}.db");
-        var connectionString = $"Data Source={dbPath}";
+        var connectionString = $"Data Source={dbPath};Pooling=false";
 
         try
         {
@@ -44,7 +44,6 @@ public class UserServicePersistenceTests
         }
         finally
         {
-            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
             if (File.Exists(dbPath))
                 File.Delete(dbPath);
         }
@@ -54,7 +53,7 @@ public class UserServicePersistenceTests
     public void FailedAttempts_ShouldLockANewServiceInstance()
     {
         var dbPath = Path.Combine(Path.GetTempPath(), $"users-{Guid.NewGuid():N}.db");
-        var connectionString = $"Data Source={dbPath}";
+        var connectionString = $"Data Source={dbPath};Pooling=false";
 
         try
         {
@@ -91,7 +90,6 @@ public class UserServicePersistenceTests
         }
         finally
         {
-            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
             if (File.Exists(dbPath))
                 File.Delete(dbPath);
         }
@@ -101,7 +99,7 @@ public class UserServicePersistenceTests
     public void MarkManuallyBlocked_ShouldBeVisibleToANewServiceInstance()
     {
         var dbPath = Path.Combine(Path.GetTempPath(), $"users-{Guid.NewGuid():N}.db");
-        var connectionString = $"Data Source={dbPath}";
+        var connectionString = $"Data Source={dbPath};Pooling=false";
 
         try
         {
@@ -128,7 +126,6 @@ public class UserServicePersistenceTests
         }
         finally
         {
-            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
             if (File.Exists(dbPath))
                 File.Delete(dbPath);
         }

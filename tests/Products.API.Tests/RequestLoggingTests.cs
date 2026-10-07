@@ -16,7 +16,7 @@ public class RequestLoggingTests : IClassFixture<ProductsApiFactory>
     public async Task GetAll_ShouldLogRequestMethodPathStatusAndDuration()
     {
         var sink = new CollectingSink();
-        var client = _factory.CreateClientWithLogs(sink);
+        using var client = _factory.CreateClientWithLogs(sink);
 
         var response = await client.GetAsync("/api/products");
         response.EnsureSuccessStatusCode();

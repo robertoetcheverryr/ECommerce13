@@ -10,7 +10,7 @@ public class DatabaseInitializerTests
     public void Initialize_ShouldOpenTheDatabase_UsersTableShouldExist()
     {
         var dbPath = Path.Combine(Path.GetTempPath(), $"users-{Guid.NewGuid():N}.db");
-        var connectionString = $"Data Source={dbPath}";
+        var connectionString = $"Data Source={dbPath};Pooling=false";
 
         try
         {
@@ -53,7 +53,6 @@ public class DatabaseInitializerTests
         }
         finally
         {
-            SqliteConnection.ClearAllPools();
             if (File.Exists(dbPath))
                 File.Delete(dbPath);
         }

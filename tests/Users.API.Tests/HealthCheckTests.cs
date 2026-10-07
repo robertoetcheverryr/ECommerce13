@@ -91,7 +91,7 @@ public class HealthChecksTests : IClassFixture<UsersApiFactory>
     {
         // Startup would create the table, so this calls the probe directly.
         var dbPath = Path.Combine(Path.GetTempPath(), $"users-{Guid.NewGuid():N}.db");
-        var connectionString = $"Data Source={dbPath}";
+        var connectionString = $"Data Source={dbPath};Pooling=false";
 
         try
         {
@@ -103,7 +103,6 @@ public class HealthChecksTests : IClassFixture<UsersApiFactory>
                 other.ExecuteNonQuery();
             }
 
-            SqliteConnection.ClearAllPools();
 
             var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
             {
@@ -116,7 +115,6 @@ public class HealthChecksTests : IClassFixture<UsersApiFactory>
         }
         finally
         {
-            SqliteConnection.ClearAllPools();
             if (File.Exists(dbPath))
                 File.Delete(dbPath);
         }

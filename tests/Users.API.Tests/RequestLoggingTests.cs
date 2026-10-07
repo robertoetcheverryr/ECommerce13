@@ -16,7 +16,7 @@ public class RequestLoggingTests : IClassFixture<UsersApiFactory>
     public async Task Health_ShouldLogRequestMethodPathStatusAndDuration()
     {
         var sink = new CollectingSink();
-        var client = _factory.CreateClientWithLogs(sink);
+        using var client = _factory.CreateClientWithLogs(sink);
 
         var response = await client.GetAsync("/health");
         response.EnsureSuccessStatusCode();

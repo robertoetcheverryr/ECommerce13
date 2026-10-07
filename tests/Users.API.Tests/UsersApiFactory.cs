@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -17,7 +16,7 @@ public sealed class UsersApiFactory : WebApplicationFactory<Program>
         {
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["ConnectionStrings:DefaultConnection"] = $"Data Source={dbPath}"
+                ["ConnectionStrings:DefaultConnection"] = $"Data Source={dbPath};Pooling=false"
             });
         });
         builder.ConfigureServices(services =>
@@ -36,9 +35,18 @@ public sealed class UsersApiFactory : WebApplicationFactory<Program>
 
         public Task StopAsync(CancellationToken cancellationToken)
         {
-            SqliteConnection.ClearAllPools();
-            if (File.Exists(_dbPath))
-                File.Delete(_dbPath);
+            // Windows denies the delete while SQLite still has the file, and that
+            // exception is UnauthorizedAccessException, not IOException. A leftover
+            // temp file must not fail the test.
+            try
+            {
+                if (File.Exists(_dbPath))
+                    File.Delete(_dbPath);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+            }
+
             return Task.CompletedTask;
         }
     }

@@ -61,7 +61,7 @@ public class CorrelationIdTests : IClassFixture<ProductsApiFactory>
     public async Task GetAll_ShouldIncludeCorrelationIdOnRequestLogs()
     {
         var sink = new CollectingSink();
-        var client = _factory.CreateClientWithLogs(sink);
+        using var client = _factory.CreateClientWithLogs(sink);
         var incoming = "corr-logged-002";
         var request = new HttpRequestMessage(HttpMethod.Get, "/api/products");
         request.Headers.Add(CorrelationId.HeaderName, incoming);
@@ -77,7 +77,7 @@ public class CorrelationIdTests : IClassFixture<ProductsApiFactory>
     public async Task GetById_WhenMissing_ShouldRepeatCorrelationIdOnHeaderLogsAndErrorBody()
     {
         var sink = new CollectingSink();
-        var client = _factory.CreateClientWithLogs(sink);
+        using var client = _factory.CreateClientWithLogs(sink);
         var incoming = "corr-error-003";
         var id = Guid.Parse("00000000-0000-0000-0000-000000000099");
         var request = new HttpRequestMessage(HttpMethod.Get, $"/api/products/{id}");

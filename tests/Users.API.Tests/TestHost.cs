@@ -15,7 +15,8 @@ internal static class TestHost
         CollectingSink? sink = null,
         Action<IServiceCollection>? configure = null)
     {
-        return factory.WithLogs(sink, configure).CreateClient();
+        var host = factory.WithLogs(sink, configure);
+        return HostBoundClient.Create(host);
     }
 
     // Same host as CreateClientWithLogs. The manual-lock tests need its UserService,
@@ -51,5 +52,38 @@ internal static class TestHost
                 configure?.Invoke(services);
             });
         });
+    }
+}
+
+// HttpClient sends through the handler. Overriding SendAsync is not enough.
+// Disposing the client disposes the host WithLogs built.
+file sealed class HostBoundClient
+{
+    public static HttpClient Create(WebApplicationFactory<Program> host)
+    {
+        try
+        {
+            var client = host.CreateDefaultClient(new DisposeHostHandler(host));
+            return client;
+        }
+        catch
+        {
+            host.Dispose();
+            throw;
+        }
+    }
+
+    private sealed class DisposeHostHandler : DelegatingHandler
+    {
+        private readonly WebApplicationFactory<Program> _host;
+
+        public DisposeHostHandler(WebApplicationFactory<Program> host) => _host = host;
+
+        protected override void Dispose(bool disposing)
+        {
+            base.Dispose(disposing);
+            if (disposing)
+                _host.Dispose();
+        }
     }
 }
