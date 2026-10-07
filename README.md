@@ -30,7 +30,7 @@ Cada funcionalidad se expone como una REST API independiente.
 ## Códigos de error
 
 Todas las respuestas 4xx/5xx usan Problem Details más `errorCode` y `errorMessage`.  
-Hoy solo Products.API implementa el catálogo; el resto queda documentado para cuando existan esos servicios.
+Hoy Products.API y Users.API implementan el catálogo; el resto queda documentado para cuando existan esos servicios.
 
 ### Products.API
 
@@ -47,10 +47,10 @@ Hoy solo Products.API implementa el catálogo; el resto queda documentado para c
 | errorCode | HTTP | errorMessage | Cuándo |
 |-----------|------|--------------|--------|
 | **USR-001** | 409 | El email ya está registrado. | POST /register con email existente |
-| **USR-002** | 400 | Los datos del usuario son inválidos. | POST /register inválido |
-| **USR-003** | 401 | Credenciales incorrectas. | POST /login email o password no coinciden |
-| **USR-004** | 403 | Usuario bloqueado por demasiados intentos fallidos. | 3+ intentos fallidos |
-| **USR-005** | 403 | Usuario bloqueado por detección de fraude. | Bloqueo manual |
+| **USR-002** | 400 | Los datos del usuario son inválidos. | POST /register o /login inválido |
+| **USR-003** | 401 | Credenciales incorrectas. | POST /login email inexistente o password no coincide |
+| **USR-004** | 403 | Usuario bloqueado por demasiados intentos fallidos. | POST /login con Activo false e IntentosFallidos >= 3. El tercer fallo sigue siendo USR-003 |
+| **USR-005** | 403 | Usuario bloqueado por detección de fraude. | POST /login con Activo false e IntentosFallidos < 3 |
 | **USR-006** | 500 | Error interno al procesar el usuario. | Error inesperado |
 
 ### Orders.API
@@ -95,7 +95,8 @@ ECommerce13/
 │   ├── Cart.API/
 │   └── Notifications.API/
 ├── tests/
-│   └── Products.API.Tests/
+│   ├── Products.API.Tests/
+│   └── Users.API.Tests/
 ├── docs/
 └── README.md
 ```
@@ -161,6 +162,7 @@ dotnet test
 
 ```powershell
 dotnet run --project src/Products.API
+dotnet run --project src/Users.API
 ```
 
 Puertos configurados:
@@ -210,8 +212,23 @@ dotnet test
     - Tests E2E (xUnit + WebApplicationFactory + FluentAssertions)
     - Serilog: consola + JSON, request log, Warning/Error con errorCode, Endpoint y CorrelationId en cada evento del request
     - Correlation ID (TODO outbound): header `X-Correlation-Id`, campo `correlationId` en errores, propiedad en logs
-- Users / Orders / Cart / Notifications: solo el esqueleto
-- Pendiente TP: Correlation ID outbound + resto de servicios, Users, Orders, Cart, Notifications, health checks en los otros cuatro
+- **Users.API**
+    - Endpoints 4.2: POST /api/users/register, POST /api/users/login. No hay GET ni lock/unlock de admin
+    - Persistencia en SQLite con Dapper (`Microsoft.Data.Sqlite`). Al iniciar, `DatabaseInitializer` crea la tabla `users` si no existe, con las columnas del usuario: Id, Nombre, Apellido, Email, PasswordHash, FechaRegistro, Activo, IntentosFallidos. Archivo `users.db` (`ConnectionStrings:DefaultConnection`). El email se guarda en minúsculas. La unicidad sigue en el servicio, no hay índice unique, así un archivo que nos dejen carga igual.
+    - Validaciones con Data Annotations (USR-002). Email y password delegan en `Services/Email` y `Services/Password`
+    - `ErrorCodes` + excepciones de dominio (`NotFound`, `Validation`, `BusinessRule` con `Detail`, `Global`)
+    - `IExceptionHandler`s registrados en orden de especificidad
+    - USR-003 no distingue email inexistente de password incorrecta para evitar dar informacion a un atacante
+    - USR-004: al tercer fallo consecutivo `Activo` pasa a false y ese request sigue siendo USR-003. El login siguiente es 403. Un login correcto antes resetea `IntentosFallidos`. El contador se escribe antes de tirar la excepción, si no un restart se olvida el bloqueo
+    - USR-005: `Activo == false` con `IntentosFallidos < 3`. No hay endpoint para marcarlo; los tests usan `UserService.MarkManuallyBlocked`
+    - PasswordHash nunca sale en register ni login
+    - Health checks 5.4: `/health` (ambos chequeos), `/health/ready` (tabla `users`), `/health/live` (proceso). JSON `{ status }`
+    - Swagger: XML comments, `[ProducesResponseType]`, `UsersSwaggerExamplesFilter`. El 403 de ejemplo es USR-004; USR-005 va como ejemplo nombrado
+    - Tests E2E (xUnit + WebApplicationFactory + FluentAssertions). `UsersApiFactory` apunta a un sqlite temporal, no a `users.db` en la carpeta de output
+    - Serilog: consola + JSON, request log, Warning/Error con errorCode, Endpoint y CorrelationId en cada evento del request
+    - Correlation ID inbound (TODO outbound, no hay HttpClient): header `X-Correlation-Id`, campo `correlationId` en errores, propiedad en logs
+- Orders / Cart / Notifications: solo el esqueleto
+- Pendiente TP: Correlation ID outbound + resto de servicios, Orders, Cart, Notifications, health checks en esos tres
 
 ## Swagger / OpenAPI
 
@@ -238,31 +255,32 @@ El TP pide estos usos de log:
 
 ## Correlation ID
 
-Implementado en Products.API (inbound). Header: `X-Correlation-Id`.
+Implementado en Products.API y Users.API (inbound). Header: `X-Correlation-Id`.
 
 - Si el cliente manda un valor no vacío (después de trim), se reutiliza. No tiene que ser un Guid.
 - Si falta o viene en blanco, se genera un Guid.
 - El mismo valor sale en el header de respuesta, en los logs (`CorrelationId`) y en el campo `correlationId` de cualquier error 4xx/5xx.
-- Probar: `GET http://localhost:5001/api/products` con y sin el header. Un 404 también debe repetir el id en el body.
+- Probar: `GET http://localhost:5001/api/products` o `POST http://localhost:5002/api/users/login` con y sin el header. Un 401 o un 404 también debe repetir el id en el body.
 
-Todavía no está: propagación outbound por `HttpClient` (Products no llama a nadie)
+Todavía no está: propagación outbound por `HttpClient` (ni Products ni Users llaman a nadie)
 
 ## Health Checks
 
-Spec 5.4, por ahora solo Products.API.
+Spec 5.4, en Products.API y Users.API.
 
-- `GET /health` corre las dos sondas y devuelve el peor estado.
-- `GET /health/ready` solo la de SQLite (tabla `products`, tag `ready`).
-- `GET /health/live` solo la del proceso (tag `live`).
+- `GET /health` corre los dos chequeos y devuelve el peor estado.
+- `GET /health/ready` solo el de SQLite (tag `ready`).
+- `GET /health/live` solo el del proceso (tag `live`).
 - Body: `{ "status": "Healthy" | "Degraded" | "Unhealthy" }`.
 - Unhealthy sale con 503. Healthy y Degraded con 200.
 
-La prueba de ready abre `ConnectionStrings:DefaultConnection` (`Data Source=products.db`) y busca la tabla `products`.
+La prueba de ready abre `ConnectionStrings:DefaultConnection` y busca la tabla del servicio: `products` en `products.db`, `users` en `users.db`.
 Healthy significa que ese archivo ya tenía la tabla, o que el startup acaba de crearla.
-Si el archivo abre pero no tiene `products`, la sonda devuelve Unhealthy. Si no se puede abrir, también.
+Si el archivo abre pero no tiene esa tabla, el chequeo devuelve Unhealthy. Si no se puede abrir, también.
+Un directorio que no existe no tira abajo el host: el startup atrapa el error y ready queda Unhealthy. Live sigue contestando.
 No hay realmente razon para Degraded en este projecto, por lo chico.
 
-Probar: `GET http://localhost:5001/health`, `/health/ready` y `/health/live`.
+Probar: `GET http://localhost:5001/health` y `GET http://localhost:5002/health`, más `/health/ready` y `/health/live` en cada uno.
 
 ## Tecnologías previstas
 

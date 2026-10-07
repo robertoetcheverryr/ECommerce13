@@ -1,0 +1,178 @@
+using System.Net;
+using System.Net.Http.Json;
+using FluentAssertions;
+using Microsoft.Extensions.DependencyInjection;
+using Users.API.Exceptions;
+using Users.API.Services;
+using Serilog.Events;
+
+namespace Users.API.Tests;
+
+public class BusinessRuleLoggingTests : IClassFixture<UsersApiFactory>
+{
+    private readonly UsersApiFactory _factory;
+
+    public BusinessRuleLoggingTests(UsersApiFactory factory)
+    {
+        _factory = factory;
+    }
+
+    [Fact]
+    public async Task Register_WithInvalidData_ShouldLogWarning_WithUsr002()
+    {
+        var sink = new CollectingSink();
+        using var client = _factory.CreateClientWithLogs(sink);
+
+        var response = await client.PostAsJsonAsync("/api/users/register", new
+        {
+            nombre = "",
+            apellido = "",
+            email = "not-an-email",
+            password = ""
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        AssertWarning(sink, ErrorCodes.USR_002, ErrorCodes.USR_002);
+        sink.Events.ShouldAllHaveEndpoint("/api/users/register");
+        sink.Events.ShouldAllHaveCorrelationId(
+            response.Headers.GetValues(CorrelationId.HeaderName).Single());
+    }
+
+    [Fact]
+    public async Task Register_WithDuplicateEmail_ShouldLogWarning_WithUsr001()
+    {
+        var sink = new CollectingSink();
+        using var client = _factory.CreateClientWithLogs(sink);
+        var email = $"dup-log-{Guid.NewGuid()}@email.com";
+        var body = new
+        {
+            nombre = "María",
+            apellido = "González",
+            email,
+            password = "MiPassword123!"
+        };
+
+        (await client.PostAsJsonAsync("/api/users/register", body)).StatusCode.Should().Be(HttpStatusCode.Created);
+        sink.Events.Clear();
+
+        var response = await client.PostAsJsonAsync("/api/users/register", body);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        AssertWarning(
+            sink,
+            ErrorCodes.USR_001,
+            string.Format(ErrorCodes.USR_001_Message, email));
+        sink.Events.ShouldAllHaveEndpoint("/api/users/register");
+        sink.Events.ShouldAllHaveCorrelationId(
+            response.Headers.GetValues(CorrelationId.HeaderName).Single());
+    }
+
+    [Fact]
+    public async Task Login_WithWrongPassword_ShouldLogWarning_WithUsr003()
+    {
+        var sink = new CollectingSink();
+        using var client = _factory.CreateClientWithLogs(sink);
+        var email = $"wrong-log-{Guid.NewGuid()}@email.com";
+
+        (await client.PostAsJsonAsync("/api/users/register", new
+        {
+            nombre = "Ana",
+            apellido = "Pérez",
+            email,
+            password = "OtraPassword123!"
+        })).StatusCode.Should().Be(HttpStatusCode.Created);
+        sink.Events.Clear();
+
+        var response = await client.PostAsJsonAsync("/api/users/login", new
+        {
+            email,
+            password = "NotThePassword123!"
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        AssertWarning(sink, ErrorCodes.USR_003, ErrorCodes.USR_003_Message);
+        sink.Events.ShouldAllHaveEndpoint("/api/users/login");
+        sink.Events.ShouldAllHaveCorrelationId(
+            response.Headers.GetValues(CorrelationId.HeaderName).Single());
+    }
+
+    [Fact]
+    public async Task Login_AfterThreeFailedAttempts_ShouldLogWarning_WithUsr004()
+    {
+        var sink = new CollectingSink();
+        using var client = _factory.CreateClientWithLogs(sink);
+        var email = $"lock-log-{Guid.NewGuid()}@email.com";
+        const string password = "OtraPassword123!";
+
+        (await client.PostAsJsonAsync("/api/users/register", new
+        {
+            nombre = "Ana",
+            apellido = "Pérez",
+            email,
+            password
+        })).StatusCode.Should().Be(HttpStatusCode.Created);
+
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            (await client.PostAsJsonAsync("/api/users/login", new
+            {
+                email,
+                password = "NotThePassword123!"
+            })).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        }
+
+        sink.Events.Clear();
+
+        var response = await client.PostAsJsonAsync("/api/users/login", new
+        {
+            email,
+            password
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        AssertWarning(sink, ErrorCodes.USR_004, ErrorCodes.USR_004_Message);
+        sink.Events.ShouldAllHaveEndpoint("/api/users/login");
+        sink.Events.ShouldAllHaveCorrelationId(
+            response.Headers.GetValues(CorrelationId.HeaderName).Single());
+    }
+
+    [Fact]
+    public async Task Login_WhenManuallyBlocked_ShouldLogWarning_WithUsr005()
+    {
+        var sink = new CollectingSink();
+        using var host = _factory.WithLogs(sink);
+        var client = host.CreateClient();
+        var email = $"manual-log-{Guid.NewGuid()}@email.com";
+        const string password = "OtraPassword123!";
+
+        (await client.PostAsJsonAsync("/api/users/register", new
+        {
+            nombre = "Ana",
+            apellido = "Pérez",
+            email,
+            password
+        })).StatusCode.Should().Be(HttpStatusCode.Created);
+        ((UserService)host.Services.GetRequiredService<IUserService>()).MarkManuallyBlocked(email);
+        sink.Events.Clear();
+
+        var response = await client.PostAsJsonAsync("/api/users/login", new
+        {
+            email,
+            password
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        AssertWarning(sink, ErrorCodes.USR_005, ErrorCodes.USR_005_Message);
+        sink.Events.ShouldAllHaveEndpoint("/api/users/login");
+        sink.Events.ShouldAllHaveCorrelationId(
+            response.Headers.GetValues(CorrelationId.HeaderName).Single());
+    }
+
+    private static void AssertWarning(CollectingSink sink, string errorCode, string errorMessage)
+    {
+        var warning = sink.Events.Should().ContainSingle(e =>
+            e.Level == LogEventLevel.Warning &&
+            e.RenderMessage().Contains(errorCode)).Subject;
+        warning.RenderMessage().Should().Contain(errorMessage);
+    }
+}

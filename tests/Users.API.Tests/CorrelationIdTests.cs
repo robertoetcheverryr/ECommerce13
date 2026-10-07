@@ -2,24 +2,23 @@ using System.Net;
 using System.Net.Http.Json;
 using FluentAssertions;
 
+namespace Users.API.Tests;
 
-namespace Products.API.Tests;
-
-public class CorrelationIdTests : IClassFixture<ProductsApiFactory>
+public class CorrelationIdTests : IClassFixture<UsersApiFactory>
 {
-    private readonly ProductsApiFactory _factory;
+    private readonly UsersApiFactory _factory;
 
-    public CorrelationIdTests(ProductsApiFactory factory)
+    public CorrelationIdTests(UsersApiFactory factory)
     {
         _factory = factory;
     }
 
     [Fact]
-    public async Task GetAll_WhenHeaderMissing_ShouldGenerateAndEchoCorrelationId()
+    public async Task Health_WhenHeaderMissing_ShouldGenerateAndEchoCorrelationId()
     {
         var client = _factory.CreateClient();
 
-        var response = await client.GetAsync("/api/products");
+        var response = await client.GetAsync("/health");
 
         response.EnsureSuccessStatusCode();
         var correlationId = GetHeader(response);
@@ -28,11 +27,11 @@ public class CorrelationIdTests : IClassFixture<ProductsApiFactory>
     }
 
     [Fact]
-    public async Task GetAll_WhenHeaderProvided_ShouldEchoTheSameValue()
+    public async Task Health_WhenHeaderProvided_ShouldEchoTheSameValue()
     {
         var client = _factory.CreateClient();
         var incoming = "corr-from-client-001";
-        var request = new HttpRequestMessage(HttpMethod.Get, "/api/products");
+        var request = new HttpRequestMessage(HttpMethod.Get, "/health");
         request.Headers.Add(CorrelationId.HeaderName, incoming);
 
         var response = await client.SendAsync(request);
@@ -42,10 +41,10 @@ public class CorrelationIdTests : IClassFixture<ProductsApiFactory>
     }
 
     [Fact]
-    public async Task GetAll_WhenHeaderIsBlank_ShouldGenerateANewId()
+    public async Task Health_WhenHeaderIsBlank_ShouldGenerateANewId()
     {
         var client = _factory.CreateClient();
-        var request = new HttpRequestMessage(HttpMethod.Get, "/api/products");
+        var request = new HttpRequestMessage(HttpMethod.Get, "/health");
         request.Headers.Add(CorrelationId.HeaderName, "   ");
 
         var response = await client.SendAsync(request);
@@ -58,43 +57,29 @@ public class CorrelationIdTests : IClassFixture<ProductsApiFactory>
     }
 
     [Fact]
-    public async Task GetAll_ShouldIncludeCorrelationIdOnRequestLogs()
+    public async Task Login_WhenUnauthorized_ShouldRepeatCorrelationIdOnHeaderAndErrorBody()
     {
-        var sink = new CollectingSink();
-        using var client = _factory.CreateClientWithLogs(sink);
-        var incoming = "corr-logged-002";
-        var request = new HttpRequestMessage(HttpMethod.Get, "/api/products");
-        request.Headers.Add(CorrelationId.HeaderName, incoming);
-
-        var response = await client.SendAsync(request);
-        response.EnsureSuccessStatusCode();
-
-        sink.Events.ShouldAllHaveEndpoint("/api/products");
-        sink.Events.ShouldAllHaveCorrelationId(incoming);
-    }
-
-    [Fact]
-    public async Task GetById_WhenMissing_ShouldRepeatCorrelationIdOnHeaderLogsAndErrorBody()
-    {
-        var sink = new CollectingSink();
-        using var client = _factory.CreateClientWithLogs(sink);
+        var client = _factory.CreateClient();
         var incoming = "corr-error-003";
-        var id = Guid.Parse("00000000-0000-0000-0000-000000000099");
-        var request = new HttpRequestMessage(HttpMethod.Get, $"/api/products/{id}");
+        var request = new HttpRequestMessage(HttpMethod.Post, "/api/users/login")
+        {
+            Content = JsonContent.Create(new
+            {
+                email = "nobody@email.com",
+                password = "WrongPassword123!"
+            })
+        };
         request.Headers.Add(CorrelationId.HeaderName, incoming);
 
         var response = await client.SendAsync(request);
 
-        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         GetHeader(response).Should().Be(incoming);
 
         var body = await response.Content.ReadFromJsonAsync<Dictionary<string, object>>();
         body.Should().NotBeNull();
         body.Should().ContainKey("correlationId");
         body["correlationId"].ToString().Should().Be(incoming);
-
-        sink.Events.ShouldAllHaveEndpoint($"/api/products/{id}");
-        sink.Events.ShouldAllHaveCorrelationId(incoming);
     }
 
     private static string GetHeader(HttpResponseMessage response)

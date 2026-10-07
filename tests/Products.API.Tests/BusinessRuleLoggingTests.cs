@@ -20,7 +20,7 @@ public class BusinessRuleLoggingTests : IClassFixture<ProductsApiFactory>
     public async Task GetById_WhenProductDoesNotExist_ShouldLogWarning_WithPrd001()
     {
         var sink = new CollectingSink();
-        var client = _factory.CreateClientWithLogs(sink);
+        using var client = _factory.CreateClientWithLogs(sink);
         var id = Guid.NewGuid();
 
         var response = await client.GetAsync($"/api/products/{id}");
@@ -36,7 +36,7 @@ public class BusinessRuleLoggingTests : IClassFixture<ProductsApiFactory>
     public async Task Create_WithInvalidData_ShouldLogWarning_WithPrd002()
     {
         var sink = new CollectingSink();
-        var client = _factory.CreateClientWithLogs(sink);
+        using var client = _factory.CreateClientWithLogs(sink);
 
         var response = await client.PostAsJsonAsync("/api/products", new
         {
@@ -57,7 +57,7 @@ public class BusinessRuleLoggingTests : IClassFixture<ProductsApiFactory>
     public async Task Create_WithDuplicateNameInSameCategory_ShouldLogWarning_WithPrd003()
     {
         var sink = new CollectingSink();
-        var client = _factory.CreateClientWithLogs(sink);
+        using var client = _factory.CreateClientWithLogs(sink);
         var body = new
         {
             nombre = $"Dup Log {Guid.NewGuid():N}",
@@ -86,7 +86,7 @@ public class BusinessRuleLoggingTests : IClassFixture<ProductsApiFactory>
     public async Task Delete_WhenProductHasActiveOrders_ShouldLogWarning_WithPrd004()
     {
         var sink = new CollectingSink();
-        var client = _factory.CreateClientWithActiveOrders(sink: sink);
+        using var client = _factory.CreateClientWithActiveOrders(sink: sink);
 
         var createResponse = await client.PostAsJsonAsync("/api/products", new
         {

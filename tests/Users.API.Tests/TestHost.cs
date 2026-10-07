@@ -1,32 +1,32 @@
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Products.API.Services;
 using Serilog;
 using Serilog.AspNetCore;
 using Serilog.Events;
 using Serilog.Extensions.Logging;
 
-namespace Products.API.Tests;
-
-internal sealed class AlwaysActiveOrdersChecker : IActiveOrdersChecker
-{
-    public bool HasActiveOrders(Guid productId) => true;
-}
+namespace Users.API.Tests;
 
 internal static class TestHost
 {
-    /*
-    Builds a client. When <paramref name="sink"/> is set, every Serilog event
-    of the request (handlers + request log) goes to that sink, with LogContext
-    properties such as Endpoint.
-    */
     public static HttpClient CreateClientWithLogs(
         this WebApplicationFactory<Program> factory,
         CollectingSink? sink = null,
         Action<IServiceCollection>? configure = null)
     {
-        var host = factory.WithWebHostBuilder(builder =>
+        var host = factory.WithLogs(sink, configure);
+        return HostBoundClient.Create(host);
+    }
+
+    // Same host as CreateClientWithLogs. The manual-lock tests need its UserService,
+    // because WithWebHostBuilder builds another database.
+    public static WebApplicationFactory<Program> WithLogs(
+        this WebApplicationFactory<Program> factory,
+        CollectingSink? sink = null,
+        Action<IServiceCollection>? configure = null)
+    {
+        return factory.WithWebHostBuilder(builder =>
         {
             builder.ConfigureServices(services =>
             {
@@ -34,7 +34,6 @@ internal static class TestHost
                 {
                     var tapLogger = new LoggerConfiguration()
                         .MinimumLevel.Information()
-                        // override the events from AspNetCore, the "starting app, listening on port x, etc"
                         .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
                         .Enrich.FromLogContext()
                         .WriteTo.Sink(sink)
@@ -44,8 +43,6 @@ internal static class TestHost
                     {
                         opts.Logger = tapLogger;
                     });
-                    // Drop the Program.cs ILoggerFactory (console + file)
-                    // and route ILogger<T> + request logs to CollectingSink.
                     foreach (var descriptor in services.Where(d => d.ServiceType == typeof(ILoggerFactory)).ToList())
                         services.Remove(descriptor);
 
@@ -55,35 +52,19 @@ internal static class TestHost
                 configure?.Invoke(services);
             });
         });
-        return HostBoundClient.Create(host);
-    }
-
-    public static HttpClient CreateClientWithActiveOrders(
-        this WebApplicationFactory<Program> factory,
-        Action<IServiceCollection>? configure = null,
-        CollectingSink? sink = null)
-    {
-        return factory.CreateClientWithLogs(sink, services =>
-        {
-            var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(IActiveOrdersChecker));
-            if (descriptor is not null)
-                services.Remove(descriptor);
-
-            services.AddSingleton<IActiveOrdersChecker, AlwaysActiveOrdersChecker>();
-            configure?.Invoke(services);
-        });
     }
 }
 
 // HttpClient sends through the handler. Overriding SendAsync is not enough.
-// Disposing the client disposes the host WithWebHostBuilder built.
+// Disposing the client disposes the host WithLogs built.
 file sealed class HostBoundClient
 {
     public static HttpClient Create(WebApplicationFactory<Program> host)
     {
         try
         {
-            return host.CreateDefaultClient(new DisposeHostHandler(host));
+            var client = host.CreateDefaultClient(new DisposeHostHandler(host));
+            return client;
         }
         catch
         {

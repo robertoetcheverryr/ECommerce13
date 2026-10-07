@@ -4,24 +4,24 @@ using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
-using Products.API.Services;
+using Users.API.Services;
 
-namespace Products.API.Tests;
+namespace Users.API.Tests;
 
 /*
 Spec 5.4: GET /health, GET /health/ready, GET /health/live.
 Body is JSON and status is Healthy, Degraded, or Unhealthy.
 
-Ready is the products-table probe. Live is the process check.
-ProductsApiFactory points the connection at a temp file so no database file
+Ready is the users-table probe. Live is the process check.
+UsersApiFactory points the connection at a temp file so no database file
 is created in the test output directory. The failure case uses a missing directory.
 */
-public class HealthChecksTests : IClassFixture<ProductsApiFactory>
+public class HealthChecksTests : IClassFixture<UsersApiFactory>
 {
-    private readonly ProductsApiFactory _factory;
+    private readonly UsersApiFactory _factory;
     private readonly HttpClient _client;
 
-    public HealthChecksTests(ProductsApiFactory factory)
+    public HealthChecksTests(UsersApiFactory factory)
     {
         _factory = factory;
         _client = factory.CreateClient();
@@ -67,7 +67,7 @@ public class HealthChecksTests : IClassFixture<ProductsApiFactory>
             {
                 config.AddInMemoryCollection(new Dictionary<string, string?>
                 {
-                    ["ConnectionStrings:DefaultConnection"] = "Data Source=/this/path/does/not/exist/products-health.db"
+                    ["ConnectionStrings:DefaultConnection"] = "Data Source=/this/path/does/not/exist/users-health.db"
                 });
             });
         });
@@ -87,10 +87,10 @@ public class HealthChecksTests : IClassFixture<ProductsApiFactory>
     }
 
     [Fact]
-    public async Task ReadyCheck_WhenProductsTableIsMissing_ShouldBeUnhealthy()
+    public async Task ReadyCheck_WhenUsersTableIsMissing_ShouldBeUnhealthy()
     {
         // Startup would create the table, so this calls the probe directly.
-        var dbPath = Path.Combine(Path.GetTempPath(), $"products-{Guid.NewGuid():N}.db");
+        var dbPath = Path.Combine(Path.GetTempPath(), $"users-{Guid.NewGuid():N}.db");
         var connectionString = $"Data Source={dbPath};Pooling=false";
 
         try

@@ -10,7 +10,7 @@ public class ProductServicePersistenceTests
     public void Create_ShouldBeVisibleToANewServiceInstance()
     {
         var dbPath = Path.Combine(Path.GetTempPath(), $"products-{Guid.NewGuid():N}.db");
-        var connectionString = $"Data Source={dbPath}";
+        var connectionString = $"Data Source={dbPath};Pooling=false";
 
         try
         {
@@ -38,7 +38,6 @@ public class ProductServicePersistenceTests
         }
         finally
         {
-            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
             if (File.Exists(dbPath))
                 File.Delete(dbPath);
         }

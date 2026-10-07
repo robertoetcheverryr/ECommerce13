@@ -1,24 +1,24 @@
 using FluentAssertions;
-using static Products.API.Tests.LogEventAssertions;
+using static Users.API.Tests.LogEventAssertions;
 
-namespace Products.API.Tests;
+namespace Users.API.Tests;
 
-public class RequestLoggingTests : IClassFixture<ProductsApiFactory>
+public class RequestLoggingTests : IClassFixture<UsersApiFactory>
 {
-    private readonly ProductsApiFactory _factory;
+    private readonly UsersApiFactory _factory;
 
-    public RequestLoggingTests(ProductsApiFactory factory)
+    public RequestLoggingTests(UsersApiFactory factory)
     {
         _factory = factory;
     }
 
     [Fact]
-    public async Task GetAll_ShouldLogRequestMethodPathStatusAndDuration()
+    public async Task Health_ShouldLogRequestMethodPathStatusAndDuration()
     {
         var sink = new CollectingSink();
         using var client = _factory.CreateClientWithLogs(sink);
 
-        var response = await client.GetAsync("/api/products");
+        var response = await client.GetAsync("/health");
         response.EnsureSuccessStatusCode();
 
         var requestLog = sink.Events.Should().ContainSingle(e =>
@@ -27,10 +27,10 @@ public class RequestLoggingTests : IClassFixture<ProductsApiFactory>
             e.MessageTemplate.Text.Contains("{Elapsed")).Subject;
 
         AssertScalar(requestLog, "RequestMethod", "GET");
-        AssertScalar(requestLog, "RequestPath", "/api/products");
+        AssertScalar(requestLog, "RequestPath", "/health");
         AssertScalar(requestLog, "StatusCode", "200");
         requestLog.Properties.Should().ContainKey("Elapsed");
-        sink.Events.ShouldAllHaveEndpoint("/api/products");
+        sink.Events.ShouldAllHaveEndpoint("/health");
         sink.Events.ShouldAllHaveCorrelationId(
             response.Headers.GetValues(CorrelationId.HeaderName).Single());
     }

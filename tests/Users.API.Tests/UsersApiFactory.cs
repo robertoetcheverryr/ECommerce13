@@ -4,14 +4,14 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
-namespace Products.API.Tests;
+namespace Users.API.Tests;
 
-// Keeps WebApplicationFactory off Data Source=products.db, which would land in the test output directory.
-public sealed class ProductsApiFactory : WebApplicationFactory<Program>
+// Keeps WebApplicationFactory off Data Source=users.db, which would land in the test output directory.
+public sealed class UsersApiFactory : WebApplicationFactory<Program>
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        var dbPath = Path.Combine(Path.GetTempPath(), $"products-{Guid.NewGuid():N}.db");
+        var dbPath = Path.Combine(Path.GetTempPath(), $"users-{Guid.NewGuid():N}.db");
         builder.ConfigureAppConfiguration((_, config) =>
         {
             config.AddInMemoryCollection(new Dictionary<string, string?>

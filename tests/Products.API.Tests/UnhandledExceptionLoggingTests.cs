@@ -22,7 +22,7 @@ public class UnhandledExceptionLoggingTests : IClassFixture<ProductsApiFactory>
     public async Task GetAll_WhenServiceThrows_ShouldLogError_WithPrd005()
     {
         var sink = new CollectingSink();
-        var client = _factory.CreateClientWithLogs(sink, services =>
+        using var client = _factory.CreateClientWithLogs(sink, services =>
         {
             var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(IProductService));
             if (descriptor is not null)
