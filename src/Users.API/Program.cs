@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Serilog;
 using Serilog.Context;
@@ -54,7 +55,10 @@ builder.Services.AddExceptionHandler<Users.API.ExceptionHandlers.ValidationExcep
 builder.Services.AddExceptionHandler<Users.API.ExceptionHandlers.BusinessRuleExceptionHandler>();
 builder.Services.AddExceptionHandler<Users.API.ExceptionHandlers.GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
-builder.Services.AddHealthChecks(); // Only the base functionality by dot net, no custom checks yet TODO
+
+builder.Services.AddHealthChecks()
+    .AddCheck<Users.API.Services.ApiStatusCheck>("api", tags: ["live"])
+    .AddCheck<Users.API.Services.SqliteHealthCheck>("sqlite", tags: ["ready"]);
 
 var app = builder.Build();
 
@@ -62,7 +66,15 @@ var app = builder.Build();
 // a if a is not None else b == a ?? b
 var connectionString = app.Configuration.GetConnectionString("DefaultConnection")
     ?? "Data Source=users.db";
-new DatabaseInitializer(connectionString).Initialize();
+try
+{
+    new DatabaseInitializer(connectionString).Initialize();
+}
+catch (SqliteException ex)
+{
+    // Error 14 (missing directory) must not kill the host. Ready reports Unhealthy; live still answers.
+    Log.Error(ex, "SQLite initialization failed. Ready check will be Unhealthy.");
+}
 
 if (app.Environment.IsDevelopment())
 {
@@ -88,11 +100,23 @@ app.UseExceptionHandler();
 app.UseAuthorization();
 app.MapControllers();
 
+// Rider was complaining that we were using a local function with return, changed to lambda
 var writeHealthResponse = (HttpContext context, HealthReport report) =>
     context.Response.WriteAsJsonAsync(new { status = report.Status.ToString() });
 
+// The request hits MapHealthChecks, which calls the IHealthCheck handlers (ready/live only run the tagged one)
+// and gets a HealthReport back. writeHealthResponse is the way back:
+// it writes { status } from report.Status, Healthy, Degraded, or Unhealthy.
 app.MapHealthChecks("/health", new HealthCheckOptions { ResponseWriter = writeHealthResponse });
-app.MapHealthChecks("/health/ready", new HealthCheckOptions { ResponseWriter = writeHealthResponse });
-app.MapHealthChecks("/health/live", new HealthCheckOptions { ResponseWriter = writeHealthResponse });
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready"),
+    ResponseWriter = writeHealthResponse
+});
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("live"),
+    ResponseWriter = writeHealthResponse
+});
 
 app.Run();
