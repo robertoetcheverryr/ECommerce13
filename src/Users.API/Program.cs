@@ -41,7 +41,12 @@ builder.Services.Configure<Microsoft.AspNetCore.Mvc.ApiBehaviorOptions>(options 
     options.SuppressModelStateInvalidFilter = true;
 });
 
-builder.Services.AddSingleton<Users.API.Services.IUserService, Users.API.Services.UserService>();
+builder.Services.AddSingleton<Users.API.Services.IUserService>(sp =>
+{
+    var connectionString = sp.GetRequiredService<IConfiguration>().GetConnectionString("DefaultConnection")
+        ?? "Data Source=users.db";
+    return new UserService(connectionString);
+});
 
 // Exception handlers (order matters: most specific first, generic last)
 builder.Services.AddExceptionHandler<Users.API.ExceptionHandlers.NotFoundExceptionHandler>();
@@ -54,7 +59,6 @@ builder.Services.AddHealthChecks(); // Only the base functionality by dot net, n
 var app = builder.Build();
 
 // Open the SQLite file and create the users table if it is missing.
-// UserService still uses the in-memory list.
 // a if a is not None else b == a ?? b
 var connectionString = app.Configuration.GetConnectionString("DefaultConnection")
     ?? "Data Source=users.db";

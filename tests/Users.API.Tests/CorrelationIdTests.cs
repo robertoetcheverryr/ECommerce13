@@ -1,15 +1,14 @@
 using System.Net;
 using System.Net.Http.Json;
 using FluentAssertions;
-using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace Users.API.Tests;
 
-public class CorrelationIdTests : IClassFixture<WebApplicationFactory<Program>>
+public class CorrelationIdTests : IClassFixture<UsersApiFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly UsersApiFactory _factory;
 
-    public CorrelationIdTests(WebApplicationFactory<Program> factory)
+    public CorrelationIdTests(UsersApiFactory factory)
     {
         _factory = factory;
     }

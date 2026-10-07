@@ -1,7 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
 using FluentAssertions;
-using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Users.API.DTOs;
 using Users.API.Exceptions;
@@ -12,11 +11,11 @@ using static Users.API.Tests.ErrorResponseAssertions;
 
 namespace Users.API.Tests;
 
-public class UnhandledExceptionTests : IClassFixture<WebApplicationFactory<Program>>
+public class UnhandledExceptionTests : IClassFixture<UsersApiFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly UsersApiFactory _factory;
 
-    public UnhandledExceptionTests(WebApplicationFactory<Program> factory)
+    public UnhandledExceptionTests(UsersApiFactory factory)
     {
         _factory = factory;
     }

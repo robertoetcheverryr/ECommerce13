@@ -1,18 +1,18 @@
 using System.Net;
 using System.Net.Http.Json;
 using FluentAssertions;
-using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
 using Users.API.Exceptions;
 using Users.API.Services;
 using Serilog.Events;
 
 namespace Users.API.Tests;
 
-public class BusinessRuleLoggingTests : IClassFixture<WebApplicationFactory<Program>>
+public class BusinessRuleLoggingTests : IClassFixture<UsersApiFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly UsersApiFactory _factory;
 
-    public BusinessRuleLoggingTests(WebApplicationFactory<Program> factory)
+    public BusinessRuleLoggingTests(UsersApiFactory factory)
     {
         _factory = factory;
     }
@@ -140,7 +140,8 @@ public class BusinessRuleLoggingTests : IClassFixture<WebApplicationFactory<Prog
     public async Task Login_WhenManuallyBlocked_ShouldLogWarning_WithUsr005()
     {
         var sink = new CollectingSink();
-        var client = _factory.CreateClientWithLogs(sink);
+        var host = _factory.WithLogs(sink);
+        var client = host.CreateClient();
         var email = $"manual-log-{Guid.NewGuid()}@email.com";
         const string password = "OtraPassword123!";
 
@@ -151,7 +152,7 @@ public class BusinessRuleLoggingTests : IClassFixture<WebApplicationFactory<Prog
             email,
             password
         })).StatusCode.Should().Be(HttpStatusCode.Created);
-        new UserService().MarkManuallyBlocked(email);
+        ((UserService)host.Services.GetRequiredService<IUserService>()).MarkManuallyBlocked(email);
         sink.Events.Clear();
 
         var response = await client.PostAsJsonAsync("/api/users/login", new

@@ -5,7 +5,7 @@ using Users.API.Models;
 
 /// <summary>
 /// Contrato del servicio de usuarios.
-/// Contiene la lógica de negocio y acceso a datos (por ahora in-memory).
+/// Contiene la lógica de negocio y acceso a datos en SQLite.
 /// </summary>
 public interface IUserService
 {

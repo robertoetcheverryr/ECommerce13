@@ -15,6 +15,16 @@ internal static class TestHost
         CollectingSink? sink = null,
         Action<IServiceCollection>? configure = null)
     {
+        return factory.WithLogs(sink, configure).CreateClient();
+    }
+
+    // Same host as CreateClientWithLogs. The manual-lock tests need its UserService,
+    // because WithWebHostBuilder builds another database.
+    public static WebApplicationFactory<Program> WithLogs(
+        this WebApplicationFactory<Program> factory,
+        CollectingSink? sink = null,
+        Action<IServiceCollection>? configure = null)
+    {
         return factory.WithWebHostBuilder(builder =>
         {
             builder.ConfigureServices(services =>
@@ -40,6 +50,6 @@ internal static class TestHost
 
                 configure?.Invoke(services);
             });
-        }).CreateClient();
+        });
     }
 }

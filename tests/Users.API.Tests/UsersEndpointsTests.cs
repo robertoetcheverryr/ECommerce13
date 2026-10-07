@@ -1,6 +1,6 @@
 using System.Net.Http.Json;
 using FluentAssertions;
-using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
 using Users.API.Exceptions;
 using Users.API.Services;
 using static Users.API.Tests.ErrorResponseAssertions;
@@ -8,16 +8,21 @@ using static Users.API.Tests.UserResponseAssertions;
 
 namespace Users.API.Tests;
 
-/* IClassFixture<> tells xUnit:
-"Create ONE single instance of WebApplicationFactory and share it across all tests in this class"
-This way we don't restart the API from scratch for every test (that would be very slow).
+/* IClassFixture<> tells xUnit to create one UsersApiFactory and share that
+object across the tests in this class. CreateClient() reuses that host.
+WithWebHostBuilder and CreateClientWithLogs build another host, and
+UsersApiFactory gives that host its own temp database.
+The test class constructor still runs per test, which is why seeding runs again.
+Roughly comparable to a session-scoped fixture in pytest, not a function-scoped one.
 */
-public class UsersEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+public class UsersEndpointsTests : IClassFixture<UsersApiFactory>
 {
+    private readonly UsersApiFactory _factory;
     private readonly HttpClient _client;
 
-    public UsersEndpointsTests(WebApplicationFactory<Program> factory)
+    public UsersEndpointsTests(UsersApiFactory factory)
     {
+        _factory = factory;
         _client = factory.CreateClient();
     }
 
@@ -226,7 +231,7 @@ public class UsersEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
         var email = $"manual-{Guid.NewGuid()}@email.com";
         const string password = "OtraPassword123!";
         await Register(email, password);
-        new UserService().MarkManuallyBlocked(email);
+        ((UserService)_factory.Services.GetRequiredService<IUserService>()).MarkManuallyBlocked(email);
 
         var correct = await _client.PostAsJsonAsync("/api/users/login", new
         {
@@ -260,7 +265,7 @@ public class UsersEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
 
         await AssertWrongPassword(email);
         await AssertWrongPassword(email);
-        new UserService().MarkManuallyBlocked(email);
+        ((UserService)_factory.Services.GetRequiredService<IUserService>()).MarkManuallyBlocked(email);
 
         var response = await _client.PostAsJsonAsync("/api/users/login", new
         {
