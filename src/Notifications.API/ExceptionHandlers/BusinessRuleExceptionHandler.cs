@@ -1,32 +1,32 @@
 ﻿using Microsoft.AspNetCore.Diagnostics;
-using Notifications.API.Exceptions; //para llamar lo del error codeado anteriormente en exceptions
+using Notifications.API.Exceptions;
 
 namespace Notifications.API.ExceptionHandlers;
 
 /// <summary>
-/// Maneja las excepciones de tipo NotFoundException.
+/// Maneja las excepciones de tipo BusinessRuleException.
 /// </summary>
-public class NotFoundExceptionHandler : IExceptionHandler
+public class BusinessRuleExceptionHandler : IExceptionHandler
 {
     /// <summary>
-    /// Intenta manejar una excepción de recurso no encontrado.
+    /// Intenta manejar una excepción relacionada con una regla de negocio.
     /// </summary>
     public async ValueTask<bool> TryHandleAsync(
         HttpContext context,
         Exception exception,
         CancellationToken cancellationToken)
     {
-        if (exception is not NotFoundException ex)
+        if (exception is not BusinessRuleException ex)
             return false;
 
-        context.Response.StatusCode = StatusCodes.Status404NotFound;
+        context.Response.StatusCode = StatusCodes.Status400BadRequest;
 
         await context.Response.WriteAsJsonAsync(new
         {
-            type = "https://tools.ietf.org/html/rfc7231#section-6.5.4",
-            title = "Not Found",
-            status = StatusCodes.Status404NotFound,
-            detail = "El recurso solicitado no fue encontrado.",
+            type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
+            title = "Bad Request",
+            status = StatusCodes.Status400BadRequest,
+            detail = "Los datos de la solicitud no son válidos.",
             instance = context.Request.Path.Value,
             errorCode = ex.ErrorCode,
             errorMessage = ex.Message,

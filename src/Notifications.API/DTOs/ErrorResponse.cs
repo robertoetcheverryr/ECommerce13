@@ -39,4 +39,9 @@ public class ErrorResponse
     /// Mensaje descriptivo asociado al código de error.
     /// </summary>
     public string ErrorMessage { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Identificador único de la solicitud.
+    /// </summary>
+    public string CorrelationId { get; set; } = string.Empty;
 }
