@@ -5,6 +5,7 @@ using Serilog.Context;
 using Serilog.Events;
 using Serilog.Formatting.Json;
 using Serilog.Sinks.SystemConsole.Themes;
+using Users.API.Services;
 
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
@@ -51,6 +52,13 @@ builder.Services.AddProblemDetails();
 builder.Services.AddHealthChecks(); // Only the base functionality by dot net, no custom checks yet TODO
 
 var app = builder.Build();
+
+// Open the SQLite file and create the users table if it is missing.
+// UserService still uses the in-memory list.
+// a if a is not None else b == a ?? b
+var connectionString = app.Configuration.GetConnectionString("DefaultConnection")
+    ?? "Data Source=users.db";
+new DatabaseInitializer(connectionString).Initialize();
 
 if (app.Environment.IsDevelopment())
 {
