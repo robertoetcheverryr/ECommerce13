@@ -92,6 +92,39 @@ public class CartService : ICartService
         return Save(cart);
     }
 
+
+    /// <inheritdoc />
+    public async Task<CartModel> UpdateItem(Guid usuarioId, Guid productoId, int cantidad, CancellationToken cancellationToken = default)
+    {
+        if (cantidad <= 0)
+            throw new ValidationException(ErrorCodes.CRT_004, ErrorCodes.CRT_004_Message);
+
+        if (_products is null)
+            throw new InvalidOperationException("Product catalog is not configured.");
+
+        var product = await _products.GetAsync(productoId, cancellationToken);
+        if (product is null)
+            throw new NotFoundException(ErrorCodes.CRT_002, ErrorCodes.CRT_002_Message);
+
+        var cart = Get(usuarioId);
+        var existing = cart.Items.FirstOrDefault(item => item.ProductoId == productoId);
+        if (existing is null)
+            throw new NotFoundException(ErrorCodes.CRT_001, ErrorCodes.CRT_001_Message);
+
+        // PUT replaces the quantity. Stock is checked against that value, not added to it.
+        if (cantidad > product.Stock)
+        {
+            throw new BusinessRuleException(
+                ErrorCodes.CRT_003,
+                $"Stock insuficiente. Disponible: {product.Stock}, solicitado: {cantidad}.",
+                ErrorCodes.CRT_003_Detail,
+                StatusCodes.Status422UnprocessableEntity);
+        }
+
+        existing.Cantidad = cantidad;
+        return Save(cart);
+    }
+
     /// <inheritdoc />
     public CartModel Save(CartModel cart)
     {
@@ -102,6 +135,7 @@ public class CartService : ICartService
         using var tx = connection.BeginTransaction();
 
         // Header and items commit together. A failed item write must not leave a half-updated cart.
+        // Try to insert the entire cart, if it already exists (by UsuarioId as PK) update
         connection.Execute("""
             INSERT INTO carts (UsuarioId, FechaActualizacion)
             VALUES (@UsuarioId, @FechaActualizacion)
@@ -112,12 +146,14 @@ public class CartService : ICartService
             UsuarioId = usuarioId,
             FechaActualizacion = cart.FechaActualizacion.ToString("o", CultureInfo.InvariantCulture)
         }, tx);
-
+        
+        // Drop all items from the saved cart
         connection.Execute(
             "DELETE FROM cart_items WHERE UsuarioId = @UsuarioId",
             new { UsuarioId = usuarioId },
             tx);
 
+        // Insert the current cart we have in memory
         foreach (var item in cart.Items)
         {
             connection.Execute("""
@@ -130,7 +166,8 @@ public class CartService : ICartService
                 item.Cantidad
             }, tx);
         }
-
+        
+        // Only when everything is OK we commit both header and items
         tx.Commit();
         return cart;
     }

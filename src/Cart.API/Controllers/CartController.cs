@@ -67,6 +67,35 @@ public class CartController : ControllerBase
         return Ok(ToResponse(cart));
     }
 
+    /// <summary>
+    /// Actualiza la cantidad de un producto del carrito.
+    /// </summary>
+    /// <param name="userId">Identificador del usuario dueño del carrito.</param>
+    /// <param name="productId">Identificador del producto.</param>
+    /// <param name="request">Nueva cantidad.</param>
+    /// <param name="cancellationToken">Token de cancelación.</param>
+    /// <returns>El carrito actualizado.</returns>
+    /// <response code="200">Cantidad actualizada.</response>
+    /// <response code="400">Cantidad inválida (CRT-004).</response>
+    /// <response code="404">Carrito no encontrado (CRT-001) o producto no encontrado (CRT-002).</response>
+    /// <response code="422">Stock insuficiente (CRT-003).</response>
+    /// <response code="500">Error interno al procesar el carrito (CRT-005).</response>
+    [HttpPut("{userId:guid}/items/{productId:guid}")]
+    [ProducesResponseType(typeof(CartResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<CartResponse>> UpdateItem(
+        Guid userId,
+        Guid productId,
+        [FromBody] UpdateCartItemRequest request,
+        CancellationToken cancellationToken)
+    {
+        var cart = await _cartService.UpdateItem(userId, productId, request.Cantidad, cancellationToken);
+        return Ok(ToResponse(cart));
+    }
+
     private static CartResponse ToResponse(global::Cart.API.Models.Cart cart) => new()
     {
         UsuarioId = cart.UsuarioId,

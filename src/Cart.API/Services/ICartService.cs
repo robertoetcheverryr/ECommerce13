@@ -31,6 +31,19 @@ public interface ICartService
     Task<CartModel> AddItem(Guid usuarioId, Guid productoId, int cantidad, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Reemplaza la cantidad de un producto que ya está en el carrito.
+    /// </summary>
+    /// <param name="usuarioId">Identificador del usuario dueño del carrito.</param>
+    /// <param name="productoId">Identificador del producto.</param>
+    /// <param name="cantidad">Nueva cantidad. Debe ser mayor a 0.</param>
+    /// <param name="cancellationToken">Token de cancelación.</param>
+    /// <returns>El carrito actualizado.</returns>
+    /// <exception cref="ValidationException">Cuando la cantidad no es mayor a 0 (CRT-004).</exception>
+    /// <exception cref="NotFoundException">Cuando no hay carrito o el producto no está en él (CRT-001), o no existe en Products (CRT-002).</exception>
+    /// <exception cref="BusinessRuleException">Cuando la cantidad supera el stock (CRT-003).</exception>
+    Task<CartModel> UpdateItem(Guid usuarioId, Guid productoId, int cantidad, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Guarda el carrito y reemplaza sus ítems.
     /// </summary>
     /// <param name="cart">Carrito a persistir.</param>
