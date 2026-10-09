@@ -1,3 +1,4 @@
+using Cart.API.Exceptions;
 using Cart.API.Models;
 using Cart.API.Services;
 using FluentAssertions;
@@ -115,7 +116,9 @@ public class CartServicePersistenceTests
             });
             writer.Delete(usuarioId);
 
-            new CartService(connectionString).Get(usuarioId).Should().BeNull();
+            Action missing = () => new CartService(connectionString).Get(usuarioId);
+            missing.Should().Throw<NotFoundException>()
+                .Which.ErrorCode.Should().Be(ErrorCodes.CRT_001);
         }
         finally
         {

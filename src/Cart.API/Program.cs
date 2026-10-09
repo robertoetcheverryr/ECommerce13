@@ -1,3 +1,4 @@
+using Cart.API.ExceptionHandlers;
 using Cart.API.Services;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Data.Sqlite;
@@ -14,6 +15,13 @@ builder.Services.AddSingleton<ICartService>(sp =>
         ?? "Data Source=carts.db";
     return new CartService(connectionString);
 });
+
+// Exception handlers (order matters: most specific first, generic last)
+builder.Services.AddExceptionHandler<NotFoundExceptionHandler>();
+builder.Services.AddExceptionHandler<ValidationExceptionHandler>();
+builder.Services.AddExceptionHandler<BusinessRuleExceptionHandler>();
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+builder.Services.AddProblemDetails();
 
 builder.Services.AddHealthChecks()
     .AddCheck<ApiStatusCheck>("api", tags: ["live"])
@@ -38,6 +46,14 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+// Inbound correlation only. Outbound stays out until Cart calls Products.
+app.Use(async (context, next) =>
+{
+    var correlationId = Cart.API.CorrelationId.Resolve(context.Request);
+    Cart.API.CorrelationId.Assign(context, correlationId);
+    await next();
+});
+app.UseExceptionHandler();
 app.UseAuthorization();
 app.MapControllers();
 

@@ -1,4 +1,5 @@
 using System.Globalization;
+using Cart.API.Exceptions;
 using Cart.API.Models;
 using Dapper;
 using Microsoft.Data.Sqlite;
@@ -23,7 +24,7 @@ public class CartService : ICartService
     }
 
     /// <inheritdoc />
-    public CartModel? Get(Guid usuarioId)
+    public CartModel Get(Guid usuarioId)
     {
         using var connection = Open();
         var header = connection.QuerySingleOrDefault<CartRow>("""
@@ -33,7 +34,7 @@ public class CartService : ICartService
             """, new { UsuarioId = usuarioId.ToString() });
 
         if (header is null)
-            return null;
+            throw new NotFoundException(ErrorCodes.CRT_001, ErrorCodes.CRT_001_Message);
 
         var items = connection.Query<CartItemRow>("""
             SELECT ProductoId, Cantidad

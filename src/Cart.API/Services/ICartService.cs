@@ -1,4 +1,5 @@
 namespace Cart.API.Services;
+using Cart.API.Exceptions;
 using CartModel = global::Cart.API.Models.Cart;
 
 /// <summary>
@@ -11,8 +12,9 @@ public interface ICartService
     /// Obtiene el carrito de un usuario.
     /// </summary>
     /// <param name="usuarioId">Identificador del usuario dueño del carrito.</param>
-    /// <returns>El carrito si existe; null si no hay fila.</returns>
-    CartModel? Get(Guid usuarioId);
+    /// <returns>El carrito si existe.</returns>
+    /// <exception cref="NotFoundException">Cuando el usuario no tiene carrito (CRT-001).</exception>
+    CartModel Get(Guid usuarioId);
 
     /// <summary>
     /// Guarda el carrito y reemplaza sus ítems.
