@@ -37,15 +37,44 @@ public class CartController : ControllerBase
     public ActionResult<CartResponse> Get(Guid userId)
     {
         var cart = _cartService.Get(userId);
-        return Ok(new CartResponse
-        {
-            UsuarioId = cart.UsuarioId,
-            FechaActualizacion = cart.FechaActualizacion,
-            Items = cart.Items.Select(item => new CartItemResponse
-            {
-                ProductoId = item.ProductoId,
-                Cantidad = item.Cantidad
-            }).ToList()
-        });
+        return Ok(ToResponse(cart));
     }
+
+    /// <summary>
+    /// Agrega un producto al carrito.
+    /// </summary>
+    /// <param name="userId">Identificador del usuario dueño del carrito.</param>
+    /// <param name="request">Producto y cantidad.</param>
+    /// <param name="cancellationToken">Token de cancelación.</param>
+    /// <returns>El carrito actualizado.</returns>
+    /// <response code="200">Producto agregado.</response>
+    /// <response code="400">Cantidad inválida (CRT-004).</response>
+    /// <response code="404">Producto no encontrado (CRT-002).</response>
+    /// <response code="422">Stock insuficiente (CRT-003).</response>
+    /// <response code="500">Error interno al procesar el carrito (CRT-005).</response>
+    [HttpPost("{userId:guid}/items")]
+    [ProducesResponseType(typeof(CartResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<CartResponse>> AddItem(
+        Guid userId,
+        [FromBody] AddCartItemRequest request,
+        CancellationToken cancellationToken)
+    {
+        var cart = await _cartService.AddItem(userId, request.ProductoId, request.Cantidad, cancellationToken);
+        return Ok(ToResponse(cart));
+    }
+
+    private static CartResponse ToResponse(global::Cart.API.Models.Cart cart) => new()
+    {
+        UsuarioId = cart.UsuarioId,
+        FechaActualizacion = cart.FechaActualizacion,
+        Items = cart.Items.Select(item => new CartItemResponse
+        {
+            ProductoId = item.ProductoId,
+            Cantidad = item.Cantidad
+        }).ToList()
+    };
 }

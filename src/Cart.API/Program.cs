@@ -1,6 +1,7 @@
 using Cart.API.ExceptionHandlers;
 using Cart.API.Services;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
@@ -8,12 +9,30 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.SuppressModelStateInvalidFilter = true;
+});
+
+// Context accessor allows other services to read the request.
+// Needed for the correlation id handler.
+// Transient registers the handler itself.
+// All of this is needed because a header is NOT part of the body and
+// thus we cannot see it inside the request.
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddTransient<CorrelationIdHandler>();
+// Our first inter-API call!
+builder.Services.AddHttpClient<IProductCatalog, ProductCatalogClient>(client =>
+{
+    var baseUrl = builder.Configuration["Products:BaseUrl"] ?? "http://localhost:5001";
+    client.BaseAddress = new Uri(baseUrl);
+}).AddHttpMessageHandler<CorrelationIdHandler>();
 
 builder.Services.AddSingleton<ICartService>(sp =>
 {
     var connectionString = sp.GetRequiredService<IConfiguration>().GetConnectionString("DefaultConnection")
         ?? "Data Source=carts.db";
-    return new CartService(connectionString);
+    return new CartService(connectionString, sp.GetRequiredService<IProductCatalog>());
 });
 
 // Exception handlers (order matters: most specific first, generic last)
@@ -46,7 +65,6 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-// Inbound correlation only. Outbound stays out until Cart calls Products.
 app.Use(async (context, next) =>
 {
     var correlationId = Cart.API.CorrelationId.Resolve(context.Request);

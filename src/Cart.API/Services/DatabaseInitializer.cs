@@ -29,6 +29,7 @@ public class DatabaseInitializer
 
         // Columns match Cart and CartItem. No extra fields. Guid and date are text so a dropped file is not coerced.
         // Items are a child table: UsuarioId is the owner key, not a column of CartItem.
+        // Not really liking this, as the cartId should not be the UsuarioId but good enough for the TP.
         connection.Execute("""
             CREATE TABLE IF NOT EXISTS carts (
                 UsuarioId TEXT NOT NULL PRIMARY KEY,
