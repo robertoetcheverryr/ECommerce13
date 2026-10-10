@@ -101,36 +101,34 @@ public class CartController : ControllerBase
     /// </summary>
     /// <param name="userId">Identificador del usuario dueño del carrito.</param>
     /// <param name="productId">Identificador del producto a quitar.</param>
-    /// <returns>El carrito actualizado.</returns>
-    /// <response code="200">Producto eliminado del carrito.</response>
+    /// <response code="204">Producto eliminado del carrito.</response>
     /// <response code="404">Carrito no encontrado (CRT-001).</response>
     /// <response code="500">Error interno al procesar el carrito (CRT-005).</response>
     [HttpDelete("{userId:guid}/items/{productId:guid}")]
-    [ProducesResponseType(typeof(CartResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
-    public ActionResult<CartResponse> RemoveItem(Guid userId, Guid productId)
+    public IActionResult RemoveItem(Guid userId, Guid productId)
     {
-        var cart = _cartService.RemoveItem(userId, productId);
-        return Ok(ToResponse(cart));
+        _cartService.RemoveItem(userId, productId);
+        return NoContent();
     }
 
     /// <summary>
     /// Vacía el carrito del usuario.
     /// </summary>
     /// <param name="userId">Identificador del usuario dueño del carrito.</param>
-    /// <returns>Confirmación de que el carrito fue vaciado.</returns>
-    /// <response code="200">Carrito vaciado.</response>
+    /// <response code="204">Carrito vaciado.</response>
     /// <response code="404">Carrito no encontrado (CRT-001).</response>
     /// <response code="500">Error interno al procesar el carrito (CRT-005).</response>
     [HttpDelete("{userId:guid}")]
-    [ProducesResponseType(typeof(ClearCartResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
-    public ActionResult<ClearCartResponse> Clear(Guid userId)
+    public IActionResult Clear(Guid userId)
     {
         _cartService.Delete(userId);
-        return Ok(new ClearCartResponse());
+        return NoContent();
     }
 
     private static CartResponse ToResponse(global::Cart.API.Models.Cart cart) => new()

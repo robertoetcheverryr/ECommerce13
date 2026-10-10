@@ -48,9 +48,8 @@ public interface ICartService
     /// </summary>
     /// <param name="usuarioId">Identificador del usuario dueño del carrito.</param>
     /// <param name="productoId">Identificador del producto a quitar.</param>
-    /// <returns>El carrito actualizado.</returns>
     /// <exception cref="NotFoundException">Cuando no hay carrito o el producto no está en él (CRT-001).</exception>
-    CartModel RemoveItem(Guid usuarioId, Guid productoId);
+    void RemoveItem(Guid usuarioId, Guid productoId);
 
     /// <summary>
     /// Guarda el carrito y reemplaza sus ítems.

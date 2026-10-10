@@ -127,7 +127,7 @@ public class CartService : ICartService
 
 
     /// <inheritdoc />
-    public CartModel RemoveItem(Guid usuarioId, Guid productoId)
+    public void RemoveItem(Guid usuarioId, Guid productoId)
     {
         var cart = Get(usuarioId);
         var existing = cart.Items.FirstOrDefault(item => item.ProductoId == productoId);
@@ -135,7 +135,7 @@ public class CartService : ICartService
             throw new NotFoundException(ErrorCodes.CRT_001, ErrorCodes.CRT_001_Message);
 
         cart.Items.Remove(existing);
-        return Save(cart);
+        Save(cart);
     }
 
     /// <inheritdoc />

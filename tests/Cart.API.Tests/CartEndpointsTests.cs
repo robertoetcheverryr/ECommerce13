@@ -256,7 +256,7 @@ public class CartEndpointsTests : IClassFixture<CartApiFactory>
     }
 
     [Fact]
-    public async Task RemoveItem_WhenItemExists_ShouldReturnTheCartWithoutIt()
+    public async Task RemoveItem_WhenItemExists_ShouldReturnNoContent_AndRemoveIt()
     {
         var userId = Guid.NewGuid();
         var kept = Guid.Parse("3fa85f64-5717-4562-b3fc-2c963f66afa6");
@@ -274,9 +274,13 @@ public class CartEndpointsTests : IClassFixture<CartApiFactory>
 
         using var client = _factory.CreateClient();
         var response = await client.DeleteAsync($"/api/cart/{userId}/items/{removed}");
-        var body = await response.Content.ReadFromJsonAsync<CartBody>();
 
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        (await response.Content.ReadAsStringAsync()).Should().BeEmpty();
+
+        var remaining = await client.GetAsync($"/api/cart/{userId}");
+        remaining.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await remaining.Content.ReadFromJsonAsync<CartBody>();
         body.Should().NotBeNull();
         body!.Items.Should().ContainSingle();
         body.Items[0].ProductoId.Should().Be(kept);
@@ -298,7 +302,7 @@ public class CartEndpointsTests : IClassFixture<CartApiFactory>
     }
 
     [Fact]
-    public async Task Clear_WhenCartExists_ShouldReturnTheMessage_AndRemoveTheCart()
+    public async Task Clear_WhenCartExists_ShouldReturnNoContent_AndRemoveTheCart()
     {
         var userId = Guid.NewGuid();
         using var scope = _factory.Services.CreateScope();
@@ -310,10 +314,9 @@ public class CartEndpointsTests : IClassFixture<CartApiFactory>
 
         using var client = _factory.CreateClient();
         var response = await client.DeleteAsync($"/api/cart/{userId}");
-        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
 
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
-        document.RootElement.GetProperty("mensaje").GetString().Should().Be("Carrito vaciado exitosamente.");
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        (await response.Content.ReadAsStringAsync()).Should().BeEmpty();
 
         var missing = await client.GetAsync($"/api/cart/{userId}");
         missing.StatusCode.Should().Be(HttpStatusCode.NotFound);

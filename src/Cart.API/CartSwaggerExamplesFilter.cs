@@ -78,13 +78,11 @@ public class CartSwaggerExamplesFilter : IOperationFilter
                 break;
 
             case nameof(CartController.RemoveItem):
-                SetResponseExample(operation, "200", ToJson(SampleCart));
                 SetResponseExample(operation, "404", ToJson(NotFound(itemPath, ErrorCodes.CRT_001, ErrorCodes.CRT_001_Message)));
                 SetResponseExample(operation, "500", ToJson(InternalError(itemPath)));
                 break;
 
             case nameof(CartController.Clear):
-                SetResponseExample(operation, "200", ToJson(new ClearCartResponse()));
                 SetResponseExample(operation, "404", ToJson(NotFound(cartPath, ErrorCodes.CRT_001, ErrorCodes.CRT_001_Message)));
                 SetResponseExample(operation, "500", ToJson(InternalError(cartPath)));
                 break;

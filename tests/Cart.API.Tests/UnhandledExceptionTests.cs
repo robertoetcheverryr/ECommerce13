@@ -61,7 +61,7 @@ public class UnhandledExceptionTests : IClassFixture<CartApiFactory>
         public Task<CartModel> UpdateItem(Guid usuarioId, Guid productoId, int cantidad, CancellationToken cancellationToken = default)
             => throw new Exception("Unexpected failure");
 
-        public CartModel RemoveItem(Guid usuarioId, Guid productoId) => throw new Exception("Unexpected failure");
+        public void RemoveItem(Guid usuarioId, Guid productoId) => throw new Exception("Unexpected failure");
 
         public CartModel Save(CartModel cart) => throw new Exception("Unexpected failure");
 

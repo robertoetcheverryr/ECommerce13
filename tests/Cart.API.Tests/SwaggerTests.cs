@@ -54,8 +54,8 @@ public class SwaggerTests : IClassFixture<CartApiFactory>
         AssertResponseCodes(swagger, "/api/cart/{userId}", "get", ["200", "404", "500"]);
         AssertResponseCodes(swagger, "/api/cart/{userId}/items", "post", ["200", "400", "404", "422", "500"]);
         AssertResponseCodes(swagger, "/api/cart/{userId}/items/{productId}", "put", ["200", "400", "404", "422", "500"]);
-        AssertResponseCodes(swagger, "/api/cart/{userId}/items/{productId}", "delete", ["200", "404", "500"]);
-        AssertResponseCodes(swagger, "/api/cart/{userId}", "delete", ["200", "404", "500"]);
+        AssertResponseCodes(swagger, "/api/cart/{userId}/items/{productId}", "delete", ["204", "404", "500"]);
+        AssertResponseCodes(swagger, "/api/cart/{userId}", "delete", ["204", "404", "500"]);
     }
 
     [Fact]
