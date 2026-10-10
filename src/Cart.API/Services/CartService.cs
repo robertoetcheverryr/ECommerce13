@@ -125,6 +125,19 @@ public class CartService : ICartService
         return Save(cart);
     }
 
+
+    /// <inheritdoc />
+    public CartModel RemoveItem(Guid usuarioId, Guid productoId)
+    {
+        var cart = Get(usuarioId);
+        var existing = cart.Items.FirstOrDefault(item => item.ProductoId == productoId);
+        if (existing is null)
+            throw new NotFoundException(ErrorCodes.CRT_001, ErrorCodes.CRT_001_Message);
+
+        cart.Items.Remove(existing);
+        return Save(cart);
+    }
+
     /// <inheritdoc />
     public CartModel Save(CartModel cart)
     {
@@ -175,6 +188,7 @@ public class CartService : ICartService
     /// <inheritdoc />
     public void Delete(Guid usuarioId)
     {
+        Get(usuarioId);
         using var connection = Open();
         using var tx = connection.BeginTransaction();
         var id = usuarioId.ToString();

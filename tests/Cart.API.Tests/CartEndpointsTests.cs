@@ -142,6 +142,85 @@ public class CartEndpointsTests : IClassFixture<CartApiFactory>
         body.Items[0].Cantidad.Should().Be(2);
     }
 
+
+    [Fact]
+    public async Task RemoveItem_WhenCartDoesNotExist_ShouldReturnCrt001()
+    {
+        using var client = _factory.CreateClient();
+        var userId = Guid.NewGuid();
+        var productId = Guid.NewGuid();
+
+        var response = await client.DeleteAsync($"/api/cart/{userId}/items/{productId}");
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        document.RootElement.GetProperty("errorCode").GetString().Should().Be("CRT-001");
+    }
+
+    [Fact]
+    public async Task RemoveItem_WhenItemExists_ShouldReturnTheCartWithoutIt()
+    {
+        var userId = Guid.NewGuid();
+        var kept = Guid.Parse("3fa85f64-5717-4562-b3fc-2c963f66afa6");
+        var removed = Guid.Parse("aaaabbbb-cccc-dddd-eeee-ffff00001111");
+        using var scope = _factory.Services.CreateScope();
+        scope.ServiceProvider.GetRequiredService<ICartService>().Save(new CartModel
+        {
+            UsuarioId = userId,
+            Items =
+            [
+                new CartItem { ProductoId = kept, Cantidad = 1 },
+                new CartItem { ProductoId = removed, Cantidad = 2 }
+            ]
+        });
+
+        using var client = _factory.CreateClient();
+        var response = await client.DeleteAsync($"/api/cart/{userId}/items/{removed}");
+        var body = await response.Content.ReadFromJsonAsync<CartBody>();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        body.Should().NotBeNull();
+        body!.Items.Should().ContainSingle();
+        body.Items[0].ProductoId.Should().Be(kept);
+        body.Items[0].Cantidad.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Clear_WhenCartDoesNotExist_ShouldReturnCrt001()
+    {
+        using var client = _factory.CreateClient();
+        var userId = Guid.NewGuid();
+
+        var response = await client.DeleteAsync($"/api/cart/{userId}");
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        document.RootElement.GetProperty("errorCode").GetString().Should().Be("CRT-001");
+        document.RootElement.GetProperty("errorMessage").GetString().Should().Be("Carrito no encontrado.");
+    }
+
+    [Fact]
+    public async Task Clear_WhenCartExists_ShouldReturnTheMessage_AndRemoveTheCart()
+    {
+        var userId = Guid.NewGuid();
+        using var scope = _factory.Services.CreateScope();
+        scope.ServiceProvider.GetRequiredService<ICartService>().Save(new CartModel
+        {
+            UsuarioId = userId,
+            Items = [new CartItem { ProductoId = Guid.NewGuid(), Cantidad = 1 }]
+        });
+
+        using var client = _factory.CreateClient();
+        var response = await client.DeleteAsync($"/api/cart/{userId}");
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        document.RootElement.GetProperty("mensaje").GetString().Should().Be("Carrito vaciado exitosamente.");
+
+        var missing = await client.GetAsync($"/api/cart/{userId}");
+        missing.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
     private HttpClient ClientWithStock(int? stock)
     {
         var host = _factory.WithWebHostBuilder(builder =>

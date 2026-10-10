@@ -44,6 +44,15 @@ public interface ICartService
     Task<CartModel> UpdateItem(Guid usuarioId, Guid productoId, int cantidad, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Quita un producto del carrito.
+    /// </summary>
+    /// <param name="usuarioId">Identificador del usuario dueño del carrito.</param>
+    /// <param name="productoId">Identificador del producto a quitar.</param>
+    /// <returns>El carrito actualizado.</returns>
+    /// <exception cref="NotFoundException">Cuando no hay carrito o el producto no está en él (CRT-001).</exception>
+    CartModel RemoveItem(Guid usuarioId, Guid productoId);
+
+    /// <summary>
     /// Guarda el carrito y reemplaza sus ítems.
     /// </summary>
     /// <param name="cart">Carrito a persistir.</param>
@@ -54,5 +63,6 @@ public interface ICartService
     /// Elimina el carrito y sus ítems.
     /// </summary>
     /// <param name="usuarioId">Identificador del usuario dueño del carrito.</param>
+    /// <exception cref="NotFoundException">Cuando el usuario no tiene carrito (CRT-001).</exception>
     void Delete(Guid usuarioId);
 }
