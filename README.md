@@ -30,7 +30,7 @@ Cada funcionalidad se expone como una REST API independiente.
 ## Códigos de error
 
 Todas las respuestas 4xx/5xx usan Problem Details más `errorCode` y `errorMessage`.  
-Hoy Products.API y Users.API implementan el catálogo; el resto queda documentado para cuando existan esos servicios.
+Hoy Products.API, Users.API y Cart.API implementan el catálogo; Orders y Notifications quedan documentados para cuando existan.
 
 ### Products.API
 
@@ -96,7 +96,8 @@ ECommerce13/
 │   └── Notifications.API/
 ├── tests/
 │   ├── Products.API.Tests/
-│   └── Users.API.Tests/
+│   ├── Users.API.Tests/
+│   └── Cart.API.Tests/
 ├── docs/
 └── README.md
 ```
@@ -163,6 +164,7 @@ dotnet test
 ```powershell
 dotnet run --project src/Products.API
 dotnet run --project src/Users.API
+dotnet run --project src/Cart.API
 ```
 
 Puertos configurados:
@@ -227,8 +229,19 @@ dotnet test
     - Tests E2E (xUnit + WebApplicationFactory + FluentAssertions). `UsersApiFactory` apunta a un sqlite temporal, no a `users.db` en la carpeta de output
     - Serilog: consola + JSON, request log, Warning/Error con errorCode, Endpoint y CorrelationId en cada evento del request
     - Correlation ID inbound (TODO outbound, no hay HttpClient): header `X-Correlation-Id`, campo `correlationId` en errores, propiedad en logs
-- Orders / Cart / Notifications: solo el esqueleto
-- Pendiente TP: Correlation ID outbound + resto de servicios, Orders, Cart, Notifications, health checks en esos tres
+- **Cart.API**
+    - Endpoints 4.3: GET /api/cart/{userId}, POST /api/cart/{userId}/items, PUT /api/cart/{userId}/items/{productId}, DELETE item, DELETE carrito
+    - Persistencia en SQLite con Dapper (`Microsoft.Data.Sqlite`). Al iniciar, `DatabaseInitializer` crea `carts` y `cart_items` si no existen. `UsuarioId` es la PK: el Apéndice A no da un Id al carrito. `cart_items` guarda ProductoId y Cantidad; `UsuarioId` ahí es solo la clave del dueño. Archivo `carts.db` (`ConnectionStrings:DefaultConnection`)
+    - POST crea el carrito si no existe y suma la cantidad si el producto ya estaba. PUT reemplaza la cantidad. Stock se valida contra ese total
+    - Stock vía `IProductCatalog` / `ProductCatalogClient`: GET Products `/api/products/{id}` en `Products:BaseUrl` (http://localhost:5001). CRT-002 es un 404 de Products. CRT-003 es cantidad mayor al stock
+    - Los tests de Cart no levantan Products. Reemplazan `IProductCatalog`. 
+    - Health checks 5.4: `/health` (ambas sondas), `/health/ready` (tablas `carts` y `cart_items`), `/health/live` (proceso). JSON `{ status }`
+    - Swagger: XML comments, `[ProducesResponseType]`, `CartSwaggerExamplesFilter`
+    - Tests E2E (xUnit + WebApplicationFactory + FluentAssertions). `CartApiFactory` apunta a un sqlite temporal, no a `carts.db` en la carpeta de output
+    - Serilog: consola + JSON, request log, Warning/Error con errorCode, Endpoint y CorrelationId en cada evento del request
+    - Correlation ID inbound y outbound: header `X-Correlation-Id`, campo `correlationId` en errores, propiedad en logs. `CorrelationIdHandler` lo copia en la llamada a Products
+- Orders / Notifications: solo el esqueleto
+- Pendiente TP: Orders, Notifications, health checks y correlation en esos dos.
 
 ## Swagger / OpenAPI
 
@@ -255,18 +268,18 @@ El TP pide estos usos de log:
 
 ## Correlation ID
 
-Implementado en Products.API y Users.API (inbound). Header: `X-Correlation-Id`.
+Implementado en Products.API y Users.API (inbound) y en Cart.API (inbound y outbound hacia Products). Header: `X-Correlation-Id`.
 
 - Si el cliente manda un valor no vacío (después de trim), se reutiliza. No tiene que ser un Guid.
 - Si falta o viene en blanco, se genera un Guid.
 - El mismo valor sale en el header de respuesta, en los logs (`CorrelationId`) y en el campo `correlationId` de cualquier error 4xx/5xx.
 - Probar: `GET http://localhost:5001/api/products` o `POST http://localhost:5002/api/users/login` con y sin el header. Un 401 o un 404 también debe repetir el id en el body.
 
-Todavía no está: propagación outbound por `HttpClient` (ni Products ni Users llaman a nadie)
+Cart.API copia el header en `GET /api/products/{id}` con `CorrelationIdHandler`. Products y Users no llaman a nadie.
 
 ## Health Checks
 
-Spec 5.4, en Products.API y Users.API.
+Spec 5.4, en Products.API, Users.API y Cart.API.
 
 - `GET /health` corre los dos chequeos y devuelve el peor estado.
 - `GET /health/ready` solo el de SQLite (tag `ready`).
