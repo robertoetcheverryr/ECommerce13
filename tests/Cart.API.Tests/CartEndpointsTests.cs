@@ -11,6 +11,12 @@ namespace Cart.API.Tests;
 
 using CartModel = Models.Cart;
 
+/*
+CRT-002 is a Products 404. CRT-003 is stock lower than the quantity.
+These tests do not start Products. ClientWithStock replaces IProductCatalog,
+so the rules run without port 5001. ProductCatalogClient is the real call,
+used when the API is running. A cross-service test will be built when all API are done.
+*/
 public class CartEndpointsTests : IClassFixture<CartApiFactory>
 {
     private readonly CartApiFactory _factory;
