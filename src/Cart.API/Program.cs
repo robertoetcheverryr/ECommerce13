@@ -4,8 +4,28 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Serilog;
+using Serilog.Context;
+using Serilog.Events;
+using Serilog.Formatting.Json;
+using Serilog.Sinks.SystemConsole.Themes;
+
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
+    .Enrich.FromLogContext()
+    .Enrich.WithProperty("Service", "Cart.API")
+    .WriteTo.Console(
+        theme: AnsiConsoleTheme.Code,
+        outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Service} {Endpoint} {CorrelationId} {Message:lj}{NewLine}{Exception}")
+    .WriteTo.File(
+        new JsonFormatter(renderMessage: true),
+        path: "logs/carts-.json",
+        rollingInterval: RollingInterval.Day)
+    .CreateLogger();
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Host.UseSerilog();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -63,9 +83,10 @@ try
 {
     new DatabaseInitializer(connectionString).Initialize();
 }
-catch (SqliteException)
+catch (SqliteException ex)
 {
     // Error 14 (missing directory) must not kill the host. Ready check will be Unhealthy.
+    Log.Error(ex, "SQLite initialization failed. Ready check will be Unhealthy.");
 }
 
 if (app.Environment.IsDevelopment())
@@ -74,12 +95,20 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+// Spec 5.3 + 5.5: Endpoint and CorrelationId on every log of the request.
+// Outbound copy is CorrelationIdHandler, on the Products client only.
 app.Use(async (context, next) =>
 {
     var correlationId = Cart.API.CorrelationId.Resolve(context.Request);
     Cart.API.CorrelationId.Assign(context, correlationId);
-    await next();
+
+    using (LogContext.PushProperty("Endpoint", context.Request.Path.Value ?? string.Empty))
+    using (LogContext.PushProperty(Cart.API.CorrelationId.LogProperty, correlationId))
+    {
+        await next();
+    }
 });
+app.UseSerilogRequestLogging();
 app.UseExceptionHandler();
 app.UseAuthorization();
 app.MapControllers();
