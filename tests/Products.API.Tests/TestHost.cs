@@ -26,7 +26,7 @@ internal static class TestHost
         CollectingSink? sink = null,
         Action<IServiceCollection>? configure = null)
     {
-        return factory.WithWebHostBuilder(builder =>
+        var host = factory.WithWebHostBuilder(builder =>
         {
             builder.ConfigureServices(services =>
             {
@@ -54,7 +54,8 @@ internal static class TestHost
 
                 configure?.Invoke(services);
             });
-        }).CreateClient();
+        });
+        return HostBoundClient.Create(host);
     }
 
     public static HttpClient CreateClientWithActiveOrders(
@@ -71,5 +72,37 @@ internal static class TestHost
             services.AddSingleton<IActiveOrdersChecker, AlwaysActiveOrdersChecker>();
             configure?.Invoke(services);
         });
+    }
+}
+
+// HttpClient sends through the handler. Overriding SendAsync is not enough.
+// Disposing the client disposes the host WithWebHostBuilder built.
+file sealed class HostBoundClient
+{
+    public static HttpClient Create(WebApplicationFactory<Program> host)
+    {
+        try
+        {
+            return host.CreateDefaultClient(new DisposeHostHandler(host));
+        }
+        catch
+        {
+            host.Dispose();
+            throw;
+        }
+    }
+
+    private sealed class DisposeHostHandler : DelegatingHandler
+    {
+        private readonly WebApplicationFactory<Program> _host;
+
+        public DisposeHostHandler(WebApplicationFactory<Program> host) => _host = host;
+
+        protected override void Dispose(bool disposing)
+        {
+            base.Dispose(disposing);
+            if (disposing)
+                _host.Dispose();
+        }
     }
 }

@@ -1,7 +1,6 @@
 using System.Net; // HttpStatusCode (OK, NotFound, Created, etc.)
 using System.Net.Http.Json; // PostAsJsonAsync, ReadFromJsonAsync
 using FluentAssertions; // Readable assertions (.Should().Be(...))
-using Microsoft.AspNetCore.Mvc.Testing; // WebApplicationFactory (spins up the API in-memory)
 using Microsoft.Extensions.DependencyInjection; // Needed to replace services in WithWebHostBuilder
 using Products.API.DTOs; // CreateProductRequest, UpdateProductRequest
 using Products.API.Exceptions; // ErrorCodes
@@ -12,28 +11,29 @@ using static Products.API.Tests.ProductResponseAssertions;
 
 namespace Products.API.Tests;
 
-/* IClassFixture<> tells xUnit:
-"Create ONE single instance of WebApplicationFactory and share it across all tests in this class"
-This way we don't restart the API from scratch for every test (that would be very slow).
-Roughly comparable to a session-scoped fixture in pytest.
+/* IClassFixture<> tells xUnit to create one ProductsApiFactory and share that
+object across the tests in this class. CreateClient() reuses that host.
+WithWebHostBuilder and CreateClientWithLogs build another host, and
+ProductsApiFactory gives that host its own temp database.
+The test class constructor still runs per test, which is why seeding runs again.
+Roughly comparable to a session-scoped fixture in pytest, not a function-scoped one.
 */
-public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+public class ProductsEndpointsTests : IClassFixture<ProductsApiFactory>
 {
     // HttpClient is the object we use to make HTTP requests
     // (same idea as the "requests" library in Python or fetch in JavaScript).
     // The factory is needed to build our own service with its own behavior.
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly ProductsApiFactory _factory;
     private readonly HttpClient _client;
 
     // Constructor: xUnit calls it automatically and injects the factory.
-    public ProductsEndpointsTests(WebApplicationFactory<Program> factory)
+    public ProductsEndpointsTests(ProductsApiFactory factory)
     {
-        // CreateClient() starts the API in-memory (no real port is opened)
-        // and returns an HttpClient already configured to talk to it.
+        // CreateClient() starts the API without opening a port.
+        // The store is the temp SQLite file from ProductsApiFactory.
         _factory = factory;
         _client = factory.CreateClient();
-        // Seed once for the whole test class or that was the idea but in the end
-        // the IClassFixture is built and destroyed once per test...
+        // Runs per test because the class is constructed per test. The factory is not.
         SeedProductsAsync().GetAwaiter().GetResult();
     }
 
@@ -189,6 +189,29 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
             "/api/products",
             ErrorCodes.PRD_003,
             string.Format(ErrorCodes.PRD_003_Message, "Electrónica"),
+            ErrorCodes.PRD_003_Detail);
+    }
+
+    [Fact]
+    public async Task Create_WithFoldedDuplicateNameInSameCategory_ShouldReturnConflict_WithPrd003()
+    {
+        // NOCASE would allow this. fold strips the accent and the case.
+        var request = new
+        {
+            nombre = "notebook dell xps 15",
+            descripcion = "Otro notebook",
+            precio = 1600.00m,
+            stock = 5,
+            categoria = "electronica"
+        };
+
+        var response = await _client.PostAsJsonAsync("/api/products", request);
+
+        await AssertConflict(
+            response,
+            "/api/products",
+            ErrorCodes.PRD_003,
+            string.Format(ErrorCodes.PRD_003_Message, "electronica"),
             ErrorCodes.PRD_003_Detail);
     }
 
@@ -393,7 +416,7 @@ public class ProductsEndpointsTests : IClassFixture<WebApplicationFactory<Progra
     }
 
     /// <summary>
-    /// Loads three known products into the in-memory store.
+    /// Loads three known products into the SQLite store.
     /// </summary>
     private async Task SeedProductsAsync()
     {

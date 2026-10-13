@@ -1,6 +1,5 @@
 using System.Net;
 using FluentAssertions;
-using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Products.API.DTOs;
 using Products.API.Exceptions;
@@ -10,11 +9,11 @@ using Serilog.Events;
 
 namespace Products.API.Tests;
 
-public class UnhandledExceptionLoggingTests : IClassFixture<WebApplicationFactory<Program>>
+public class UnhandledExceptionLoggingTests : IClassFixture<ProductsApiFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly ProductsApiFactory _factory;
 
-    public UnhandledExceptionLoggingTests(WebApplicationFactory<Program> factory)
+    public UnhandledExceptionLoggingTests(ProductsApiFactory factory)
     {
         _factory = factory;
     }
@@ -23,7 +22,7 @@ public class UnhandledExceptionLoggingTests : IClassFixture<WebApplicationFactor
     public async Task GetAll_WhenServiceThrows_ShouldLogError_WithPrd005()
     {
         var sink = new CollectingSink();
-        var client = _factory.CreateClientWithLogs(sink, services =>
+        using var client = _factory.CreateClientWithLogs(sink, services =>
         {
             var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(IProductService));
             if (descriptor is not null)

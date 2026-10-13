@@ -1,14 +1,13 @@
 using FluentAssertions;
-using Microsoft.AspNetCore.Mvc.Testing;
 using static Products.API.Tests.LogEventAssertions;
 
 namespace Products.API.Tests;
 
-public class RequestLoggingTests : IClassFixture<WebApplicationFactory<Program>>
+public class RequestLoggingTests : IClassFixture<ProductsApiFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly ProductsApiFactory _factory;
 
-    public RequestLoggingTests(WebApplicationFactory<Program> factory)
+    public RequestLoggingTests(ProductsApiFactory factory)
     {
         _factory = factory;
     }
@@ -17,7 +16,7 @@ public class RequestLoggingTests : IClassFixture<WebApplicationFactory<Program>>
     public async Task GetAll_ShouldLogRequestMethodPathStatusAndDuration()
     {
         var sink = new CollectingSink();
-        var client = _factory.CreateClientWithLogs(sink);
+        using var client = _factory.CreateClientWithLogs(sink);
 
         var response = await client.GetAsync("/api/products");
         response.EnsureSuccessStatusCode();

@@ -1,17 +1,17 @@
-﻿namespace Products.API.Services;
+namespace Products.API.Services;
 
 using Products.API.DTOs;
 using Products.API.Models;
 
 // IProductService is the contract: it only declares what methods the product service must expose,
 // without any implementation.
-// ProductService is the concrete class that actually implements those methods (currently using an in-memory list).
+// ProductService is the concrete class that actually implements those methods against SQLite.
 // Separating them allows the Controller to depend only on the contract rather than the concrete implementation,
 // making it easy to swap the persistence layer later and to mock the service in tests.
 
 /// <summary>
 /// Contrato del servicio de productos.
-/// Contiene la lógica de negocio y acceso a datos (por ahora in-memory).
+/// Contiene la lógica de negocio y el acceso a la base SQLite.
 /// </summary>
 public interface IProductService
 {
