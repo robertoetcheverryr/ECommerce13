@@ -1,5 +1,7 @@
-﻿using Microsoft.OpenApi;
+﻿
+using Microsoft.OpenApi;
 using Notifications.API.ExceptionHandlers;
+using Notifications.API.Services;
 using Serilog;
 using Serilog.Context;
 using Serilog.Formatting.Json;
@@ -23,6 +25,9 @@ builder.Host.UseSerilog();
 
 // Controllers
 builder.Services.AddControllers();
+
+// Services
+builder.Services.AddSingleton<INotificationService, NotificationService>();
 
 // Swagger
 builder.Services.AddEndpointsApiExplorer();
@@ -52,6 +57,7 @@ builder.Services.AddProblemDetails();
 builder.Services.AddHealthChecks();
 
 var app = builder.Build();
+
 app.Use(async (context, next) =>
 {
     var correlationId = context.Request.Headers["X-Correlation-Id"].FirstOrDefault()
@@ -87,6 +93,7 @@ app.Use(async (context, next) =>
         }
     }
 });
+
 // Swagger
 if (app.Environment.IsDevelopment())
 {
@@ -128,5 +135,3 @@ app.MapHealthChecks("/health/live");
 app.MapHealthChecks("/health/ready");
 
 app.Run();
-
-
