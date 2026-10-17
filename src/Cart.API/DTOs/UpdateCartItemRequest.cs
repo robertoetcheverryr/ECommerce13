@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace Cart.API.DTOs;
 
@@ -8,9 +9,11 @@ namespace Cart.API.DTOs;
 public class UpdateCartItemRequest
 {
     /// <summary>
-    /// Nueva cantidad. Debe ser mayor a 0.
+    /// Nueva cantidad. Requerida a nivel de deserialización
+    /// ([JsonRequired]); su validez (mayor a 0) la verifica el servicio
+    /// con CRT-004.
     /// </summary>
-    /// <example>4</example>
-    [Range(1, int.MaxValue, ErrorMessage = "La cantidad debe ser mayor a 0.")]
+    /// <example>3</example>
+    [JsonRequired]
     public int Cantidad { get; set; }
 }

@@ -63,6 +63,10 @@ public class CartController : ControllerBase
         [FromBody] AddCartItemRequest request,
         CancellationToken cancellationToken)
     {
+        var invalidModel = EnsureValidModel();
+        if (invalidModel is not null)
+            return invalidModel;
+
         var cart = await _cartService.AddItem(userId, request.ProductoId, request.Cantidad, cancellationToken);
         return Ok(ToResponse(cart));
     }
@@ -92,6 +96,10 @@ public class CartController : ControllerBase
         [FromBody] UpdateCartItemRequest request,
         CancellationToken cancellationToken)
     {
+        var invalidModel = EnsureValidModel();
+        if (invalidModel is not null)
+            return invalidModel;
+
         var cart = await _cartService.UpdateItem(userId, productId, request.Cantidad, cancellationToken);
         return Ok(ToResponse(cart));
     }
@@ -129,6 +137,21 @@ public class CartController : ControllerBase
     {
         _cartService.Delete(userId);
         return NoContent();
+    }
+
+    /// <summary>
+    /// Manual model validation for request bodies. The Cart spec defines no error
+    /// code for missing or malformed fields (unlike PRD-002 and USR-002 in the
+    /// other APIs), so we return the plain framework 400 ValidationProblemDetails.
+    /// NOTE: this is where we should raise CRT-002 if the SPEC were consistent with
+    /// the previous ones.
+    /// </summary>
+    private ActionResult? EnsureValidModel()
+    {
+        if (ModelState.IsValid)
+            return null;
+
+        return BadRequest(new ValidationProblemDetails(ModelState));
     }
 
     private static CartResponse ToResponse(global::Cart.API.Models.Cart cart) => new()
