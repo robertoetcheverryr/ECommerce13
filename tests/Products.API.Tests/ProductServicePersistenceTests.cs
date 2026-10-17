@@ -45,7 +45,7 @@ public class ProductServicePersistenceTests
     }
 
     [Fact]
-    public void Create_ConcurrentDuplicates_ShouldAllowOnlyOne()
+    public async Task Create_ConcurrentDuplicates_ShouldAllowOnlyOne()
     {
         var dbPath = Path.Combine(Path.GetTempPath(), $"products-{Guid.NewGuid():N}.db");
         var connectionString = $"Data Source={dbPath};Pooling=false";
@@ -71,8 +71,8 @@ public class ProductServicePersistenceTests
 
             var succeeded = 0;
             var conflicts = 0;
-            try { first.GetAwaiter().GetResult(); succeeded++; } catch (BusinessRuleException) { conflicts++; }
-            try { second.GetAwaiter().GetResult(); succeeded++; } catch (BusinessRuleException) { conflicts++; }
+            try { await first; succeeded++; } catch (BusinessRuleException) { conflicts++; }
+            try { await second; succeeded++; } catch (BusinessRuleException) { conflicts++; }
 
             succeeded.Should().Be(1);
             conflicts.Should().Be(1);
