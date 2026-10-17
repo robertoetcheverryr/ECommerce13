@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Diagnostics;
+using Serilog;
 
 namespace Notifications.API.ExceptionHandlers;
 
@@ -15,6 +16,11 @@ public class GlobalExceptionHandler : IExceptionHandler
         Exception exception,
         CancellationToken cancellationToken)
     {
+        Log.Error(
+            exception,
+            "NTF-004: Error interno al procesar la notificación. Endpoint: {Endpoint}",
+            context.Request.Path);
+
         context.Response.StatusCode = StatusCodes.Status500InternalServerError;
 
         await context.Response.WriteAsJsonAsync(new
