@@ -83,37 +83,52 @@ public class ProductService : IProductService
         using var connection = Open();
         // Same fold as the list filter: accents and case do not make a second product.
         connection.CreateFunction("fold", (string? value) => Fold(value));
-        var exists = connection.ExecuteScalar<int>("""
-            SELECT COUNT(1)
-            FROM products
-            WHERE fold(Nombre) = fold(@Nombre)
-              AND fold(Categoria) = fold(@Categoria)
-            """, new { request.Nombre, request.Categoria }) > 0;
 
-        if (exists)
-            throw new BusinessRuleException(
-                ErrorCodes.PRD_003,
-                string.Format(ErrorCodes.PRD_003_Message, request.Categoria),
-                ErrorCodes.PRD_003_Detail,
-                StatusCodes.Status409Conflict);
-
-        var product = new Product
+        // BEGIN IMMEDIATE takes the write lock at the start of the transaction.
+        // A plain (deferred) BEGIN lets two concurrent creates both read "not exists"
+        // and then both insert, producing a duplicate. With IMMEDIATE the second
+        // create waits (busy_timeout) and then sees the first row -> PRD-003.
+        connection.Execute("PRAGMA busy_timeout = 5000; BEGIN IMMEDIATE;");
+        try
         {
-            Id = Guid.NewGuid(),
-            Nombre = request.Nombre,
-            Descripcion = request.Descripcion,
-            Precio = request.Precio,
-            Stock = request.Stock,
-            Categoria = request.Categoria,
-            FechaCreacion = DateTime.UtcNow
-        };
+            var exists = connection.ExecuteScalar<int>("""
+                SELECT COUNT(1)
+                FROM products
+                WHERE fold(Nombre) = fold(@Nombre)
+                  AND fold(Categoria) = fold(@Categoria)
+                """, new { request.Nombre, request.Categoria }) > 0;
 
-        connection.Execute("""
-            INSERT INTO products (Id, Nombre, Descripcion, Precio, Stock, Categoria, FechaCreacion)
-            VALUES (@Id, @Nombre, @Descripcion, @Precio, @Stock, @Categoria, @FechaCreacion)
-            """, ToParameters(product));
+            if (exists)
+                throw new BusinessRuleException(
+                    ErrorCodes.PRD_003,
+                    string.Format(ErrorCodes.PRD_003_Message, request.Categoria),
+                    ErrorCodes.PRD_003_Detail,
+                    StatusCodes.Status409Conflict);
 
-        return product;
+            var product = new Product
+            {
+                Id = Guid.NewGuid(),
+                Nombre = request.Nombre,
+                Descripcion = request.Descripcion,
+                Precio = request.Precio,
+                Stock = request.Stock,
+                Categoria = request.Categoria,
+                FechaCreacion = DateTime.UtcNow
+            };
+
+            connection.Execute("""
+                INSERT INTO products (Id, Nombre, Descripcion, Precio, Stock, Categoria, FechaCreacion)
+                VALUES (@Id, @Nombre, @Descripcion, @Precio, @Stock, @Categoria, @FechaCreacion)
+                """, ToParameters(product));
+
+            connection.Execute("COMMIT;");
+            return product;
+        }
+        catch
+        {
+            connection.Execute("ROLLBACK;");
+            throw;
+        }
     }
 
     /// <inheritdoc />
