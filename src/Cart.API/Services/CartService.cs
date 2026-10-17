@@ -58,6 +58,23 @@ public class CartService : ICartService
 
         // A missing ProductoId deserializes to Guid.Empty: [Required] on a
         // non-nullable Guid is a no-op, so reject it explicitly here.
+        // Why the range check lives here (service) instead of on the DTO ([Range]),
+        // unlike Products.API:
+        //
+        // Products.API has a generic invalid-body code (PRD-002), so a blanket
+        // ModelState check in the controller can map every annotation failure to it.
+        // Cart.API has no generic code: the only code for a bad quantity is CRT-004,
+        // which is value-specific. ModelState runs BEFORE the service, so if
+        // [Range(1, ...)] were on AddCartItemRequest, a body with cantidad = 0 would
+        // be caught by the controller and answered with the framework 400
+        // ValidationProblemDetails — the service would never run and CRT-004 would
+        // never be emitted, breaking the documented contract.
+        //
+        // So: presence is enforced at deserialization ([JsonRequired]) and answered
+        // by the controller with the plain framework 400 (no spec code exists for
+        // that case); validity (cantidad > 0) is enforced here, where the spec's
+        // CRT-004 can be raised with the full error contract. Same checks as
+        // Products, different layer because the error code lives there.
         if (productoId == Guid.Empty)
             throw new NotFoundException(ErrorCodes.CRT_002, ErrorCodes.CRT_002_Message);
 
