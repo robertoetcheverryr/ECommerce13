@@ -95,6 +95,29 @@ public class ProductsEndpointsTests : IClassFixture<ProductsApiFactory>
     }
 
     [Fact]
+    public async Task GetAll_FilterByNombre_ShouldEscapeLikeWildcards()
+    {
+        // Names containing LIKE metacharacters must be matched literally.
+        var created = await _client.PostAsJsonAsync("/api/products", new CreateProductRequest
+        {
+            Nombre = "Salsa 20% off",
+            Descripcion = "Promo de temporada",
+            Precio = 3.50m,
+            Stock = 20,
+            Categoria = "Alimentos"
+        });
+        created.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        // "%25" is a literal "%". Before escaping it became the pattern "%%%",
+        // which matched every product; now it matches only names that actually
+        // contain a percent sign.
+        var response = await _client.GetAsync("/api/products?nombre=%25");
+        var products = await AssertProductListOk(response);
+        products.Should().Contain(p => p.Nombre == "Salsa 20% off");
+        products.Should().HaveCount(1);
+    }
+
+    [Fact]
     public async Task GetById_WhenProductExists_ShouldReturnOk_WithProduct()
     {
         // Find the ID of the notebook after seeding

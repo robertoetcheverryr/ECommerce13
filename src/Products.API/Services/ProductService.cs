@@ -38,8 +38,8 @@ public class ProductService : IProductService
             SELECT Id, Nombre, Descripcion, Precio, Stock, Categoria, FechaCreacion
             FROM products
             WHERE (@Categoria IS NULL OR fold(Categoria) = fold(@Categoria))
-              AND (@Nombre IS NULL OR fold(Nombre) LIKE '%' || fold(@Nombre) || '%')
-            """, new { Categoria = categoria, Nombre = nombre });
+              AND (@NombrePattern IS NULL OR fold(Nombre) LIKE @NombrePattern ESCAPE '\')
+            """, new { Categoria = categoria, NombrePattern = nombre is null ? null : LikePattern(nombre) });
 
         var result = new List<Product>();
         /* In real life (LINQ):
@@ -173,6 +173,15 @@ public class ProductService : IProductService
 
         using var connection = Open();
         connection.Execute("DELETE FROM products WHERE Id = @Id", new { Id = product.Id.ToString() });
+    }
+
+    private static string LikePattern(string? value)
+    {
+        // Search term folded like the stored text, then LIKE metacharacters escaped
+        // so "20% off" or "a_b" are literal, not wildcards. ESCAPE '\' in the query
+        // tells SQLite to treat backslash as the escape character.
+        var folded = Fold(value);
+        return "%" + folded.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%";
     }
 
     private static string Fold(string? value)
