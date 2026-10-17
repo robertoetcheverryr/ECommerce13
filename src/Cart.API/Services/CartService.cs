@@ -56,6 +56,11 @@ public class CartService : ICartService
         if (cantidad <= 0)
             throw new ValidationException(ErrorCodes.CRT_004, ErrorCodes.CRT_004_Message);
 
+        // A missing ProductoId deserializes to Guid.Empty: [Required] on a
+        // non-nullable Guid is a no-op, so reject it explicitly here.
+        if (productoId == Guid.Empty)
+            throw new NotFoundException(ErrorCodes.CRT_002, ErrorCodes.CRT_002_Message);
+
         if (_products is null)
             throw new InvalidOperationException("Product catalog is not configured.");
 

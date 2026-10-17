@@ -37,12 +37,15 @@ builder.Services.AddSwaggerGen(options =>
     options.SupportNonNullableReferenceTypes();
     options.OperationFilter<Cart.API.CartSwaggerExamplesFilter>();
 });
+
+// Consistent with Products/Users: suppress the automatic model-validation
+// filter and validate ModelState manually in the controller.
 builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
     options.SuppressModelStateInvalidFilter = true;
 });
 
-// Context accessor allows other services to read the request.
+builder.Services.AddHttpContextAccessor();
 // Needed for the correlation id handler.
 // Transient registers the handler itself.
 // All of this is needed because a header is NOT part of the body and

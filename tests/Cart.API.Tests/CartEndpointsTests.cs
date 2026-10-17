@@ -1,5 +1,7 @@
 using System.Net;
+using System.Net.Http;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using Cart.API.DTOs;
 using Cart.API.Models;
@@ -83,6 +85,60 @@ public class CartEndpointsTests : IClassFixture<CartApiFactory>
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         document.RootElement.GetProperty("errorCode").GetString().Should().Be("CRT-004");
         document.RootElement.GetProperty("errorMessage").GetString().Should().Be("Cantidad inválida.");
+    }
+
+    [Fact]
+    public async Task AddItem_WhenProductoIdIsMissing_ShouldReturnCrt002()
+    {
+        // Even with [JsonRequired] enforcing presence, an explicitly sent
+        // Guid.Empty must still be rejected by CartService.AddItem.
+        using var client = ClientWithStock(10);
+        var userId = Guid.NewGuid();
+
+        var response = await client.PostAsJsonAsync($"/api/cart/{userId}/items", new AddCartItemRequest
+        {
+            ProductoId = Guid.Empty,
+            Cantidad = 1
+        });
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        document.RootElement.GetProperty("errorCode").GetString().Should().Be("CRT-002");
+        document.RootElement.GetProperty("errorMessage").GetString().Should().Be("Producto no encontrado.");
+    }
+
+    [Fact]
+    public async Task AddItem_WhenProductoIdIsAbsent_ShouldReturnBadRequest()
+    {
+        // [JsonRequired] rejects the body at deserialization: a missing
+        // productoId no longer silently becomes Guid.Empty.
+        using var client = ClientWithStock(10);
+        var userId = Guid.NewGuid();
+
+        var content = new StringContent("{\"cantidad\": 1}", Encoding.UTF8, "application/json");
+        var response = await client.PostAsync($"/api/cart/{userId}/items", content);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        // Framework default: ValidationProblemDetails with an "errors" object.
+        document.RootElement.GetProperty("errors").EnumerateObject().Should().NotBeEmpty();
+    }
+
+    [Fact]
+    public async Task AddItem_WhenCantidadIsAbsent_ShouldReturnBadRequest()
+    {
+        // A missing cantidad must not deserialize to 0 and rely on [Range]
+        // to catch it — [JsonRequired] rejects it at deserialization.
+        using var client = ClientWithStock(10);
+        var userId = Guid.NewGuid();
+
+        var content = new StringContent("{\"productoId\": \"3fa85f64-5717-4562-b3fc-2c963f66afa6\"}", Encoding.UTF8, "application/json");
+        var response = await client.PostAsync($"/api/cart/{userId}/items", content);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        // Framework default: ValidationProblemDetails with an "errors" object.
+        document.RootElement.GetProperty("errors").EnumerateObject().Should().NotBeEmpty();
     }
 
     [Fact]

@@ -1,5 +1,7 @@
 using System.Net; // HttpStatusCode (OK, NotFound, Created, etc.)
+using System.Net.Http; // StringContent
 using System.Net.Http.Json; // PostAsJsonAsync, ReadFromJsonAsync
+using System.Text; // Encoding.UTF8
 using FluentAssertions; // Readable assertions (.Should().Be(...))
 using Microsoft.Extensions.DependencyInjection; // Needed to replace services in WithWebHostBuilder
 using Products.API.DTOs; // CreateProductRequest, UpdateProductRequest
@@ -213,6 +215,21 @@ public class ProductsEndpointsTests : IClassFixture<ProductsApiFactory>
             ErrorCodes.PRD_003,
             string.Format(ErrorCodes.PRD_003_Message, "electronica"),
             ErrorCodes.PRD_003_Detail);
+    }
+
+    [Fact]
+    public async Task Create_WhenStockIsAbsent_ShouldReturnBadRequest()
+    {
+        // [JsonRequired] rejects the body at deserialization: a missing
+        // stock no longer silently becomes 0 and slips through [Range].
+        var content = new StringContent(
+            "{\"nombre\":\"Monitor LG 27\",\"precio\":300.00,\"categoria\":\"Electrónica\"}",
+            Encoding.UTF8,
+            "application/json");
+
+        var response = await _client.PostAsync("/api/products", content);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
     [Fact]
