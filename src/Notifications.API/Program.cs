@@ -24,7 +24,33 @@ Log.Logger = new LoggerConfiguration()
 builder.Host.UseSerilog();
 
 // Controllers
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .ConfigureApiBehaviorOptions(options =>
+    {
+        options.InvalidModelStateResponseFactory = context =>
+        {
+            var errors = context.ModelState
+                .Values
+                .SelectMany(value => value.Errors)
+                .Select(error => error.ErrorMessage);
+
+            var errorMessage = string.Join("; ", errors);
+
+            var response = new
+            {
+                type = "https://tools.ietf.org/html/rfc9110#section-15.5.1",
+                title = "Bad Request",
+                status = StatusCodes.Status400BadRequest,
+                detail = "Los datos de la notificación son inválidos.",
+                instance = context.HttpContext.Request.Path.Value,
+                errorCode = "NTF-002",
+                errorMessage,
+                correlationId = context.HttpContext.Request.Headers["X-Correlation-Id"].FirstOrDefault()
+            };
+
+            return new Microsoft.AspNetCore.Mvc.BadRequestObjectResult(response);
+        };
+    });
 
 // Services
 builder.Services.AddSingleton<INotificationService, NotificationService>();
