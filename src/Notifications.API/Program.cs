@@ -1,4 +1,4 @@
-﻿
+﻿using Microsoft.Data.Sqlite;
 using Microsoft.OpenApi;
 using Notifications.API.ExceptionHandlers;
 using Notifications.API.Services;
@@ -53,7 +53,11 @@ builder.Services.AddControllers()
     });
 
 // Services
-builder.Services.AddSingleton<INotificationService, NotificationService>();
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+                       ?? "Data Source=notifications.db";
+
+builder.Services.AddSingleton<INotificationService>(sp =>
+    new NotificationService(connectionString));
 
 // Swagger
 builder.Services.AddEndpointsApiExplorer();
@@ -83,6 +87,15 @@ builder.Services.AddProblemDetails();
 builder.Services.AddHealthChecks();
 
 var app = builder.Build();
+try
+{
+    new DatabaseInitializer(connectionString).Initialize();
+}
+catch (SqliteException ex)
+{
+    Log.Error(ex, "No se pudo inicializar la base de datos de notificaciones.");
+    throw;
+}
 
 app.Use(async (context, next) =>
 {
@@ -130,8 +143,6 @@ if (app.Environment.IsDevelopment())
 // Manejo global de excepciones
 app.UseExceptionHandler();
 
-// HTTPS
-app.UseHttpsRedirection();
 
 // Controllers
 app.MapControllers();
