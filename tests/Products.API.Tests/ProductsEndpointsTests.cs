@@ -138,11 +138,16 @@ public class ProductsEndpointsTests : IClassFixture<ProductsApiFactory>
         product.Categoria.Should().Be("Electrónica");
     }
 
-    [Fact]
-    public async Task GetById_WhenProductDoesNotExist_ShouldReturnNotFound_WithPrd001()
+    // [Theory] = "this is a test that takes parameters".
+    // xUnit runs it once per [InlineData(...)], passing that value as the argument,
+    // and reports each run as a separate test case.
+    // It is the equivalent of "@pytest.mark.parametrize("id", [...])" in pytest.
+    [Theory]
+    [InlineData("00000000-0000-0000-0000-000000000099")]
+    [InlineData("99")]
+    [InlineData("no-es-guid")]
+    public async Task GetById_WhenProductDoesNotExist_ShouldReturnNotFound_WithPrd001(string id)
     {
-        // Fixed GUID that is guaranteed not to match the demo product.
-        var id = Guid.Parse("00000000-0000-0000-0000-000000000099");
 
         var response = await _client.GetAsync($"/api/products/{id}");
 
@@ -320,10 +325,15 @@ public class ProductsEndpointsTests : IClassFixture<ProductsApiFactory>
             ErrorCodes.PRD_002);
     }
 
-    [Fact]
-    public async Task Update_WhenProductDoesNotExist_ShouldReturnNotFound_WithPrd001()
+    // [Theory] + [InlineData] = same test with different inputs
+    // (like @pytest.mark.parametrize). "99" and "no-es-guid" are not GUIDs:
+    // they must get the same 404 + PRD-001 as a valid GUID that does not exist.
+    [Theory]
+    [InlineData("00000000-0000-0000-0000-000000000099")]
+    [InlineData("99")]
+    [InlineData("no-es-guid")]
+    public async Task Update_WhenProductDoesNotExist_ShouldReturnNotFound_WithPrd001(string id)
     {
-        var id = Guid.Parse("00000000-0000-0000-0000-000000000099");
         var request = new
         {
             nombre = "Producto Inexistente",
@@ -369,10 +379,15 @@ public class ProductsEndpointsTests : IClassFixture<ProductsApiFactory>
             ErrorCodes.PRD_001_Message);
     }
 
-    [Fact]
-    public async Task Delete_WhenProductDoesNotExist_ShouldReturnNotFound_WithPrd001()
+    // [Theory] + [InlineData] = same test with different inputs
+    // (like @pytest.mark.parametrize). "99" and "no-es-guid" are not GUIDs:
+    // they must get the same 404 + PRD-001 as a valid GUID that does not exist.
+    [Theory]
+    [InlineData("00000000-0000-0000-0000-000000000099")]
+    [InlineData("99")]
+    [InlineData("no-es-guid")]
+    public async Task Delete_WhenProductDoesNotExist_ShouldReturnNotFound_WithPrd001(string id)
     {
-        var id = Guid.Parse("00000000-0000-0000-0000-000000000099");
 
         var response = await _client.DeleteAsync($"/api/products/{id}");
 

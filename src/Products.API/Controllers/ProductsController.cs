@@ -46,18 +46,18 @@ public class ProductsController : ControllerBase
     /// <summary>
     /// Obtiene un producto por su ID.
     /// </summary>
-    /// <param name="id">Identificador del producto.</param>
+    /// <param name="id">Identificador del producto (GUID). Si no es un GUID válido se responde 404 (PRD-001).</param>
     /// <returns>El producto si existe.</returns>
     /// <response code="200">Producto encontrado.</response>
     /// <response code="404">Producto no encontrado (PRD-001).</response>
     /// <response code="500">Error interno al procesar el producto (PRD-005).</response>
-    [HttpGet("{id:guid}")]
+    [HttpGet("{id}")]
     [ProducesResponseType(typeof(Product), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
-    public ActionResult<Product> GetById(Guid id)
+    public ActionResult<Product> GetById(string id)
     {
-        var product = _productService.GetById(id);
+        var product = _productService.GetById(ParseProductId(id));
         return Ok(product);
     }
 
@@ -86,43 +86,57 @@ public class ProductsController : ControllerBase
     /// <summary>
     /// Actualiza un producto existente.
     /// </summary>
-    /// <param name="id">Identificador del producto.</param>
+    /// <param name="id">Identificador del producto (GUID). Si no es un GUID válido se responde 404 (PRD-001).</param>
     /// <param name="request">Datos actualizados del producto.</param>
     /// <returns>El producto actualizado.</returns>
     /// <response code="200">Producto actualizado correctamente.</response>
     /// <response code="400">Los datos del producto son inválidos (PRD-002).</response>
     /// <response code="404">Producto no encontrado (PRD-001).</response>
     /// <response code="500">Error interno al procesar el producto (PRD-005).</response>
-    [HttpPut("{id:guid}")]
+    [HttpPut("{id}")]
     [ProducesResponseType(typeof(Product), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
-    public ActionResult<Product> Update(Guid id, [FromBody] UpdateProductRequest request)
+    public ActionResult<Product> Update(string id, [FromBody] UpdateProductRequest request)
     {
+        var productId = ParseProductId(id);
         EnsureValidModel();
 
-        var product = _productService.Update(id, request);
+        var product = _productService.Update(productId, request);
         return Ok(product);
     }
 
     /// <summary>
     /// Elimina un producto.
     /// </summary>
-    /// <param name="id">Identificador del producto.</param>
+    /// <param name="id">Identificador del producto (GUID). Si no es un GUID válido se responde 404 (PRD-001).</param>
     /// <response code="204">Producto eliminado correctamente.</response>
     /// <response code="404">Producto no encontrado (PRD-001).</response>
     /// <response code="409">El producto tiene órdenes activas y no puede eliminarse (PRD-004).</response>
     /// <response code="500">Error interno al procesar el producto (PRD-005).</response>
-    [HttpDelete("{id:guid}")]
+    [HttpDelete("{id}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status409Conflict)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
-    public IActionResult Delete(Guid id)
+    public IActionResult Delete(string id)
     {
-        _productService.Delete(id);
+        _productService.Delete(ParseProductId(id));
         return NoContent();
+    }
+
+    /// <summary>
+    /// Convierte el id de la ruta a Guid. Un id que no es GUID no puede existir,
+    /// así que se responde igual que un producto inexistente (404, PRD-001)
+    /// en lugar del 404 vacío que daba la restricción de ruta {id:guid}.
+    /// </summary>
+    private static Guid ParseProductId(string id)
+    {
+        if (!Guid.TryParse(id, out var productId))
+            throw new NotFoundException(ErrorCodes.PRD_001, ErrorCodes.PRD_001_Message);
+
+        return productId;
     }
 
     /// <summary>
