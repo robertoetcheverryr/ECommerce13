@@ -75,7 +75,7 @@ public class UsersSwaggerExamplesFilter : IOperationFilter
                 SetResponseExample(operation, "200", ToJson(SampleLoggedInUser));
                 SetResponseExample(operation, "400", ToJson(BadRequest("/api/users/login")));
                 SetResponseExample(operation, "401", ToJson(Unauthorized("/api/users/login")));
-                SetResponseExample(operation, "403", ToJson(Forbidden(
+                AddNamedResponseExample(operation, "403", "usr-004", ToJson(Forbidden(
                     "/api/users/login",
                     ErrorCodes.USR_004,
                     ErrorCodes.USR_004_Message)));
