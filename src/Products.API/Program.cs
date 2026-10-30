@@ -58,6 +58,10 @@ builder.Services.AddSingleton<Products.API.Services.IProductService>(sp =>
     return new ProductService(sp.GetRequiredService<Products.API.Services.IActiveOrdersChecker>(), connectionString);
 });
 
+// Spec 5.2: Development shows exception.Message in detail, Production keeps the generic text
+builder.Services.Configure<Products.API.ExceptionHandlers.ErrorHandlingOptions>(
+    builder.Configuration.GetSection(Products.API.ExceptionHandlers.ErrorHandlingOptions.SectionName));
+
 // Exception handlers (order matters: most specific first, generic last)
 builder.Services.AddExceptionHandler<Products.API.ExceptionHandlers.NotFoundExceptionHandler>();
 builder.Services.AddExceptionHandler<Products.API.ExceptionHandlers.ValidationExceptionHandler>();

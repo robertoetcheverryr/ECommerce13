@@ -49,6 +49,10 @@ builder.Services.AddSingleton<Users.API.Services.IUserService>(sp =>
     return new UserService(connectionString);
 });
 
+// Spec 5.2: Development shows exception.Message in detail, Production keeps the generic text
+builder.Services.Configure<Users.API.ExceptionHandlers.ErrorHandlingOptions>(
+    builder.Configuration.GetSection(Users.API.ExceptionHandlers.ErrorHandlingOptions.SectionName));
+
 // Exception handlers (order matters: most specific first, generic last)
 builder.Services.AddExceptionHandler<Users.API.ExceptionHandlers.NotFoundExceptionHandler>();
 builder.Services.AddExceptionHandler<Users.API.ExceptionHandlers.ValidationExceptionHandler>();

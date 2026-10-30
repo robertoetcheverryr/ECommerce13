@@ -107,12 +107,22 @@ internal static class ErrorResponseAssertions
         string errorCode,
         string errorMessage)
     {
+        return AssertInternalError(response, instance, errorCode, errorMessage, "Ocurrió un error inesperado.");
+    }
+
+    internal static Task AssertInternalError(
+        HttpResponseMessage response,
+        string instance,
+        string errorCode,
+        string errorMessage,
+        string detail)
+    {
         return AssertErrorBody(
             response,
             HttpStatusCode.InternalServerError,
             "https://tools.ietf.org/html/rfc7231#section-6.6.1",
             "Internal Server Error",
-            "Ocurrió un error inesperado.",
+            detail,
             instance,
             errorCode,
             errorMessage);
