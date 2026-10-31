@@ -225,7 +225,7 @@ dotnet test
     - USR-005: `Activo == false` con `IntentosFallidos < 3`. No hay endpoint para marcarlo; los tests usan `UserService.MarkManuallyBlocked`
     - PasswordHash nunca sale en register ni login
     - Health checks 5.4: `/health` (ambos chequeos), `/health/ready` (tabla `users`), `/health/live` (proceso). JSON `{ status }`
-    - Swagger: XML comments, `[ProducesResponseType]`, `UsersSwaggerExamplesFilter`. El 403 de ejemplo es USR-004; USR-005 va como ejemplo nombrado
+    - Swagger: XML comments, `[ProducesResponseType]`, `UsersSwaggerExamplesFilter`. El 403 del login tiene dos ejemplos nombrados, `usr-004` y `usr-005`, sin `example` suelto: OpenAPI no permite `example` y `examples` juntos en el mismo media type
     - Tests E2E (xUnit + WebApplicationFactory + FluentAssertions). `UsersApiFactory` apunta a un sqlite temporal, no a `users.db` en la carpeta de output
     - Serilog: consola + JSON, request log, Warning/Error con errorCode, Endpoint y CorrelationId en cada evento del request
     - Correlation ID inbound (TODO outbound, no hay HttpClient): header `X-Correlation-Id`, campo `correlationId` en errores, propiedad en logs
