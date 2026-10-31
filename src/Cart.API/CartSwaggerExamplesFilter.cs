@@ -62,8 +62,22 @@ public class CartSwaggerExamplesFilter : IOperationFilter
             case nameof(CartController.AddItem):
                 SetRequestExample(operation, ToJson(SampleAddRequest));
                 SetResponseExample(operation, "200", ToJson(SampleCart));
-                SetResponseExample(operation, "400", ToJson(BadRequest($"{cartPath}/items")));
-                SetResponseExample(operation, "404", ToJson(NotFound($"{cartPath}/items", ErrorCodes.CRT_002, ErrorCodes.CRT_002_Message)));
+                AddNamedResponseExample(operation, "400", "crt-004", ToJson(BadRequest(
+                    $"{cartPath}/items",
+                    ErrorCodes.CRT_004,
+                    ErrorCodes.CRT_004_Message)));
+                AddNamedResponseExample(operation, "400", "body-invalido", ToJson(BadRequest(
+                    $"{cartPath}/items",
+                    string.Empty,
+                    "El campo 'cantidad' es obligatorio.")));
+                AddNamedResponseExample(operation, "404", "crt-002", ToJson(NotFound(
+                    $"{cartPath}/items",
+                    ErrorCodes.CRT_002,
+                    ErrorCodes.CRT_002_Message)));
+                AddNamedResponseExample(operation, "404", "userid-no-guid", ToJson(NotFound(
+                    "/api/cart/99/items",
+                    string.Empty,
+                    ErrorCodes.InvalidUserId_Message)));
                 SetResponseExample(operation, "422", ToJson(Stock($"{cartPath}/items")));
                 SetResponseExample(operation, "500", ToJson(InternalError($"{cartPath}/items")));
                 break;
@@ -71,20 +85,49 @@ public class CartSwaggerExamplesFilter : IOperationFilter
             case nameof(CartController.UpdateItem):
                 SetRequestExample(operation, ToJson(SampleUpdateRequest));
                 SetResponseExample(operation, "200", ToJson(SampleCart));
-                SetResponseExample(operation, "400", ToJson(BadRequest(itemPath)));
-                SetResponseExample(operation, "404", ToJson(NotFound(itemPath, ErrorCodes.CRT_001, ErrorCodes.CRT_001_Message)));
+                AddNamedResponseExample(operation, "400", "crt-004", ToJson(BadRequest(
+                    itemPath,
+                    ErrorCodes.CRT_004,
+                    ErrorCodes.CRT_004_Message)));
+                AddNamedResponseExample(operation, "400", "body-invalido", ToJson(BadRequest(
+                    itemPath,
+                    string.Empty,
+                    "El campo 'cantidad' es obligatorio.")));
+                AddNamedResponseExample(operation, "404", "crt-001", ToJson(NotFound(
+                    itemPath,
+                    ErrorCodes.CRT_001,
+                    ErrorCodes.CRT_001_Message)));
+                AddNamedResponseExample(operation, "404", "crt-002", ToJson(NotFound(
+                    itemPath,
+                    ErrorCodes.CRT_002,
+                    ErrorCodes.CRT_002_Message)));
                 SetResponseExample(operation, "422", ToJson(Stock(itemPath)));
                 SetResponseExample(operation, "500", ToJson(InternalError(itemPath)));
                 break;
 
             case nameof(CartController.RemoveItem):
-                SetResponseExample(operation, "404", ToJson(NotFound(itemPath, ErrorCodes.CRT_001, ErrorCodes.CRT_001_Message)));
+                AddNamedResponseExample(operation, "404", "crt-001", ToJson(NotFound(
+                    itemPath,
+                    ErrorCodes.CRT_001,
+                    ErrorCodes.CRT_001_Message)));
+                AddNamedResponseExample(operation, "404", "productid-no-guid", ToJson(NotFound(
+                    $"{cartPath}/items/99",
+                    string.Empty,
+                    ErrorCodes.InvalidProductId_Message)));
                 SetResponseExample(operation, "500", ToJson(InternalError(itemPath)));
                 break;
 
             case nameof(CartController.Clear):
                 SetResponseExample(operation, "404", ToJson(NotFound(cartPath, ErrorCodes.CRT_001, ErrorCodes.CRT_001_Message)));
                 SetResponseExample(operation, "500", ToJson(InternalError(cartPath)));
+                break;
+
+            default:
+                if (context.MethodInfo.DeclaringType == typeof(CartController))
+                {
+                    throw new InvalidOperationException(
+                        $"No Swagger examples defined for {context.MethodInfo.Name}.");
+                }
                 break;
         }
     }
@@ -101,15 +144,15 @@ public class CartSwaggerExamplesFilter : IOperationFilter
         CorrelationId = SampleCorrelationId
     };
 
-    private static ErrorResponse BadRequest(string instance) => new()
+    private static ErrorResponse BadRequest(string instance, string errorCode, string errorMessage) => new()
     {
         Type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
         Title = "Bad Request",
         Status = 400,
         Detail = "Los datos enviados no son válidos.",
         Instance = instance,
-        ErrorCode = ErrorCodes.CRT_004,
-        ErrorMessage = ErrorCodes.CRT_004_Message,
+        ErrorCode = errorCode,
+        ErrorMessage = errorMessage,
         CorrelationId = SampleCorrelationId
     };
 
@@ -179,5 +222,24 @@ public class CartSwaggerExamplesFilter : IOperationFilter
         }
 
         mediaType.Example = node;
+    }
+
+    private static void AddNamedResponseExample(
+        OpenApiOperation operation,
+        string statusCode,
+        string name,
+        string json)
+    {
+        if (operation.Responses is null ||
+            !operation.Responses.TryGetValue(statusCode, out var response) ||
+            response.Content is null ||
+            !response.Content.TryGetValue("application/json", out var mediaType))
+            return;
+
+        mediaType.Examples ??= new Dictionary<string, IOpenApiExample>();
+        mediaType.Examples[name] = new OpenApiExample
+        {
+            Value = JsonNode.Parse(json)
+        };
     }
 }
