@@ -141,13 +141,20 @@ public class CartService : ICartService
     /// <inheritdoc />
     public void RemoveItem(Guid usuarioId, Guid productoId)
     {
-        var cart = Get(usuarioId);
-        var existing = cart.Items.FirstOrDefault(item => item.ProductoId == productoId);
-        if (existing is null)
-            throw new NotFoundException(ErrorCodes.CRT_001, ErrorCodes.CRT_001_Message);
+        // Write rewrites every item of the cart, so the read and the rewrite share the
+        // write lock: otherwise a concurrent AddItem of another product can be lost.
+        InWriteTransaction(connection =>
+        {
+            var cart = Read(connection, usuarioId)
+                ?? throw new NotFoundException(ErrorCodes.CRT_001, ErrorCodes.CRT_001_Message);
+            var existing = cart.Items.FirstOrDefault(item => item.ProductoId == productoId);
+            if (existing is null)
+                throw new NotFoundException(ErrorCodes.CRT_001, ErrorCodes.CRT_001_Message);
 
-        cart.Items.Remove(existing);
-        Save(cart);
+            cart.Items.Remove(existing);
+            Write(connection, cart, null);
+            return cart;
+        });
     }
 
     /// <inheritdoc />

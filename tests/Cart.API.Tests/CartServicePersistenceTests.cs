@@ -217,6 +217,55 @@ public class CartServicePersistenceTests
         }
     }
 
+    [Fact]
+    public async Task RemoveItem_ConcurrentWithAddItem_ShouldKeepEveryChange()
+    {
+        var dbPath = Path.Combine(Path.GetTempPath(), $"carts-{Guid.NewGuid():N}.db");
+        var connectionString = $"Data Source={dbPath};Pooling=false";
+        var usuarioId = Guid.Parse("a1b2c3d4-0000-0000-0000-111122223333");
+        var removedIds = Enumerable.Range(1, 10)
+            .Select(i => Guid.Parse($"00000000-0000-0000-0000-{i:D12}"))
+            .ToList();
+        var addedIds = Enumerable.Range(101, 10)
+            .Select(i => Guid.Parse($"00000000-0000-0000-0000-{i:D12}"))
+            .ToList();
+
+        try
+        {
+            new DatabaseInitializer(connectionString).Initialize();
+            new CartService(connectionString).Save(new CartModel
+            {
+                UsuarioId = usuarioId,
+                Items = removedIds.Select(id => new CartItem { ProductoId = id, Cantidad = 1 }).ToList()
+            });
+            var catalog = new FixedStockCatalog(100);
+            using var start = new ManualResetEventSlim();
+
+            var removals = removedIds.Select(id => Task.Run(() =>
+            {
+                start.Wait();
+                new CartService(connectionString, catalog).RemoveItem(usuarioId, id);
+            }));
+            var additions = addedIds.Select(id => Task.Run(async () =>
+            {
+                start.Wait();
+                await new CartService(connectionString, catalog).AddItem(usuarioId, id, 1);
+            }));
+            var tasks = removals.Concat(additions).ToList();
+            start.Set();
+            await Task.WhenAll(tasks);
+
+            var loaded = new CartService(connectionString).Get(usuarioId);
+
+            loaded.Items.Select(item => item.ProductoId).Should().BeEquivalentTo(addedIds);
+        }
+        finally
+        {
+            if (File.Exists(dbPath))
+                File.Delete(dbPath);
+        }
+    }
+
     private sealed class FixedStockCatalog : IProductCatalog
     {
         private readonly int _stock;
