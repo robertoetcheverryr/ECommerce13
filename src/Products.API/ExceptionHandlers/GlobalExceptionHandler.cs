@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.Extensions.Options;
 using Products.API.DTOs;
 using Products.API.Exceptions;
 
@@ -11,10 +12,14 @@ namespace Products.API.ExceptionHandlers;
 public class GlobalExceptionHandler : IExceptionHandler
 {
     private readonly ILogger<GlobalExceptionHandler> _logger;
+    private readonly ErrorHandlingOptions _options;
 
-    public GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger)
+    public GlobalExceptionHandler(
+        ILogger<GlobalExceptionHandler> logger,
+        IOptions<ErrorHandlingOptions> options)
     {
         _logger = logger;
+        _options = options.Value;
     }
 
     public async ValueTask<bool> TryHandleAsync(
@@ -35,7 +40,9 @@ public class GlobalExceptionHandler : IExceptionHandler
             Type = "https://tools.ietf.org/html/rfc7231#section-6.6.1",
             Title = "Internal Server Error",
             Status = 500,
-            Detail = "Ocurrió un error inesperado.",
+            Detail = _options.IncludeExceptionDetails
+                ? exception.Message
+                : "Ocurrió un error inesperado.",
             Instance = context.Request.Path.Value ?? string.Empty,
             ErrorCode = ErrorCodes.PRD_005,
             ErrorMessage = ErrorCodes.PRD_005_Message,

@@ -107,12 +107,73 @@ internal static class ErrorResponseAssertions
         string errorCode,
         string errorMessage)
     {
+        return AssertInternalError(response, instance, errorCode, errorMessage, "Ocurrió un error inesperado.");
+    }
+
+    internal static Task AssertInternalError(
+        HttpResponseMessage response,
+        string instance,
+        string errorCode,
+        string errorMessage,
+        string detail)
+    {
         return AssertErrorBody(
             response,
             HttpStatusCode.InternalServerError,
             "https://tools.ietf.org/html/rfc7231#section-6.6.1",
             "Internal Server Error",
-            "Ocurrió un error inesperado.",
+            detail,
+            instance,
+            errorCode,
+            errorMessage);
+    }
+
+    internal static Task AssertMethodNotAllowed(
+        HttpResponseMessage response,
+        string instance,
+        string errorCode,
+        string errorMessage)
+    {
+        return AssertErrorBody(
+            response,
+            HttpStatusCode.MethodNotAllowed,
+            "https://tools.ietf.org/html/rfc7231#section-6.5.5",
+            "Method Not Allowed",
+            "El método HTTP no está permitido para este recurso.",
+            instance,
+            errorCode,
+            errorMessage);
+    }
+
+    internal static Task AssertUnsupportedMediaType(
+        HttpResponseMessage response,
+        string instance,
+        string errorCode,
+        string errorMessage)
+    {
+        return AssertErrorBody(
+            response,
+            HttpStatusCode.UnsupportedMediaType,
+            "https://tools.ietf.org/html/rfc7231#section-6.5.13",
+            "Unsupported Media Type",
+            "El tipo de contenido no está soportado.",
+            instance,
+            errorCode,
+            errorMessage);
+    }
+
+    internal static Task AssertNotFound(
+        HttpResponseMessage response,
+        string instance,
+        string errorCode,
+        string errorMessage)
+    {
+        return AssertErrorBody(
+            response,
+            HttpStatusCode.NotFound,
+            "https://tools.ietf.org/html/rfc7231#section-6.5.4",
+            "Not Found",
+            "El recurso solicitado no fue encontrado.",
             instance,
             errorCode,
             errorMessage);

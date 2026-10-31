@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using System.Text;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Users.API.Exceptions;
@@ -63,6 +64,28 @@ public class UsersEndpointsTests : IClassFixture<UsersApiFactory>
         var response = await _client.PostAsJsonAsync("/api/users/register", request);
 
         await AssertBadRequestWithFieldErrors(response, "/api/users/register", ErrorCodes.USR_002);
+    }
+
+    // These bodies fail at deserialization, where System.Text.Json used to leak
+    // English text and type names like Users.API.DTOs.RegisterUserRequest.
+    [Theory]
+    [InlineData("{\"apellido\":\"González\",\"email\":\"maria@email.com\",\"password\":\"MiPassword123!\"}",
+        "El campo 'nombre' es obligatorio.")]
+    [InlineData("{\"nombre\":\"María\",\"apellido\":\"González\",\"email\":123,\"password\":\"MiPassword123!\"}",
+        "El campo 'email' tiene un formato inválido.")]
+    [InlineData("{bad json", "El cuerpo de la solicitud no es un JSON válido.")]
+    [InlineData("", "El cuerpo de la solicitud es obligatorio.")]
+    public async Task Register_WhenBodyCannotBeDeserialized_ShouldReturnBadRequest_WithUsr002(
+        string body,
+        string expectedMessage)
+    {
+        var content = new StringContent(body, Encoding.UTF8, "application/json");
+
+        var response = await _client.PostAsync("/api/users/register", content);
+
+        await AssertBadRequest(response, "/api/users/register", ErrorCodes.USR_002, expectedMessage);
+        var rawBody = await response.Content.ReadAsStringAsync();
+        rawBody.Should().NotContain("System.").And.NotContain("DTOs").And.NotContain("The request field");
     }
 
     [Fact]

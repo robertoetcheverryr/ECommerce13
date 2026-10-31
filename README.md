@@ -206,6 +206,7 @@ dotnet test
     - Validaciones con Data Annotations (PRD-002)
     - `ErrorCodes` + excepciones de dominio (`NotFound`, `Validation`, `BusinessRule` con `Detail`, `Global`)
     - `IExceptionHandler`s registrados en orden de especificidad
+    - 404 de ruta inexistente, 405 y 415: `UseStatusCodePages` + `StatusCodeErrorWriter` devuelven el mismo `ErrorResponse` con `correlationId`. La sección 4 no tiene código para estos casos, así que `errorCode` va vacío. `SuppressMapClientErrors` evita que `[ApiController]` arme su propio ProblemDetails en el 415
     - PRD-003 solo en POST. Ya que no esta en la spec, PUT no revalida unicidad nombre+categoría
     - PRD-004 vía `IActiveOrdersChecker` + `NoOpActiveOrdersChecker`. Los tests inyectan un checker que siempre devuelve true
     - Health checks 5.4: `/health` (ambas sondas), `/health/ready` (tabla `products`), `/health/live` (proceso). JSON `{ status }`
@@ -220,12 +221,13 @@ dotnet test
     - Validaciones con Data Annotations (USR-002). Email y password delegan en `Services/Email` y `Services/Password`
     - `ErrorCodes` + excepciones de dominio (`NotFound`, `Validation`, `BusinessRule` con `Detail`, `Global`)
     - `IExceptionHandler`s registrados en orden de especificidad
+    - 404 de ruta inexistente, 405 y 415: `UseStatusCodePages` + `StatusCodeErrorWriter` devuelven el mismo `ErrorResponse` con `correlationId`. La sección 4 no tiene código para estos casos, así que `errorCode` va vacío. `SuppressMapClientErrors` evita que `[ApiController]` arme su propio ProblemDetails en el 415
     - USR-003 no distingue email inexistente de password incorrecta para evitar dar informacion a un atacante
     - USR-004: al tercer fallo consecutivo `Activo` pasa a false y ese request sigue siendo USR-003. El login siguiente es 403. Un login correcto antes resetea `IntentosFallidos`. El contador se escribe antes de tirar la excepción, si no un restart se olvida el bloqueo
     - USR-005: `Activo == false` con `IntentosFallidos < 3`. No hay endpoint para marcarlo; los tests usan `UserService.MarkManuallyBlocked`
     - PasswordHash nunca sale en register ni login
     - Health checks 5.4: `/health` (ambos chequeos), `/health/ready` (tabla `users`), `/health/live` (proceso). JSON `{ status }`
-    - Swagger: XML comments, `[ProducesResponseType]`, `UsersSwaggerExamplesFilter`. El 403 de ejemplo es USR-004; USR-005 va como ejemplo nombrado
+    - Swagger: XML comments, `[ProducesResponseType]`, `UsersSwaggerExamplesFilter`. El 403 del login tiene dos ejemplos nombrados, `usr-004` y `usr-005`, sin `example` suelto: OpenAPI no permite `example` y `examples` juntos en el mismo media type
     - Tests E2E (xUnit + WebApplicationFactory + FluentAssertions). `UsersApiFactory` apunta a un sqlite temporal, no a `users.db` en la carpeta de output
     - Serilog: consola + JSON, request log, Warning/Error con errorCode, Endpoint y CorrelationId en cada evento del request
     - Correlation ID inbound (TODO outbound, no hay HttpClient): header `X-Correlation-Id`, campo `correlationId` en errores, propiedad en logs
@@ -257,10 +259,9 @@ https://github.com/domaindrivendev/Swashbuckle.AspNetCore/blob/master/docs/migra
 
 El TP pide estos usos de log:
 
-- **Request HTTP** - un solo evento al completar la request
+- **Request HTTP** - un evento al iniciar (`HTTP {método} {path} started`,
+  middleware del Correlation ID en Products y Users) y otro al terminar
   (`UseSerilogRequestLogging`): método, path, status y duración.
-  No hay un log de inicio y otro de fin; el spec pide esos datos,
-  Serilog los emite juntos cuando termina el request.
 - **Reglas de negocio** - `LogWarning`
 - **Excepción no contemplada** - `LogError`
 - **Todo evento logeado debe incluir el endpoint que lo genero**

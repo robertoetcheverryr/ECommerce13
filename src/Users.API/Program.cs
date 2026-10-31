@@ -40,6 +40,8 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.Configure<Microsoft.AspNetCore.Mvc.ApiBehaviorOptions>(options =>
 {
     options.SuppressModelStateInvalidFilter = true;
+    // Without this, [ApiController] turns 415 into a ProblemDetails without errorCode; StatusCodeErrorWriter writes it instead
+    options.SuppressMapClientErrors = true;
 });
 
 builder.Services.AddSingleton<Users.API.Services.IUserService>(sp =>
@@ -48,6 +50,10 @@ builder.Services.AddSingleton<Users.API.Services.IUserService>(sp =>
         ?? "Data Source=users.db";
     return new UserService(connectionString);
 });
+
+// Spec 5.2: Development shows exception.Message in detail, Production keeps the generic text
+builder.Services.Configure<Users.API.ExceptionHandlers.ErrorHandlingOptions>(
+    builder.Configuration.GetSection(Users.API.ExceptionHandlers.ErrorHandlingOptions.SectionName));
 
 // Exception handlers (order matters: most specific first, generic last)
 builder.Services.AddExceptionHandler<Users.API.ExceptionHandlers.NotFoundExceptionHandler>();
@@ -92,11 +98,16 @@ app.Use(async (context, next) =>
     using (LogContext.PushProperty("Endpoint", context.Request.Path.Value ?? string.Empty))
     using (LogContext.PushProperty(Users.API.CorrelationId.LogProperty, correlationId))
     {
+        // Spec 5.3: start of the request; UseSerilogRequestLogging logs the end with the duration
+        app.Logger.LogInformation("HTTP {RequestMethod} {RequestPath} started",
+            context.Request.Method, context.Request.Path.Value);
         await next();
     }
 });
 app.UseSerilogRequestLogging();
 app.UseExceptionHandler();
+// 404 unknown route, 405 and 415 have no body by default; give them the ErrorResponse contract
+app.UseStatusCodePages(Users.API.StatusCodeErrorWriter.WriteAsync);
 app.UseAuthorization();
 app.MapControllers();
 

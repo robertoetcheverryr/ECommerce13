@@ -6,6 +6,7 @@ using Products.API.Exceptions;
 using Products.API.Models;
 using Products.API.Services;
 using Serilog.Events;
+using static Products.API.Tests.ErrorResponseAssertions;
 
 namespace Products.API.Tests;
 
@@ -42,6 +43,34 @@ public class UnhandledExceptionLoggingTests : IClassFixture<ProductsApiFactory>
         sink.Events.ShouldAllHaveEndpoint("/api/products");
         sink.Events.ShouldAllHaveCorrelationId(
             response.Headers.GetValues(CorrelationId.HeaderName).Single());
+    }
+
+    [Theory]
+    [InlineData("Development", "Unexpected failure")]
+    [InlineData("Production", "Ocurrió un error inesperado.")]
+    public async Task GetAll_WhenServiceThrows_ShouldReturnDetailByEnvironment_WithPrd005(
+        string environment,
+        string expectedDetail)
+    {
+        using var client = _factory.CreateClientForEnvironment(environment, services =>
+        {
+            var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(IProductService));
+            if (descriptor is not null)
+                services.Remove(descriptor);
+
+            services.AddSingleton<IProductService, ThrowingProductService>();
+        });
+
+        var response = await client.GetAsync("/api/products");
+
+        await AssertInternalError(
+            response,
+            "/api/products",
+            ErrorCodes.PRD_005,
+            ErrorCodes.PRD_005_Message,
+            expectedDetail);
+        var rawBody = await response.Content.ReadAsStringAsync();
+        rawBody.Should().NotContain(" at ").And.NotContain("ThrowingProductService");
     }
 
     private sealed class ThrowingProductService : IProductService

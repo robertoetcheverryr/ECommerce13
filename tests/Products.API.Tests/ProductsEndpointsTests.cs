@@ -138,11 +138,16 @@ public class ProductsEndpointsTests : IClassFixture<ProductsApiFactory>
         product.Categoria.Should().Be("Electrónica");
     }
 
-    [Fact]
-    public async Task GetById_WhenProductDoesNotExist_ShouldReturnNotFound_WithPrd001()
+    // [Theory] = "this is a test that takes parameters".
+    // xUnit runs it once per [InlineData(...)], passing that value as the argument,
+    // and reports each run as a separate test case.
+    // It is the equivalent of "@pytest.mark.parametrize("id", [...])" in pytest.
+    [Theory]
+    [InlineData("00000000-0000-0000-0000-000000000099")]
+    [InlineData("99")]
+    [InlineData("no-es-guid")]
+    public async Task GetById_WhenProductDoesNotExist_ShouldReturnNotFound_WithPrd001(string id)
     {
-        // Fixed GUID that is guaranteed not to match the demo product.
-        var id = Guid.Parse("00000000-0000-0000-0000-000000000099");
 
         var response = await _client.GetAsync($"/api/products/{id}");
 
@@ -255,6 +260,28 @@ public class ProductsEndpointsTests : IClassFixture<ProductsApiFactory>
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
+    [Theory]
+    [InlineData("{\"precio\":300.00,\"stock\":1,\"categoria\":\"Electrónica\"}",
+        "El campo 'nombre' es obligatorio.")]
+    [InlineData("{\"precio\":300.00,\"categoria\":\"Electrónica\"}",
+        "El campo 'nombre' es obligatorio.; El campo 'stock' es obligatorio.")]
+    [InlineData("{\"nombre\":\"Monitor LG 27\",\"precio\":\"abc\",\"stock\":1,\"categoria\":\"Electrónica\"}",
+        "El campo 'precio' tiene un formato inválido.")]
+    [InlineData("{bad json", "El cuerpo de la solicitud no es un JSON válido.")]
+    [InlineData("", "El cuerpo de la solicitud es obligatorio.")]
+    public async Task Create_WhenBodyCannotBeDeserialized_ShouldReturnBadRequest_WithPrd002(
+        string body,
+        string expectedMessage)
+    {
+        var content = new StringContent(body, Encoding.UTF8, "application/json");
+
+        var response = await _client.PostAsync("/api/products", content);
+
+        await AssertBadRequest(response, "/api/products", ErrorCodes.PRD_002, expectedMessage);
+        var rawBody = await response.Content.ReadAsStringAsync();
+        rawBody.Should().NotContain("System.").And.NotContain("DTOs").And.NotContain("The request field");
+    }
+
     [Fact]
     public async Task Update_WhenProductExists_ShouldReturnOk_WithUpdatedProduct()
     {
@@ -320,10 +347,15 @@ public class ProductsEndpointsTests : IClassFixture<ProductsApiFactory>
             ErrorCodes.PRD_002);
     }
 
-    [Fact]
-    public async Task Update_WhenProductDoesNotExist_ShouldReturnNotFound_WithPrd001()
+    // [Theory] + [InlineData] = same test with different inputs
+    // (like @pytest.mark.parametrize). "99" and "no-es-guid" are not GUIDs:
+    // they must get the same 404 + PRD-001 as a valid GUID that does not exist.
+    [Theory]
+    [InlineData("00000000-0000-0000-0000-000000000099")]
+    [InlineData("99")]
+    [InlineData("no-es-guid")]
+    public async Task Update_WhenProductDoesNotExist_ShouldReturnNotFound_WithPrd001(string id)
     {
-        var id = Guid.Parse("00000000-0000-0000-0000-000000000099");
         var request = new
         {
             nombre = "Producto Inexistente",
@@ -369,10 +401,15 @@ public class ProductsEndpointsTests : IClassFixture<ProductsApiFactory>
             ErrorCodes.PRD_001_Message);
     }
 
-    [Fact]
-    public async Task Delete_WhenProductDoesNotExist_ShouldReturnNotFound_WithPrd001()
+    // [Theory] + [InlineData] = same test with different inputs
+    // (like @pytest.mark.parametrize). "99" and "no-es-guid" are not GUIDs:
+    // they must get the same 404 + PRD-001 as a valid GUID that does not exist.
+    [Theory]
+    [InlineData("00000000-0000-0000-0000-000000000099")]
+    [InlineData("99")]
+    [InlineData("no-es-guid")]
+    public async Task Delete_WhenProductDoesNotExist_ShouldReturnNotFound_WithPrd001(string id)
     {
-        var id = Guid.Parse("00000000-0000-0000-0000-000000000099");
 
         var response = await _client.DeleteAsync($"/api/products/{id}");
 

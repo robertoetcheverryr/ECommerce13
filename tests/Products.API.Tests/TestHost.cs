@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Configuration.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Products.API.Services;
@@ -72,6 +74,27 @@ internal static class TestHost
             services.AddSingleton<IActiveOrdersChecker, AlwaysActiveOrdersChecker>();
             configure?.Invoke(services);
         });
+    }
+
+    public static HttpClient CreateClientForEnvironment(
+        this WebApplicationFactory<Program> factory,
+        string environment,
+        Action<IServiceCollection>? configure = null)
+    {
+        var host = factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment(environment);
+            builder.ConfigureAppConfiguration((_, config) =>
+            {
+                var overrideSource = config.Sources
+                    .OfType<MemoryConfigurationSource>()
+                    .Single(source => source.InitialData?.Any(entry =>
+                        entry.Key == ProductsApiFactory.ErrorHandlingOverrideKey) == true);
+                config.Sources.Remove(overrideSource);
+            });
+            builder.ConfigureServices(services => configure?.Invoke(services));
+        });
+        return HostBoundClient.Create(host);
     }
 }
 
