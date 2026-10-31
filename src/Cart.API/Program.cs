@@ -112,6 +112,9 @@ app.Use(async (context, next) =>
     using (LogContext.PushProperty("Endpoint", context.Request.Path.Value ?? string.Empty))
     using (LogContext.PushProperty(Cart.API.CorrelationId.LogProperty, correlationId))
     {
+        // Spec 5.3: start of the request; UseSerilogRequestLogging logs the end with the duration
+        app.Logger.LogInformation("HTTP {RequestMethod} {RequestPath} started",
+            context.Request.Method, context.Request.Path.Value);
         await next();
     }
 });

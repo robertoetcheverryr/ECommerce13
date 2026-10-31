@@ -260,7 +260,7 @@ https://github.com/domaindrivendev/Swashbuckle.AspNetCore/blob/master/docs/migra
 El TP pide estos usos de log:
 
 - **Request HTTP** - un evento al iniciar (`HTTP {método} {path} started`,
-  middleware del Correlation ID en Products y Users) y otro al terminar
+  middleware del Correlation ID en Products, Users y Cart) y otro al terminar
   (`UseSerilogRequestLogging`): método, path, status y duración.
 - **Reglas de negocio** - `LogWarning`
 - **Excepción no contemplada** - `LogError`
