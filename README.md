@@ -237,8 +237,9 @@ dotnet test
     - POST crea el carrito si no existe y suma la cantidad si el producto ya estaba. PUT reemplaza la cantidad. Stock se valida contra ese total
     - Stock vía `IProductCatalog` / `ProductCatalogClient`: GET Products `/api/products/{id}` en `Products:BaseUrl` (http://localhost:5001). CRT-002 es un 404 de Products. CRT-003 es cantidad mayor al stock
     - Los tests de Cart no levantan Products. Reemplazan `IProductCatalog`. 
+    - 404 de ruta inexistente, 405 y 415: `UseStatusCodePages` + `StatusCodeErrorWriter` devuelven el mismo `ErrorResponse` con `correlationId`. La sección 4 no tiene código para estos casos, así que `errorCode` va vacío. `SuppressMapClientErrors` evita que `[ApiController]` arme su propio ProblemDetails en el 415
     - Health checks 5.4: `/health` (ambas sondas), `/health/ready` (tablas `carts` y `cart_items`), `/health/live` (proceso). JSON `{ status }`
-    - Swagger: XML comments, `[ProducesResponseType]`, `CartSwaggerExamplesFilter`
+    - Swagger: XML comments, `[ProducesResponseType]`, `CartSwaggerExamplesFilter`. Donde un status tiene más de un caso van ejemplos nombrados, sin `example` suelto: 400 de POST y PUT (`crt-004`, `body-invalido`), 404 de POST (`crt-002`, `userid-no-guid`), de PUT (`crt-001`, `crt-002`) y de DELETE item (`crt-001`, `productid-no-guid`)
     - Tests E2E (xUnit + WebApplicationFactory + FluentAssertions). `CartApiFactory` apunta a un sqlite temporal, no a `carts.db` en la carpeta de output
     - Serilog: consola + JSON, request log, Warning/Error con errorCode, Endpoint y CorrelationId en cada evento del request
     - Correlation ID inbound y outbound: header `X-Correlation-Id`, campo `correlationId` en errores, propiedad en logs. `CorrelationIdHandler` lo copia en la llamada a Products
