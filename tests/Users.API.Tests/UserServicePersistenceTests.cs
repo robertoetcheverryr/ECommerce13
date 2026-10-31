@@ -130,4 +130,56 @@ public class UserServicePersistenceTests
                 File.Delete(dbPath);
         }
     }
+
+    [Fact]
+    public async Task Register_ConcurrentSameEmail_ShouldAllowOnlyOne()
+    {
+        var dbPath = Path.Combine(Path.GetTempPath(), $"users-{Guid.NewGuid():N}.db");
+        var connectionString = $"Data Source={dbPath};Pooling=false";
+
+        try
+        {
+            new DatabaseInitializer(connectionString).Initialize();
+
+            const int contenders = 8;
+            using var start = new Barrier(contenders);
+            var registers = Enumerable.Range(0, contenders)
+                .Select(_ => Task.Run(() =>
+                {
+                    var service = new UserService(connectionString);
+                    start.SignalAndWait();
+                    return service.Register(new RegisterUserRequest
+                    {
+                        Nombre = "María",
+                        Apellido = "González",
+                        Email = "maria@email.com",
+                        Password = "MiPassword123!"
+                    });
+                }))
+                .ToList();
+
+            var succeeded = 0;
+            var conflicts = new List<string>();
+            foreach (var register in registers)
+            {
+                try
+                {
+                    await register;
+                    succeeded++;
+                }
+                catch (BusinessRuleException ex)
+                {
+                    conflicts.Add(ex.ErrorCode);
+                }
+            }
+
+            succeeded.Should().Be(1);
+            conflicts.Should().HaveCount(contenders - 1).And.OnlyContain(code => code == ErrorCodes.USR_001);
+        }
+        finally
+        {
+            if (File.Exists(dbPath))
+                File.Delete(dbPath);
+        }
+    }
 }
