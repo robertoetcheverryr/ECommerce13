@@ -71,6 +71,73 @@ public class SwaggerTests : IClassFixture<CartApiFactory>
         example422.Should().Contain("correlationId");
     }
 
+    [Fact]
+    public async Task SwaggerJson_AddItem_ShouldUseNamedExamples_ForBadRequestAndNotFound()
+    {
+        var swagger = await LoadSwaggerAsync();
+        var media400 = GetResponseMediaType(swagger, "/api/cart/{userId}/items", "post", "400");
+        var media404 = GetResponseMediaType(swagger, "/api/cart/{userId}/items", "post", "404");
+        var crt004 = GetNamedResponseExample(swagger, "/api/cart/{userId}/items", "post", "400", "crt-004");
+        var invalidBody = GetNamedResponseExample(swagger, "/api/cart/{userId}/items", "post", "400", "body-invalido");
+        var crt002 = GetNamedResponseExample(swagger, "/api/cart/{userId}/items", "post", "404", "crt-002");
+        var invalidUserId = GetNamedResponseExample(swagger, "/api/cart/{userId}/items", "post", "404", "userid-no-guid");
+
+        media400.TryGetProperty("example", out _).Should().BeFalse();
+        media400.GetProperty("examples").EnumerateObject().Select(property => property.Name)
+            .Should().BeEquivalentTo(["crt-004", "body-invalido"]);
+        media404.TryGetProperty("example", out _).Should().BeFalse();
+        media404.GetProperty("examples").EnumerateObject().Select(property => property.Name)
+            .Should().BeEquivalentTo(["crt-002", "userid-no-guid"]);
+        crt004.Should().Contain(ErrorCodes.CRT_004).And.Contain(ErrorCodes.CRT_004_Message);
+        JsonDocument.Parse(invalidBody).RootElement.GetProperty("errorCode").GetString().Should().BeEmpty();
+        invalidBody.Should().Contain("El campo 'cantidad' es obligatorio.");
+        crt002.Should().Contain(ErrorCodes.CRT_002).And.Contain(ErrorCodes.CRT_002_Message);
+        JsonDocument.Parse(invalidUserId).RootElement.GetProperty("errorCode").GetString().Should().BeEmpty();
+        invalidUserId.Should().Contain(ErrorCodes.InvalidUserId_Message);
+    }
+
+    [Fact]
+    public async Task SwaggerJson_UpdateItem_ShouldUseNamedExamples_ForBadRequestAndNotFound()
+    {
+        var swagger = await LoadSwaggerAsync();
+        var path = "/api/cart/{userId}/items/{productId}";
+        var media400 = GetResponseMediaType(swagger, path, "put", "400");
+        var media404 = GetResponseMediaType(swagger, path, "put", "404");
+        var crt004 = GetNamedResponseExample(swagger, path, "put", "400", "crt-004");
+        var invalidBody = GetNamedResponseExample(swagger, path, "put", "400", "body-invalido");
+        var crt001 = GetNamedResponseExample(swagger, path, "put", "404", "crt-001");
+        var crt002 = GetNamedResponseExample(swagger, path, "put", "404", "crt-002");
+
+        media400.TryGetProperty("example", out _).Should().BeFalse();
+        media400.GetProperty("examples").EnumerateObject().Select(property => property.Name)
+            .Should().BeEquivalentTo(["crt-004", "body-invalido"]);
+        media404.TryGetProperty("example", out _).Should().BeFalse();
+        media404.GetProperty("examples").EnumerateObject().Select(property => property.Name)
+            .Should().BeEquivalentTo(["crt-001", "crt-002"]);
+        crt004.Should().Contain(ErrorCodes.CRT_004).And.Contain(ErrorCodes.CRT_004_Message);
+        JsonDocument.Parse(invalidBody).RootElement.GetProperty("errorCode").GetString().Should().BeEmpty();
+        invalidBody.Should().Contain("El campo 'cantidad' es obligatorio.");
+        crt001.Should().Contain(ErrorCodes.CRT_001).And.Contain(ErrorCodes.CRT_001_Message);
+        crt002.Should().Contain(ErrorCodes.CRT_002).And.Contain(ErrorCodes.CRT_002_Message);
+    }
+
+    [Fact]
+    public async Task SwaggerJson_RemoveItem_ShouldUseNamedExamples_ForNotFound()
+    {
+        var swagger = await LoadSwaggerAsync();
+        var path = "/api/cart/{userId}/items/{productId}";
+        var media404 = GetResponseMediaType(swagger, path, "delete", "404");
+        var crt001 = GetNamedResponseExample(swagger, path, "delete", "404", "crt-001");
+        var invalidProductId = GetNamedResponseExample(swagger, path, "delete", "404", "productid-no-guid");
+
+        media404.TryGetProperty("example", out _).Should().BeFalse();
+        media404.GetProperty("examples").EnumerateObject().Select(property => property.Name)
+            .Should().BeEquivalentTo(["crt-001", "productid-no-guid"]);
+        crt001.Should().Contain(ErrorCodes.CRT_001).And.Contain(ErrorCodes.CRT_001_Message);
+        JsonDocument.Parse(invalidProductId).RootElement.GetProperty("errorCode").GetString().Should().BeEmpty();
+        invalidProductId.Should().Contain(ErrorCodes.InvalidProductId_Message);
+    }
+
     private async Task<JsonDocument> LoadSwaggerAsync()
     {
         var response = await _client.GetAsync("/swagger/v1/swagger.json");
@@ -120,6 +187,36 @@ public class SwaggerTests : IClassFixture<CartApiFactory>
         media.TryGetProperty("example", out var example).Should().BeTrue(
             $"{method.ToUpperInvariant()} {path} {statusCode} should have an example");
         return example.GetRawText();
+    }
+
+    private static JsonElement GetResponseMediaType(
+        JsonDocument swagger,
+        string path,
+        string method,
+        string statusCode)
+    {
+        var operation = GetOperation(swagger, path, method);
+        operation.TryGetProperty("responses", out var responses).Should().BeTrue();
+        responses.TryGetProperty(statusCode, out var response).Should().BeTrue();
+        response.TryGetProperty("content", out var content).Should().BeTrue();
+        content.TryGetProperty("application/json", out var media).Should().BeTrue();
+        return media;
+    }
+
+    private static string GetNamedResponseExample(
+        JsonDocument swagger,
+        string path,
+        string method,
+        string statusCode,
+        string name)
+    {
+        var media = GetResponseMediaType(swagger, path, method, statusCode);
+        media.TryGetProperty("examples", out var examples).Should().BeTrue(
+            $"{method.ToUpperInvariant()} {path} {statusCode} should have named examples");
+        examples.TryGetProperty(name, out var example).Should().BeTrue(
+            $"{method.ToUpperInvariant()} {path} {statusCode} should have the '{name}' example");
+        example.TryGetProperty("value", out var value).Should().BeTrue();
+        return value.GetRawText();
     }
 
     private static string GetRequestExample(JsonDocument swagger, string path, string method)
