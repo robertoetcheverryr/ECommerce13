@@ -66,6 +66,10 @@ builder.Services.AddSingleton<ICartService>(sp =>
     return new CartService(connectionString, sp.GetRequiredService<IProductCatalog>());
 });
 
+// Spec 5.2: Development shows exception.Message in detail, Production keeps the generic text
+builder.Services.Configure<Cart.API.ExceptionHandlers.ErrorHandlingOptions>(
+    builder.Configuration.GetSection(Cart.API.ExceptionHandlers.ErrorHandlingOptions.SectionName));
+
 // Exception handlers (order matters: most specific first, generic last)
 builder.Services.AddExceptionHandler<NotFoundExceptionHandler>();
 builder.Services.AddExceptionHandler<ValidationExceptionHandler>();
