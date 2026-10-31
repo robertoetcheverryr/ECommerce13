@@ -257,10 +257,9 @@ https://github.com/domaindrivendev/Swashbuckle.AspNetCore/blob/master/docs/migra
 
 El TP pide estos usos de log:
 
-- **Request HTTP** - un solo evento al completar la request
+- **Request HTTP** - un evento al iniciar (`HTTP {método} {path} started`,
+  middleware del Correlation ID en Products y Users) y otro al terminar
   (`UseSerilogRequestLogging`): método, path, status y duración.
-  No hay un log de inicio y otro de fin; el spec pide esos datos,
-  Serilog los emite juntos cuando termina el request.
 - **Reglas de negocio** - `LogWarning`
 - **Excepción no contemplada** - `LogError`
 - **Todo evento logeado debe incluir el endpoint que lo genero**
