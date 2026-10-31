@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Cart.API.DTOs;
 using Cart.API.Exceptions;
 using Cart.API.Services;
@@ -49,7 +50,7 @@ public class CartController : ControllerBase
     /// <param name="cancellationToken">Token de cancelación.</param>
     /// <returns>El carrito actualizado.</returns>
     /// <response code="200">Producto agregado.</response>
-    /// <response code="400">Cantidad inválida (CRT-004).</response>
+    /// <response code="400">Cantidad inválida (CRT-004) o body inválido (sin errorCode).</response>
     /// <response code="404">Producto no encontrado (CRT-002) o userId que no es GUID (sin errorCode).</response>
     /// <response code="422">Stock insuficiente (CRT-003).</response>
     /// <response code="500">Error interno al procesar el carrito (CRT-005).</response>
@@ -67,9 +68,7 @@ public class CartController : ControllerBase
         // Spec consistency gap: CRT-001 is listed only for GET/PUT/DELETE, so a POST
         // userId that is not a GUID gets a 404 without errorCode instead of borrowing it.
         var cartUserId = ParseId(userId, string.Empty, ErrorCodes.InvalidUserId_Message);
-        var invalidModel = EnsureValidModel();
-        if (invalidModel is not null)
-            return invalidModel;
+        EnsureValidModel();
 
         var cart = await _cartService.AddItem(cartUserId, request.ProductoId, request.Cantidad, cancellationToken);
         return Ok(ToResponse(cart));
@@ -84,7 +83,7 @@ public class CartController : ControllerBase
     /// <param name="cancellationToken">Token de cancelación.</param>
     /// <returns>El carrito actualizado.</returns>
     /// <response code="200">Cantidad actualizada.</response>
-    /// <response code="400">Cantidad inválida (CRT-004).</response>
+    /// <response code="400">Cantidad inválida (CRT-004) o body inválido (sin errorCode).</response>
     /// <response code="404">Carrito no encontrado (CRT-001) o producto no encontrado (CRT-002).</response>
     /// <response code="422">Stock insuficiente (CRT-003).</response>
     /// <response code="500">Error interno al procesar el carrito (CRT-005).</response>
@@ -104,9 +103,7 @@ public class CartController : ControllerBase
         // gana productId (CRT-002) porque CartService.UpdateItem chequea el producto antes que el carrito.
         var itemProductId = ParseProductId(productId);
         var cartUserId = ParseUserId(userId);
-        var invalidModel = EnsureValidModel();
-        if (invalidModel is not null)
-            return invalidModel;
+        EnsureValidModel();
 
         var cart = await _cartService.UpdateItem(cartUserId, itemProductId, request.Cantidad, cancellationToken);
         return Ok(ToResponse(cart));
@@ -177,18 +174,71 @@ public class CartController : ControllerBase
     }
 
     /// <summary>
-    /// Manual model validation for request bodies. The Cart spec defines no error
-    /// code for missing or malformed fields (unlike PRD-002 and USR-002 in the
-    /// other APIs), so we return the plain framework 400 ValidationProblemDetails.
-    /// NOTE: this is where we should raise CRT-002 if the SPEC were consistent with
-    /// the previous ones.
+    /// Manual model validation for request bodies. Spec consistency error: Products and
+    /// Users have a generic invalid-data code (PRD-002, USR-002) but Cart has none, and
+    /// CRT-002 means product not found. So an invalid body still returns the ErrorResponse
+    /// contract with correlationId, but with an empty errorCode.
     /// </summary>
-    private ActionResult? EnsureValidModel()
+    private void EnsureValidModel()
     {
         if (ModelState.IsValid)
-            return null;
+            return;
 
-        return BadRequest(new ValidationProblemDetails(ModelState));
+        var errorMessages = new List<string>();
+        foreach (var entry in ModelState)
+        {
+            // "request" is the [FromBody] parameter. When the body cannot be deserialized MVC adds
+            // a generic "The request field is required." on top of the real error, so we skip it.
+            if (entry.Key == "request")
+                continue;
+
+            foreach (var error in entry.Value.Errors)
+            {
+                errorMessages.AddRange(ToSpanishMessages(entry.Key, error.ErrorMessage));
+            }
+        }
+
+        var errors = string.Join("; ", errorMessages);
+
+        // Spec consistency error: no CRT code for an invalid body, so errorCode goes empty
+        throw new ValidationException(
+            string.Empty,
+            string.IsNullOrWhiteSpace(errors)
+                ? ErrorCodes.InvalidBody_Message
+                : errors);
+    }
+
+    /// <summary>
+    /// System.Text.Json reporta sus errores en inglés y con nombres de tipos internos
+    /// (System.Guid, Cart.API.DTOs...). Se reconocen por la clave de ModelState y se
+    /// reemplazan por textos en espanol. Los mensajes de Data Annotations pasan tal cual.
+    /// </summary>
+    private static IEnumerable<string> ToSpanishMessages(string key, string message)
+    {
+        // Empty key: there was no body at all (or a literal null)
+        if (key == string.Empty)
+            return ["El cuerpo de la solicitud es obligatorio."];
+
+        // "$" is the JSON root: either [JsonRequired] fields are missing or the JSON is broken
+        if (key == "$")
+        {
+            const string missingRequired = "missing required properties including:";
+            var index = message.IndexOf(missingRequired, StringComparison.Ordinal);
+            if (index < 0)
+                return ["El cuerpo de la solicitud no es un JSON válido."];
+
+            // The message ends with "including: 'productoId', 'cantidad'." keep only the quoted field names,
+            // the type name is quoted too but it comes before "including:"
+            return Regex.Matches(message[(index + missingRequired.Length)..], "'([^']+)'")
+                .Select(match => $"El campo '{match.Groups[1].Value}' es obligatorio.");
+        }
+
+        // "$.cantidad": the value sent for that field could not be read (e.g. a string for an int)
+        if (key.StartsWith("$.", StringComparison.Ordinal))
+            return [$"El campo '{key[2..]}' tiene un formato inválido."];
+
+        // Any other key is a property validated by Data Annotations, already in Spanish
+        return [message];
     }
 
     private static CartResponse ToResponse(global::Cart.API.Models.Cart cart) => new()
