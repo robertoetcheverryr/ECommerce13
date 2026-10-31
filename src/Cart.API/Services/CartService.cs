@@ -30,23 +30,8 @@ public class CartService : ICartService
     public CartModel Get(Guid usuarioId)
     {
         using var connection = Open();
-        var header = connection.QuerySingleOrDefault<CartRow>("""
-            SELECT UsuarioId, FechaActualizacion
-            FROM carts
-            WHERE UsuarioId = @UsuarioId
-            """, new { UsuarioId = usuarioId.ToString() });
-
-        if (header is null)
-            throw new NotFoundException(ErrorCodes.CRT_001, ErrorCodes.CRT_001_Message);
-
-        var items = connection.Query<CartItemRow>("""
-            SELECT ProductoId, Cantidad
-            FROM cart_items
-            WHERE UsuarioId = @UsuarioId
-            ORDER BY ProductoId
-            """, new { UsuarioId = usuarioId.ToString() });
-
-        return Map(header, items);
+        return Read(connection, usuarioId)
+            ?? throw new NotFoundException(ErrorCodes.CRT_001, ErrorCodes.CRT_001_Message);
     }
 
 
@@ -86,33 +71,31 @@ public class CartService : ICartService
         if (product is null)
             throw new NotFoundException(ErrorCodes.CRT_002, ErrorCodes.CRT_002_Message);
 
-        CartModel cart;
-        try
+        // The Products call stays outside the write lock: a slow catalog must not
+        // block every other cart write. Only the read-modify-write of the cart is locked.
+        return InWriteTransaction(connection =>
         {
-            cart = Get(usuarioId);
-        }
-        catch (NotFoundException)
-        {
-            cart = new CartModel { UsuarioId = usuarioId };
-        }
+            var cart = Read(connection, usuarioId) ?? new CartModel { UsuarioId = usuarioId };
 
-        var existing = cart.Items.FirstOrDefault(item => item.ProductoId == productoId);
-        var requested = cantidad + (existing?.Cantidad ?? 0);
-        if (requested > product.Stock)
-        {
-            throw new BusinessRuleException(
-                ErrorCodes.CRT_003,
-                $"Stock insuficiente. Disponible: {product.Stock}, solicitado: {requested}.",
-                ErrorCodes.CRT_003_Detail,
-                StatusCodes.Status422UnprocessableEntity);
-        }
+            var existing = cart.Items.FirstOrDefault(item => item.ProductoId == productoId);
+            var requested = cantidad + (existing?.Cantidad ?? 0);
+            if (requested > product.Stock)
+            {
+                throw new BusinessRuleException(
+                    ErrorCodes.CRT_003,
+                    $"Stock insuficiente. Disponible: {product.Stock}, solicitado: {requested}.",
+                    ErrorCodes.CRT_003_Detail,
+                    StatusCodes.Status422UnprocessableEntity);
+            }
 
-        if (existing is null)
-            cart.Items.Add(new CartItem { ProductoId = productoId, Cantidad = cantidad });
-        else
-            existing.Cantidad = requested;
+            if (existing is null)
+                cart.Items.Add(new CartItem { ProductoId = productoId, Cantidad = cantidad });
+            else
+                existing.Cantidad = requested;
 
-        return Save(cart);
+            Write(connection, cart, null);
+            return cart;
+        });
     }
 
 
@@ -129,23 +112,29 @@ public class CartService : ICartService
         if (product is null)
             throw new NotFoundException(ErrorCodes.CRT_002, ErrorCodes.CRT_002_Message);
 
-        var cart = Get(usuarioId);
-        var existing = cart.Items.FirstOrDefault(item => item.ProductoId == productoId);
-        if (existing is null)
-            throw new NotFoundException(ErrorCodes.CRT_001, ErrorCodes.CRT_001_Message);
-
-        // PUT replaces the quantity. Stock is checked against that value, not added to it.
-        if (cantidad > product.Stock)
+        // Same as AddItem: Products is called before taking the write lock.
+        return InWriteTransaction(connection =>
         {
-            throw new BusinessRuleException(
-                ErrorCodes.CRT_003,
-                $"Stock insuficiente. Disponible: {product.Stock}, solicitado: {cantidad}.",
-                ErrorCodes.CRT_003_Detail,
-                StatusCodes.Status422UnprocessableEntity);
-        }
+            var cart = Read(connection, usuarioId)
+                ?? throw new NotFoundException(ErrorCodes.CRT_001, ErrorCodes.CRT_001_Message);
+            var existing = cart.Items.FirstOrDefault(item => item.ProductoId == productoId);
+            if (existing is null)
+                throw new NotFoundException(ErrorCodes.CRT_001, ErrorCodes.CRT_001_Message);
 
-        existing.Cantidad = cantidad;
-        return Save(cart);
+            // PUT replaces the quantity. Stock is checked against that value, not added to it.
+            if (cantidad > product.Stock)
+            {
+                throw new BusinessRuleException(
+                    ErrorCodes.CRT_003,
+                    $"Stock insuficiente. Disponible: {product.Stock}, solicitado: {cantidad}.",
+                    ErrorCodes.CRT_003_Detail,
+                    StatusCodes.Status422UnprocessableEntity);
+            }
+
+            existing.Cantidad = cantidad;
+            Write(connection, cart, null);
+            return cart;
+        });
     }
 
 
@@ -164,13 +153,21 @@ public class CartService : ICartService
     /// <inheritdoc />
     public CartModel Save(CartModel cart)
     {
+        using var connection = Open();
+        using var tx = connection.BeginTransaction();
+        Write(connection, cart, tx);
+        // Only when everything is OK we commit both header and items
+        tx.Commit();
+        return cart;
+    }
+
+    // Header and items commit together. A failed item write must not leave a half-updated cart.
+    // tx is null when the caller already opened a raw BEGIN IMMEDIATE on the connection.
+    private static void Write(SqliteConnection connection, CartModel cart, SqliteTransaction? tx)
+    {
         cart.FechaActualizacion = DateTime.UtcNow;
         var usuarioId = cart.UsuarioId.ToString();
 
-        using var connection = Open();
-        using var tx = connection.BeginTransaction();
-
-        // Header and items commit together. A failed item write must not leave a half-updated cart.
         // Try to insert the entire cart, if it already exists (by UsuarioId as PK) update
         connection.Execute("""
             INSERT INTO carts (UsuarioId, FechaActualizacion)
@@ -202,10 +199,6 @@ public class CartService : ICartService
                 item.Cantidad
             }, tx);
         }
-        
-        // Only when everything is OK we commit both header and items
-        tx.Commit();
-        return cart;
     }
 
     /// <inheritdoc />
@@ -218,6 +211,49 @@ public class CartService : ICartService
         connection.Execute("DELETE FROM cart_items WHERE UsuarioId = @UsuarioId", new { UsuarioId = id }, tx);
         connection.Execute("DELETE FROM carts WHERE UsuarioId = @UsuarioId", new { UsuarioId = id }, tx);
         tx.Commit();
+    }
+
+    // BEGIN IMMEDIATE takes the write lock at the start of the transaction, same as
+    // ProductService.Create. With a deferred BEGIN two concurrent requests can both
+    // read the same cart and the last Write drops the other one's change (lost update,
+    // or a stock check passing against a stale quantity). With IMMEDIATE the second
+    // request waits (busy_timeout) and then reads the committed cart.
+    private CartModel InWriteTransaction(Func<SqliteConnection, CartModel> work)
+    {
+        using var connection = Open();
+        connection.Execute("PRAGMA busy_timeout = 5000; BEGIN IMMEDIATE;");
+        try
+        {
+            var cart = work(connection);
+            connection.Execute("COMMIT;");
+            return cart;
+        }
+        catch
+        {
+            connection.Execute("ROLLBACK;");
+            throw;
+        }
+    }
+
+    private static CartModel? Read(SqliteConnection connection, Guid usuarioId)
+    {
+        var header = connection.QuerySingleOrDefault<CartRow>("""
+            SELECT UsuarioId, FechaActualizacion
+            FROM carts
+            WHERE UsuarioId = @UsuarioId
+            """, new { UsuarioId = usuarioId.ToString() });
+
+        if (header is null)
+            return null;
+
+        var items = connection.Query<CartItemRow>("""
+            SELECT ProductoId, Cantidad
+            FROM cart_items
+            WHERE UsuarioId = @UsuarioId
+            ORDER BY ProductoId
+            """, new { UsuarioId = usuarioId.ToString() });
+
+        return Map(header, items);
     }
 
     private SqliteConnection Open()

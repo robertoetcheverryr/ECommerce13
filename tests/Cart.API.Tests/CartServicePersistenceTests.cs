@@ -126,4 +126,107 @@ public class CartServicePersistenceTests
                 File.Delete(dbPath);
         }
     }
+
+    [Fact]
+    public async Task AddItem_ConcurrentSameProduct_ShouldNotExceedStock()
+    {
+        var dbPath = Path.Combine(Path.GetTempPath(), $"carts-{Guid.NewGuid():N}.db");
+        var connectionString = $"Data Source={dbPath};Pooling=false";
+        var usuarioId = Guid.Parse("a1b2c3d4-0000-0000-0000-111122223333");
+        var productoId = Guid.Parse("3fa85f64-5717-4562-b3fc-2c963f66afa6");
+        const int stock = 5;
+        const int requests = 20;
+
+        try
+        {
+            new DatabaseInitializer(connectionString).Initialize();
+            var catalog = new FixedStockCatalog(stock);
+            using var start = new ManualResetEventSlim();
+
+            var tasks = Enumerable.Range(0, requests)
+                .Select(_ => Task.Run(async () =>
+                {
+                    start.Wait();
+                    await new CartService(connectionString, catalog).AddItem(usuarioId, productoId, 1);
+                }))
+                .ToList();
+            start.Set();
+
+            var succeeded = 0;
+            var rejected = 0;
+            foreach (var task in tasks)
+            {
+                try { await task; succeeded++; }
+                catch (BusinessRuleException ex) when (ex.ErrorCode == ErrorCodes.CRT_003) { rejected++; }
+            }
+
+            var loaded = new CartService(connectionString).Get(usuarioId);
+
+            succeeded.Should().Be(stock);
+            rejected.Should().Be(requests - stock);
+            loaded.Items.Should().ContainSingle();
+            loaded.Items[0].Cantidad.Should().Be(stock);
+        }
+        finally
+        {
+            if (File.Exists(dbPath))
+                File.Delete(dbPath);
+        }
+    }
+
+    [Fact]
+    public async Task UpdateItem_ConcurrentDifferentProducts_ShouldKeepEveryUpdate()
+    {
+        var dbPath = Path.Combine(Path.GetTempPath(), $"carts-{Guid.NewGuid():N}.db");
+        var connectionString = $"Data Source={dbPath};Pooling=false";
+        var usuarioId = Guid.Parse("a1b2c3d4-0000-0000-0000-111122223333");
+        var productIds = Enumerable.Range(1, 20)
+            .Select(i => Guid.Parse($"00000000-0000-0000-0000-{i:D12}"))
+            .ToList();
+
+        try
+        {
+            new DatabaseInitializer(connectionString).Initialize();
+            new CartService(connectionString).Save(new CartModel
+            {
+                UsuarioId = usuarioId,
+                Items = productIds.Select(id => new CartItem { ProductoId = id, Cantidad = 1 }).ToList()
+            });
+            var catalog = new FixedStockCatalog(100);
+            using var start = new ManualResetEventSlim();
+
+            var tasks = productIds
+                .Select(id => Task.Run(async () =>
+                {
+                    start.Wait();
+                    await new CartService(connectionString, catalog).UpdateItem(usuarioId, id, 5);
+                }))
+                .ToList();
+            start.Set();
+            await Task.WhenAll(tasks);
+
+            var loaded = new CartService(connectionString).Get(usuarioId);
+
+            loaded.Items.Should().HaveCount(productIds.Count);
+            loaded.Items.Should().OnlyContain(item => item.Cantidad == 5);
+        }
+        finally
+        {
+            if (File.Exists(dbPath))
+                File.Delete(dbPath);
+        }
+    }
+
+    private sealed class FixedStockCatalog : IProductCatalog
+    {
+        private readonly int _stock;
+
+        public FixedStockCatalog(int stock)
+        {
+            _stock = stock;
+        }
+
+        public Task<ProductStock?> GetAsync(Guid productId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<ProductStock?>(new ProductStock { Stock = _stock });
+    }
 }
