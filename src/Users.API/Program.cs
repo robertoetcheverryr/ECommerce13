@@ -40,6 +40,8 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.Configure<Microsoft.AspNetCore.Mvc.ApiBehaviorOptions>(options =>
 {
     options.SuppressModelStateInvalidFilter = true;
+    // Without this, [ApiController] turns 415 into a ProblemDetails without errorCode; StatusCodeErrorWriter writes it instead
+    options.SuppressMapClientErrors = true;
 });
 
 builder.Services.AddSingleton<Users.API.Services.IUserService>(sp =>
@@ -104,6 +106,8 @@ app.Use(async (context, next) =>
 });
 app.UseSerilogRequestLogging();
 app.UseExceptionHandler();
+// 404 unknown route, 405 and 415 have no body by default; give them the ErrorResponse contract
+app.UseStatusCodePages(Users.API.StatusCodeErrorWriter.WriteAsync);
 app.UseAuthorization();
 app.MapControllers();
 
