@@ -7,6 +7,8 @@ using Serilog.Context;
 using Serilog.Formatting.Json;
 using System.Diagnostics;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Swashbuckle.AspNetCore.Filters;
+using Notifications.API.Constants;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -38,12 +40,12 @@ builder.Services.AddControllers()
 
             var response = new
             {
-                type = "https://tools.ietf.org/html/rfc9110#section-15.5.1",
+                type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
                 title = "Bad Request",
                 status = StatusCodes.Status400BadRequest,
                 detail = "Los datos de la notificación son inválidos.",
                 instance = context.HttpContext.Request.Path.Value,
-                errorCode = "NTF-002",
+                errorCode = ErrorCodes.ValidationError,
                 errorMessage,
                 correlationId = context.HttpContext.Request.Headers["X-Correlation-Id"].FirstOrDefault()
             };
@@ -61,6 +63,7 @@ builder.Services.AddSingleton<INotificationService>(sp =>
 
 // Swagger
 builder.Services.AddEndpointsApiExplorer();
+
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo
@@ -74,7 +77,10 @@ builder.Services.AddSwaggerGen(options =>
     var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
 
     options.IncludeXmlComments(xmlPath);
+    options.ExampleFilters();
 });
+
+builder.Services.AddSwaggerExamplesFromAssemblyOf<Program>();
 
 // Exception Handlers
 builder.Services.AddExceptionHandler<NotFoundExceptionHandler>();
@@ -147,13 +153,12 @@ app.UseExceptionHandler();
 // Controllers
 app.MapControllers();
 
+
 // Health Checks
-app.MapHealthChecks("/health", new HealthCheckOptions
+var healthCheckOptions = new HealthCheckOptions
 {
     ResponseWriter = async (context, report) =>
     {
-        context.Response.ContentType = "application/json";
-
         var response = new
         {
             status = report.Status.ToString(),
@@ -166,11 +171,16 @@ app.MapHealthChecks("/health", new HealthCheckOptions
 
         await context.Response.WriteAsJsonAsync(response);
     }
-});
+};
 
-app.MapHealthChecks("/health/live");
-app.MapHealthChecks("/health/ready");
+app.MapHealthChecks("/health", healthCheckOptions);
+app.MapHealthChecks("/health/live", healthCheckOptions);
+app.MapHealthChecks("/health/ready", healthCheckOptions);
+
 
 app.Run();
 
+/// <summary>
+/// Punto de entrada de la API de notificaciones.
+/// </summary>
 public partial class Program { }

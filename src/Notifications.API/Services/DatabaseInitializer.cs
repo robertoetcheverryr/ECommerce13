@@ -4,12 +4,16 @@ using Microsoft.Data.Sqlite;
 namespace Notifications.API.Services;
 
 /// <summary>
-/// Inicializa la base de datos de notificaciones.
+/// Inicializa la estructura de la base de datos de notificaciones.
 /// </summary>
 public class DatabaseInitializer
 {
     private readonly string _connectionString;
 
+    /// <summary>
+    /// Inicializa el acceso a la base de datos.
+    /// </summary>
+    /// <param name="connectionString">Cadena de conexión a SQLite.</param>
     public DatabaseInitializer(string connectionString)
     {
         _connectionString = connectionString;

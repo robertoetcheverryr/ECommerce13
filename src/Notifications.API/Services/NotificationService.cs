@@ -1,4 +1,5 @@
 ﻿
+
 using System.Globalization;
 using Dapper;
 using Microsoft.Data.Sqlite;
@@ -8,17 +9,26 @@ using Notifications.API.Models;
 namespace Notifications.API.Services;
 
 /// <summary>
-/// Gestiona las notificaciones utilizando SQLite.
+/// Implementa las operaciones de gestión de notificaciones.
 /// </summary>
 public class NotificationService : INotificationService
 {
     private readonly string _connectionString;
 
+    /// <summary>
+    /// Inicializa el servicio de notificaciones.
+    /// </summary>
+    /// <param name="connectionString">Cadena de conexión a SQLite.</param>
     public NotificationService(string connectionString)
     {
         _connectionString = connectionString;
     }
 
+    /// <summary>
+    /// Registra una notificación en la base de datos.
+    /// </summary>
+    /// <param name="request">Datos de la notificación.</param>
+    /// <returns>Notificación registrada.</returns>
     public Notification SendNotification(SendNotificationRequest request)
     {
         var notification = new Notification
@@ -52,6 +62,11 @@ public class NotificationService : INotificationService
         return notification;
     }
 
+    /// <summary>
+    /// Obtiene las notificaciones de un usuario.
+    /// </summary>
+    /// <param name="userId">Identificador del usuario.</param>
+    /// <returns>Lista de notificaciones encontradas.</returns>
     public List<Notification> GetNotificationsByUser(Guid userId)
     {
         using var connection = new SqliteConnection(_connectionString);
@@ -87,3 +102,4 @@ public class NotificationService : INotificationService
         public string FechaEnvio { get; set; } = string.Empty;
     }
 }
+

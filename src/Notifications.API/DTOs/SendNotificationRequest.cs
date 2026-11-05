@@ -2,7 +2,9 @@
 using System.ComponentModel.DataAnnotations;
 
 namespace Notifications.API.DTOs;
-
+/// <summary>
+/// Representa los datos necesarios para enviar una notificación.
+/// </summary>
 public class SendNotificationRequest
 {
     /// <summary>
@@ -34,6 +36,11 @@ public class SendNotificationRequest
 /// </summary>
 public class ValidGuidAttribute : ValidationAttribute
 {
+    /// <summary>
+    /// Comprueba si el valor recibido es un GUID válido y no vacío.
+    /// </summary>
+    /// <param name="value">Valor que se desea validar.</param>
+    /// <returns>True si es un GUID válido y no vacío.</returns>
     public override bool IsValid(object? value)
     {
         return value is Guid guid && guid != Guid.Empty;

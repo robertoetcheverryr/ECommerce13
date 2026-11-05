@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Diagnostics;
 using Serilog;
+using Notifications.API.Constants;
 
 namespace Notifications.API.ExceptionHandlers;
 
@@ -30,7 +31,7 @@ public class GlobalExceptionHandler : IExceptionHandler
             status = StatusCodes.Status500InternalServerError,
             detail = "Error interno al procesar la notificación.",
             instance = context.Request.Path.Value,
-            errorCode = "NTF-004",
+            errorCode = ErrorCodes.InternalServerError,
             errorMessage = "Error interno al procesar la notificación.",
             correlationId = context.Request.Headers["X-Correlation-Id"].FirstOrDefault()
         }, cancellationToken: cancellationToken);
