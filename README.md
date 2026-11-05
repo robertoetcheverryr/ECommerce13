@@ -27,6 +27,82 @@ Cada funcionalidad se expone como una REST API independiente.
 | **Cart.API**          | 5004   | Carrito de compras                       |
 | **Notifications.API** | 5005   | Envío y consulta de notificaciones       |
 
+## Arquitectura
+
+Diagrama de los servicios implementados hoy (Products, Users y Cart). Cada uno tiene su propia base SQLite y ninguno lee la base de otro.
+
+```mermaid
+flowchart LR
+    Cliente([Cliente<br/>Swagger UI / Postman])
+
+    subgraph Servicios
+        P[Products.API<br/>:5001]
+        U[Users.API<br/>:5002]
+        C[Cart.API<br/>:5004]
+    end
+
+    PDB[(products.db)]
+    UDB[(users.db)]
+    CDB[(carts.db)]
+
+    Cliente -->|HTTP + X-Correlation-Id| P
+    Cliente -->|HTTP + X-Correlation-Id| U
+    Cliente -->|HTTP + X-Correlation-Id| C
+
+    P --> PDB
+    U --> UDB
+    C --> CDB
+
+    C -->|"GET /api/products/{id}<br/>reenvía X-Correlation-Id<br/>"| P
+```
+
+Versión ASCII:
+
+```text
+                     ┌──────────────────────────────┐
+                     │            Cliente           │
+                     │     Swagger UI / Postman     │
+                     └──────────────┬───────────────┘
+                                    │ HTTP + X-Correlation-Id
+          ┌─────────────────────────┼─────────────────────────┐
+          ▼                         ▼                         ▼
+┌───────────────────┐     ┌───────────────────┐     ┌───────────────────┐
+│   Products.API    │     │     Users.API     │     │     Cart.API      │
+│       :5001       │     │       :5002       │     │       :5004       │
+└─────────┬─────────┘     └─────────┬─────────┘     └──┬──────────────┬─┘
+          │         ▲               │                  │              │
+          ▼         │               ▼                  ▼              │
+   ( products.db )  │         ( users.db )       ( carts.db )         │
+                    │                                                 │
+                    └──── GET /api/products/{id} ─────────────────────┘
+                          reenvía X-Correlation-Id
+```
+
+### Llamadas entre servicios
+
+| Origen   | Destino  | Endpoint                   | Cuándo                                         | Si falla                                                                                  |
+|----------|----------|----------------------------|------------------------------------------------|-------------------------------------------------------------------------------------------|
+| Cart.API | Products.API | `GET /api/products/{id}` | En cada `POST` y `PUT` de items, para validar que el producto existe y que alcanza el stock | 404 de Products → **CRT-002**. Stock insuficiente → **CRT-003**. Products caído o cualquier otro error → **CRT-005** |
+
+Cart copia el `X-Correlation-Id` del request entrante en la llamada a Products, así el mismo id aparece en los logs de los dos servicios. La URL de Products sale de `Products:BaseUrl` en `appsettings.json` (por defecto `http://localhost:5001`).
+
+### Servicios
+
+**Products.API (5001)** - Catálogo de productos sobre `products.db`.
+Alta, baja, modificación y consulta, con filtros por `categoria` y por `nombre` (búsqueda parcial).
+No permite dos productos con el mismo nombre en la misma categoría (PRD-003).
+Es el único servicio que otro servicio consume hoy: Cart lo consulta para validar productos y stock.
+
+**Users.API (5002)** - Registro y login sobre `users.db`.
+El password se guarda con hash y nunca vuelve en las respuestas.
+Después de 3 logins fallidos el usuario queda bloqueado (USR-004).
+No llama a otros servicios.
+
+**Cart.API (5004)** - Carrito por usuario sobre `carts.db`.
+El `POST` de un item crea el carrito si no existe y suma la cantidad a la que ya había; el `PUT` la reemplaza.
+Antes de guardar consulta a Products.API por el producto y el stock.
+Si Products no responde, devuelve CRT-005 y deja el carrito como estaba.
+
 ## Códigos de error
 
 Todas las respuestas 4xx/5xx usan Problem Details más `errorCode` y `errorMessage`.  
@@ -175,6 +251,14 @@ Puertos configurados:
 - Cart.API → http://localhost:5004
 - Notifications.API → http://localhost:5005
 
+Orden de arranque: levantar **Products.API antes que Cart.API**. Cart arranca igual sin Products, pero los `POST` y `PUT` de items necesitan consultarlo (si no, responden CRT-005). Users.API es independiente.
+
+Logs: Serilog escribe en consola y en un archivo JSON por día, relativo a la carpeta desde donde se ejecuta el servicio. Con los comandos de arriba (desde la raíz del repo):
+
+- Products.API → `src/Products.API/logs/products-AAAAMMDD.json`
+- Users.API → `src/Users.API/logs/users-AAAAMMDD.json`
+- Cart.API → `src/Cart.API/logs/carts-AAAAMMDD.json`
+
 ### 6. Swagger UI
 
 Con el microservicio corriendo, abrir en el navegador:
@@ -236,7 +320,7 @@ dotnet test
     - Persistencia en SQLite con Dapper (`Microsoft.Data.Sqlite`). Al iniciar, `DatabaseInitializer` crea `carts` y `cart_items` si no existen. `UsuarioId` es la PK: el Apéndice A no da un Id al carrito. `cart_items` guarda ProductoId y Cantidad; `UsuarioId` ahí es solo la clave del dueño. Archivo `carts.db` (`ConnectionStrings:DefaultConnection`)
     - POST crea el carrito si no existe y suma la cantidad si el producto ya estaba. PUT reemplaza la cantidad. Stock se valida contra ese total
     - Stock vía `IProductCatalog` / `ProductCatalogClient`: GET Products `/api/products/{id}` en `Products:BaseUrl` (http://localhost:5001). CRT-002 es un 404 de Products. CRT-003 es cantidad mayor al stock
-    - Los tests de Cart no levantan Products. Reemplazan `IProductCatalog`. 
+    - Los tests de Cart no levantan Products. Reemplazan `IProductCatalog`, excepto `AddItem_WhenProductsReturnsNullBody_ShouldReturnCrt005`, que usa el `ProductCatalogClient` real con un `HttpMessageHandler` falso que responde 200 con body `null`, porque lo que prueba (CRT-005 en vez de stock 0) está dentro del client
     - 404 de ruta inexistente, 405 y 415: `UseStatusCodePages` + `StatusCodeErrorWriter` devuelven el mismo `ErrorResponse` con `correlationId`. La sección 4 no tiene código para estos casos, así que `errorCode` va vacío. `SuppressMapClientErrors` evita que `[ApiController]` arme su propio ProblemDetails en el 415
     - Health checks 5.4: `/health` (ambas sondas), `/health/ready` (tablas `carts` y `cart_items`), `/health/live` (proceso). JSON `{ status }`
     - Swagger: XML comments, `[ProducesResponseType]`, `CartSwaggerExamplesFilter`. Donde un status tiene más de un caso van ejemplos nombrados, sin `example` suelto: 400 de POST y PUT (`crt-004`, `body-invalido`), 404 de POST (`crt-002`, `userid-no-guid`), de PUT (`crt-001`, `crt-002`) y de DELETE item (`crt-001`, `productid-no-guid`)
@@ -255,6 +339,10 @@ https://stackoverflow.com/questions/67860252/how-to-use-dependency-injection-wit
 Eso no compila: `Content` y `Example` en las interfaces son get-only.
 La guia de migracion a Swashbuckle v10 dice usar el tipo concreto y escribir ahi:
 https://github.com/domaindrivendev/Swashbuckle.AspNetCore/blob/master/docs/migrating-to-v10.md 
+
+## Capturas de Swagger
+
+Las capturas de Swagger UI con las respuestas de error (`errorCode` y `errorMessage`) están en [`docs/capturas/`].
 
 ## Logging
 
