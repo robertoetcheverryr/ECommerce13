@@ -105,11 +105,19 @@ catch (SqliteException ex)
 
 app.Use(async (context, next) =>
 {
-    var correlationId = context.Request.Headers["X-Correlation-Id"].FirstOrDefault()
-                        ?? Guid.NewGuid().ToString();
+    var incoming = context.Request.Headers["X-Correlation-Id"].FirstOrDefault();
+    // Si recibis un "" no contaba como null o empty agregando este check. 
+    var correlationId = !string.IsNullOrEmpty(incoming?.Trim())
+        ? incoming.Trim()
+        : Guid.NewGuid().ToString();
 
     context.Request.Headers["X-Correlation-Id"] = correlationId;
-    context.Response.Headers["X-Correlation-Id"] = correlationId;
+    // Agregamos el header justo antes de mandar la respuesta, porque si hay un error el exception handler borra los headers y se perdía
+    context.Response.OnStarting(() =>
+    {
+        context.Response.Headers["X-Correlation-Id"] = correlationId;
+        return Task.CompletedTask;
+    });
 
     var stopwatch = Stopwatch.StartNew();
 
