@@ -29,7 +29,7 @@ Cada funcionalidad se expone como una REST API independiente.
 
 ## Arquitectura
 
-Diagrama de los servicios implementados hoy (Products, Users y Cart). Cada uno tiene su propia base SQLite y ninguno lee la base de otro.
+Diagrama de los servicios implementados hoy (Products, Users, Cart y Notifications). Cada uno tiene su propia base SQLite y ninguno lee la base de otro.
 
 ```mermaid
 flowchart LR
@@ -39,42 +39,48 @@ flowchart LR
         P[Products.API<br/>:5001]
         U[Users.API<br/>:5002]
         C[Cart.API<br/>:5004]
+        N[Notifications.API<br/>:5005]
     end
 
     PDB[(products.db)]
     UDB[(users.db)]
     CDB[(carts.db)]
+    NDB[(notifications.db)]
 
     Cliente -->|HTTP + X-Correlation-Id| P
     Cliente -->|HTTP + X-Correlation-Id| U
     Cliente -->|HTTP + X-Correlation-Id| C
+    Cliente -->|HTTP + X-Correlation-Id| N
 
     P --> PDB
     U --> UDB
     C --> CDB
+    N --> NDB
 
     C -->|"GET /api/products/{id}<br/>reenvía X-Correlation-Id<br/>"| P
+    N -.->|"pendiente: validar UsuarioId"| U
 ```
 
 Versión ASCII:
 
 ```text
-                     ┌──────────────────────────────┐
-                     │            Cliente           │
-                     │     Swagger UI / Postman     │
-                     └──────────────┬───────────────┘
-                                    │ HTTP + X-Correlation-Id
-          ┌─────────────────────────┼─────────────────────────┐
-          ▼                         ▼                         ▼
-┌───────────────────┐     ┌───────────────────┐     ┌───────────────────┐
-│   Products.API    │     │     Users.API     │     │     Cart.API      │
-│       :5001       │     │       :5002       │     │       :5004       │
-└─────────┬─────────┘     └─────────┬─────────┘     └──┬──────────────┬─┘
-          │         ▲               │                  │              │
-          ▼         │               ▼                  ▼              │
-   ( products.db )  │         ( users.db )       ( carts.db )         │
-                    │                                                 │
-                    └──── GET /api/products/{id} ─────────────────────┘
+                              ┌──────────────────────────────┐
+                              │            Cliente           │
+                              │     Swagger UI / Postman     │
+                              └──────────────┬───────────────┘
+                                             │ HTTP + X-Correlation-Id
+          ┌───────────────────────┬──────────┴────────────┬───────────────────────┐
+          ▼                       ▼                       ▼                       ▼
+┌───────────────────┐   ┌───────────────────┐   ┌───────────────────┐   ┌───────────────────┐
+│   Products.API    │   │     Users.API     │   │     Cart.API      │   │ Notifications.API │
+│       :5001       │   │       :5002       │   │       :5004       │   │       :5005       │
+└─────────┬─────────┘   └─────────┬─────────┘   └──┬──────────────┬─┘   └────┬────────────┬─┘
+          │         ▲             │         ▲      │              │          │            ┆
+          ▼         │             ▼         ┆      ▼              │          ▼            ┆
+   ( products.db )  │       ( users.db )    ┆( carts.db )         │( notifications.db )   ┆
+                    │                       └┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄│┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┘
+                    │                                             │  pendiente: validar UsuarioId
+                    └──── GET /api/products/{id} ─────────────────┘
                           reenvía X-Correlation-Id
 ```
 
@@ -83,8 +89,11 @@ Versión ASCII:
 | Origen   | Destino  | Endpoint                   | Cuándo                                         | Si falla                                                                                  |
 |----------|----------|----------------------------|------------------------------------------------|-------------------------------------------------------------------------------------------|
 | Cart.API | Products.API | `GET /api/products/{id}` | En cada `POST` y `PUT` de items, para validar que el producto existe y que alcanza el stock | 404 de Products → **CRT-002**. Stock insuficiente → **CRT-003**. Products caído o cualquier otro error → **CRT-005** |
+| Notifications.API | Users.API | Pendiente | En `POST /api/notifications/send`, para validar que el `UsuarioId` existe | La spec (4.5) pide **NTF-001** cuando el `UsuarioId` no existe en Users API. Todavía no está implementado: hoy se registra la notificación para cualquier Guid no vacío |
 
 Cart copia el `X-Correlation-Id` del request entrante en la llamada a Products, así el mismo id aparece en los logs de los dos servicios. La URL de Products sale de `Products:BaseUrl` en `appsettings.json` (por defecto `http://localhost:5001`).
+
+Error de consistencia en la spec: NTF-001 (y ORD-003) piden validar el usuario contra Users API, pero Users API (4.2) solo expone `register` y `login`, no hay endpoint para consultar un usuario por id.
 
 ### Servicios
 
@@ -103,10 +112,15 @@ El `POST` de un item crea el carrito si no existe y suma la cantidad a la que ya
 Antes de guardar consulta a Products.API por el producto y el stock.
 Si Products no responde, devuelve CRT-005 y deja el carrito como estaba.
 
+**Notifications.API (5005)** - Registro y envío simulado de notificaciones sobre `notifications.db`.
+`POST /api/notifications/send` guarda la notificación con `Estado` "Enviada" y `FechaEnvio` en UTC. `Tipo` tiene que ser Email, Push o SMS.
+`GET /api/notifications/{userId}` lista las notificaciones del usuario; si no tiene ninguna responde NTF-003.
+Todavía no llama a Users.API para validar el `UsuarioId` (NTF-001 pendiente).
+
 ## Códigos de error
 
 Todas las respuestas 4xx/5xx usan Problem Details más `errorCode` y `errorMessage`.  
-Hoy Products.API, Users.API y Cart.API implementan el catálogo; Orders y Notifications quedan documentados para cuando existan.
+Hoy Products.API, Users.API y Cart.API implementan el catálogo. Notifications.API implementa NTF-002, NTF-003 y NTF-004; NTF-001 queda pendiente. Orders queda documentado para cuando exista.
 
 ### Products.API
 
@@ -173,7 +187,8 @@ ECommerce13/
 ├── tests/
 │   ├── Products.API.Tests/
 │   ├── Users.API.Tests/
-│   └── Cart.API.Tests/
+│   ├── Cart.API.Tests/
+│   └── Notifications.API.Tests/
 ├── docs/
 └── README.md
 ```
@@ -241,6 +256,7 @@ dotnet test
 dotnet run --project src/Products.API
 dotnet run --project src/Users.API
 dotnet run --project src/Cart.API
+dotnet run --project src/Notifications.API
 ```
 
 Puertos configurados:
@@ -251,15 +267,16 @@ Puertos configurados:
 - Cart.API → http://localhost:5004
 - Notifications.API → http://localhost:5005
 
-Orden de arranque: levantar **Products.API antes que Cart.API**. Cart arranca igual sin Products, pero los `POST` y `PUT` de items necesitan consultarlo (si no, responden CRT-005). Users.API es independiente.
+Orden de arranque: levantar **Products.API antes que Cart.API**. Cart arranca igual sin Products, pero los `POST` y `PUT` de items necesitan consultarlo (si no, responden CRT-005). Users.API y Notifications.API son independientes (Notifications todavía no consulta a Users).
 
 Logs: Serilog escribe en consola y en un archivo JSON por día, relativo a la carpeta desde donde se ejecuta el servicio. Con los comandos de arriba (desde la raíz del repo):
 
 - Products.API → `src/Products.API/logs/products-AAAAMMDD.json`
 - Users.API → `src/Users.API/logs/users-AAAAMMDD.json`
 - Cart.API → `src/Cart.API/logs/carts-AAAAMMDD.json`
+- Notifications.API → `src/Notifications.API/logs/notifications-api-AAAAMMDD.json`
 
-Para la demo hay una colección de Postman con los casos felices y los errores de los tres servicios: ver [`docs/postman/`](docs/postman/README.md).
+Para la demo hay una colección de Postman con los casos felices y los errores de los cuatro servicios: ver [`docs/postman/`](docs/postman/README.md).
 
 ### 6. Swagger UI
 
@@ -329,8 +346,19 @@ dotnet test
     - Tests E2E (xUnit + WebApplicationFactory + FluentAssertions). `CartApiFactory` apunta a un sqlite temporal, no a `carts.db` en la carpeta de output
     - Serilog: consola + JSON, request log, Warning/Error con errorCode, Endpoint y CorrelationId en cada evento del request
     - Correlation ID inbound y outbound: header `X-Correlation-Id`, campo `correlationId` en errores, propiedad en logs. `CorrelationIdHandler` lo copia en la llamada a Products
-- Orders / Notifications: solo el esqueleto
-- Pendiente TP: Orders, Notifications, health checks y correlation en esos dos.
+- **Notifications.API**
+    - Endpoints 4.5: POST /api/notifications/send, GET /api/notifications/{userId}
+    - Persistencia en SQLite con Dapper (`Microsoft.Data.Sqlite`). Al iniciar, `DatabaseInitializer` crea la tabla `notifications` si no existe: Id, UsuarioId, Mensaje, Tipo, Estado, FechaEnvio. Archivo `notifications.db` (`ConnectionStrings:DefaultConnection`)
+    - Validaciones con Data Annotations (NTF-002): `UsuarioId` Guid no vacío, `Mensaje` obligatorio y de hasta 500 caracteres, `Tipo` Email, Push o SMS
+    - NTF-003: GET de un usuario sin notificaciones. NTF-004: error inesperado (`GlobalExceptionHandler`)
+    - Pendiente: NTF-001, validar el `UsuarioId` contra Users.API
+    - Health checks: `/health`, `/health/ready` y `/health/live` sin chequeos registrados, siempre Healthy. JSON `{ status, checks }`
+    - Swagger: XML comments, `[ProducesResponseType]`, ejemplos con `Swashbuckle.AspNetCore.Filters`
+    - Tests: persistencia en SQLite y NTF-004
+    - Serilog: consola + JSON, request log con CorrelationId y Endpoint
+    - Correlation ID inbound: header `X-Correlation-Id` y campo `correlationId` en errores
+- Orders: solo el esqueleto
+- Pendiente TP: Orders (health checks y correlation incluidos) y NTF-001 en Notifications.
 
 ## Swagger / OpenAPI
 
@@ -358,20 +386,22 @@ El TP pide estos usos de log:
 - **Todo evento logeado debe incluir el endpoint que lo genero**
 - **Correlation ID** en cada evento del request
 
+En Notifications.API el middleware del Correlation ID escribe los dos eventos del request (`Request iniciado: {Method} {Path}` y `Request finalizado: ... StatusCode ... DuracionMs`). NTF-002 y NTF-003 no generan `LogWarning`; NTF-004 sí genera `LogError`.
+
 ## Correlation ID
 
-Implementado en Products.API y Users.API (inbound) y en Cart.API (inbound y outbound hacia Products). Header: `X-Correlation-Id`.
+Implementado en Products.API, Users.API y Notifications.API (inbound) y en Cart.API (inbound y outbound hacia Products). Header: `X-Correlation-Id`.
 
 - Si el cliente manda un valor no vacío (después de trim), se reutiliza. No tiene que ser un Guid.
 - Si falta o viene en blanco, se genera un Guid.
 - El mismo valor sale en el header de respuesta, en los logs (`CorrelationId`) y en el campo `correlationId` de cualquier error 4xx/5xx.
 - Probar: `GET http://localhost:5001/api/products` o `POST http://localhost:5002/api/users/login` con y sin el header. Un 401 o un 404 también debe repetir el id en el body.
 
-Cart.API copia el header en `GET /api/products/{id}` con `CorrelationIdHandler`. Products y Users no llaman a nadie.
+Cart.API copia el header en `GET /api/products/{id}` con `CorrelationIdHandler`. Products, Users y Notifications no llaman a nadie.
 
 ## Health Checks
 
-Spec 5.4, en Products.API, Users.API y Cart.API.
+Spec 5.4, en Products.API, Users.API y Cart.API. Notifications.API expone los mismos tres endpoints, pero sin chequeos registrados: siempre responde Healthy y el body es `{ "status", "checks": [] }`.
 
 - `GET /health` corre los dos chequeos y devuelve el peor estado.
 - `GET /health/ready` solo el de SQLite (tag `ready`).
