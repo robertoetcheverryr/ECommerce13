@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace Products.API.DTOs;
 
@@ -11,6 +12,7 @@ public class UpdateProductRequest
     /// Nombre del producto. Requerido, máximo 100 caracteres.
     /// </summary>
     /// <example>Notebook Dell XPS 15</example>
+    [JsonRequired]
     [Required(ErrorMessage = "El nombre es obligatorio.")]
     [MaxLength(100, ErrorMessage = "El nombre no puede superar los 100 caracteres.")]
     public string Nombre { get; set; } = string.Empty;
@@ -23,18 +25,18 @@ public class UpdateProductRequest
     public string? Descripcion { get; set; }
 
     /// <summary>
-    /// Precio. Debe ser mayor a 0.
+    /// Precio. Requerido y mayor a 0.
     /// </summary>
     /// <example>1750.00</example>
-    [Required(ErrorMessage = "El precio es obligatorio.")]
+    [JsonRequired]
     [Range(0.01, double.MaxValue, ErrorMessage = "El precio debe ser mayor a 0.")]
     public decimal Precio { get; set; }
 
     /// <summary>
-    /// Stock disponible. Debe ser mayor o igual a 0.
+    /// Stock disponible. Requerido y mayor o igual a 0.
     /// </summary>
     /// <example>8</example>
-    [Required(ErrorMessage = "El stock es obligatorio.")]
+    [JsonRequired]
     [Range(0, int.MaxValue, ErrorMessage = "El stock debe ser mayor o igual a 0.")]
     public int Stock { get; set; }
 
@@ -42,6 +44,7 @@ public class UpdateProductRequest
     /// Categoría del producto. Requerido.
     /// </summary>
     /// <example>Electrónica</example>
+    [JsonRequired]
     [Required(ErrorMessage = "La categoría es obligatoria.")]
     public string Categoria { get; set; } = string.Empty;
 }

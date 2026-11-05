@@ -58,6 +58,40 @@ public class UnhandledExceptionTests : IClassFixture<UsersApiFactory>
             response.Headers.GetValues(CorrelationId.HeaderName).Single());
     }
 
+    [Theory]
+    [InlineData("Development", "Unexpected failure")]
+    [InlineData("Production", "Ocurrió un error inesperado.")]
+    public async Task Register_WhenServiceThrows_ShouldReturnDetailByEnvironment_WithUsr006(
+        string environment,
+        string expectedDetail)
+    {
+        using var client = _factory.CreateClientForEnvironment(environment, services =>
+        {
+            var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(IUserService));
+            if (descriptor is not null)
+                services.Remove(descriptor);
+
+            services.AddSingleton<IUserService, ThrowingUserService>();
+        });
+
+        var response = await client.PostAsJsonAsync("/api/users/register", new
+        {
+            nombre = "Test",
+            apellido = "User",
+            email = $"throw-{Guid.NewGuid()}@email.com",
+            password = "MiPassword123!"
+        });
+
+        await AssertInternalError(
+            response,
+            "/api/users/register",
+            ErrorCodes.USR_006,
+            ErrorCodes.USR_006_Message,
+            expectedDetail);
+        var rawBody = await response.Content.ReadAsStringAsync();
+        rawBody.Should().NotContain(" at ").And.NotContain("ThrowingUserService");
+    }
+
     private sealed class ThrowingUserService : IUserService
     {
         public User Register(RegisterUserRequest request)

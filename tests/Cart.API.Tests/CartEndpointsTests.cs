@@ -1,5 +1,7 @@
 using System.Net;
+using System.Net.Http;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using Cart.API.DTOs;
 using Cart.API.Models;
@@ -27,11 +29,13 @@ public class CartEndpointsTests : IClassFixture<CartApiFactory>
         _factory = factory;
     }
 
-    [Fact]
-    public async Task Get_WhenCartDoesNotExist_ShouldReturnCrt001()
+    [Theory]
+    [InlineData("a1b2c3d4-0000-0000-0000-111122223333")]
+    [InlineData("99")]
+    [InlineData("no-es-guid")]
+    public async Task Get_WhenCartDoesNotExist_ShouldReturnCrt001(string userId)
     {
         using var client = _factory.CreateClient();
-        var userId = Guid.Parse("a1b2c3d4-0000-0000-0000-111122223333");
 
         var response = await client.GetAsync($"/api/cart/{userId}");
         var json = await response.Content.ReadAsStringAsync();
@@ -83,6 +87,111 @@ public class CartEndpointsTests : IClassFixture<CartApiFactory>
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         document.RootElement.GetProperty("errorCode").GetString().Should().Be("CRT-004");
         document.RootElement.GetProperty("errorMessage").GetString().Should().Be("Cantidad inválida.");
+    }
+
+    [Fact]
+    public async Task AddItem_WhenProductoIdIsMissing_ShouldReturnCrt002()
+    {
+        // Even with [JsonRequired] enforcing presence, an explicitly sent
+        // Guid.Empty must still be rejected by CartService.AddItem.
+        using var client = ClientWithStock(10);
+        var userId = Guid.NewGuid();
+
+        var response = await client.PostAsJsonAsync($"/api/cart/{userId}/items", new AddCartItemRequest
+        {
+            ProductoId = Guid.Empty,
+            Cantidad = 1
+        });
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        document.RootElement.GetProperty("errorCode").GetString().Should().Be("CRT-002");
+        document.RootElement.GetProperty("errorMessage").GetString().Should().Be("Producto no encontrado.");
+    }
+
+    [Fact]
+    public async Task AddItem_WhenProductoIdIsAbsent_ShouldReturnBadRequest()
+    {
+        // [JsonRequired] rejects the body at deserialization: a missing
+        // productoId no longer silently becomes Guid.Empty.
+        using var client = ClientWithStock(10);
+        var userId = Guid.NewGuid();
+
+        var content = new StringContent("{\"cantidad\": 1}", Encoding.UTF8, "application/json");
+        var response = await client.PostAsync($"/api/cart/{userId}/items", content);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        document.RootElement.GetProperty("status").GetInt32().Should().Be(400);
+        document.RootElement.GetProperty("errorCode").GetString().Should().BeEmpty();
+        document.RootElement.GetProperty("errorMessage").GetString().Should().Be("El campo 'productoId' es obligatorio.");
+        document.RootElement.GetProperty("correlationId").GetString().Should().NotBeNullOrWhiteSpace();
+    }
+
+    [Fact]
+    public async Task AddItem_WhenCantidadIsAbsent_ShouldReturnBadRequest()
+    {
+        // A missing cantidad must not deserialize to 0 and rely on [Range]
+        // to catch it — [JsonRequired] rejects it at deserialization.
+        using var client = ClientWithStock(10);
+        var userId = Guid.NewGuid();
+
+        var content = new StringContent("{\"productoId\": \"3fa85f64-5717-4562-b3fc-2c963f66afa6\"}", Encoding.UTF8, "application/json");
+        var response = await client.PostAsync($"/api/cart/{userId}/items", content);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        document.RootElement.GetProperty("status").GetInt32().Should().Be(400);
+        document.RootElement.GetProperty("errorCode").GetString().Should().BeEmpty();
+        document.RootElement.GetProperty("errorMessage").GetString().Should().Be("El campo 'cantidad' es obligatorio.");
+        document.RootElement.GetProperty("correlationId").GetString().Should().NotBeNullOrWhiteSpace();
+    }
+
+    [Theory]
+    [InlineData("99")]
+    [InlineData("no-es-guid")]
+    public async Task AddItem_WhenUserIdIsNotAGuid_ShouldReturnNotFound_WithoutErrorCode(string userId)
+    {
+        using var client = ClientWithStock(10);
+
+        var response = await client.PostAsJsonAsync($"/api/cart/{userId}/items", new AddCartItemRequest
+        {
+            ProductoId = Guid.NewGuid(),
+            Cantidad = 1
+        });
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        document.RootElement.GetProperty("status").GetInt32().Should().Be(404);
+        document.RootElement.GetProperty("errorCode").GetString().Should().BeEmpty();
+        document.RootElement.GetProperty("errorMessage").GetString().Should().Be("El userId no es un GUID válido.");
+        document.RootElement.GetProperty("correlationId").GetString().Should().NotBeNullOrWhiteSpace();
+    }
+
+    [Theory]
+    [InlineData("{}", "El campo 'productoId' es obligatorio.; El campo 'cantidad' es obligatorio.")]
+    [InlineData("{\"productoId\": \"3fa85f64-5717-4562-b3fc-2c963f66afa6\", \"cantidad\": \"uno\"}", "El campo 'cantidad' tiene un formato inválido.")]
+    [InlineData("{\"productoId\": \"no-es-guid\", \"cantidad\": 1}", "El campo 'productoId' tiene un formato inválido.")]
+    [InlineData("{bad json", "El cuerpo de la solicitud no es un JSON válido.")]
+    [InlineData("", "El cuerpo de la solicitud es obligatorio.")]
+    public async Task AddItem_WhenBodyCannotBeDeserialized_ShouldReturnBadRequest_WithoutErrorCode(string body, string expectedMessage)
+    {
+        using var client = ClientWithStock(10);
+        var userId = Guid.NewGuid();
+
+        var content = new StringContent(body, Encoding.UTF8, "application/json");
+        var response = await client.PostAsync($"/api/cart/{userId}/items", content);
+        var rawBody = await response.Content.ReadAsStringAsync();
+        using var document = JsonDocument.Parse(rawBody);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        document.RootElement.GetProperty("status").GetInt32().Should().Be(400);
+        document.RootElement.GetProperty("errorCode").GetString().Should().BeEmpty();
+        document.RootElement.GetProperty("errorMessage").GetString().Should().Be(expectedMessage);
+        document.RootElement.GetProperty("correlationId").GetString().Should().NotBeNullOrWhiteSpace();
+        rawBody.Should().NotContain("System.");
+        rawBody.Should().NotContain("DTOs");
+        rawBody.Should().NotContain("The request field");
     }
 
     [Fact]
@@ -164,11 +273,40 @@ public class CartEndpointsTests : IClassFixture<CartApiFactory>
         document.RootElement.GetProperty("errorMessage").GetString().Should().Be("Cantidad inválida.");
     }
 
-    [Fact]
-    public async Task UpdateItem_WhenCartDoesNotExist_ShouldReturnCrt001()
+    [Theory]
+    [InlineData("{}", "El campo 'cantidad' es obligatorio.")]
+    [InlineData("{\"cantidad\": \"uno\"}", "El campo 'cantidad' tiene un formato inválido.")]
+    [InlineData("{bad json", "El cuerpo de la solicitud no es un JSON válido.")]
+    [InlineData("", "El cuerpo de la solicitud es obligatorio.")]
+    public async Task UpdateItem_WhenBodyCannotBeDeserialized_ShouldReturnBadRequest_WithoutErrorCode(string body, string expectedMessage)
+    {
+        var userId = Guid.NewGuid();
+        var productId = Guid.NewGuid();
+        using var host = HostWithStock(10, userId, productId, 1);
+        using var client = host.CreateClient();
+
+        var content = new StringContent(body, Encoding.UTF8, "application/json");
+        var response = await client.PutAsync($"/api/cart/{userId}/items/{productId}", content);
+        var rawBody = await response.Content.ReadAsStringAsync();
+        using var document = JsonDocument.Parse(rawBody);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        document.RootElement.GetProperty("status").GetInt32().Should().Be(400);
+        document.RootElement.GetProperty("errorCode").GetString().Should().BeEmpty();
+        document.RootElement.GetProperty("errorMessage").GetString().Should().Be(expectedMessage);
+        document.RootElement.GetProperty("correlationId").GetString().Should().NotBeNullOrWhiteSpace();
+        rawBody.Should().NotContain("System.");
+        rawBody.Should().NotContain("DTOs");
+        rawBody.Should().NotContain("The request field");
+    }
+
+    [Theory]
+    [InlineData("00000000-0000-0000-0000-000000000099")]
+    [InlineData("99")]
+    [InlineData("no-es-guid")]
+    public async Task UpdateItem_WhenCartDoesNotExist_ShouldReturnCrt001(string userId)
     {
         using var client = ClientWithStock(10);
-        var userId = Guid.NewGuid();
         var productId = Guid.NewGuid();
 
         var response = await client.PutAsJsonAsync($"/api/cart/{userId}/items/{productId}", new UpdateCartItemRequest
@@ -188,6 +326,26 @@ public class CartEndpointsTests : IClassFixture<CartApiFactory>
         var userId = Guid.NewGuid();
         var productId = Guid.NewGuid();
         using var host = HostWithStock(null, userId, productId, 1);
+        using var client = host.CreateClient();
+
+        var response = await client.PutAsJsonAsync($"/api/cart/{userId}/items/{productId}", new UpdateCartItemRequest
+        {
+            Cantidad = 1
+        });
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        document.RootElement.GetProperty("errorCode").GetString().Should().Be("CRT-002");
+        document.RootElement.GetProperty("errorMessage").GetString().Should().Be("Producto no encontrado.");
+    }
+
+    [Theory]
+    [InlineData("99")]
+    [InlineData("no-es-guid")]
+    public async Task UpdateItem_WhenProductIdIsNotAGuid_ShouldReturnCrt002(string productId)
+    {
+        var userId = Guid.NewGuid();
+        using var host = HostWithStock(10, userId, Guid.NewGuid(), 1);
         using var client = host.CreateClient();
 
         var response = await client.PutAsJsonAsync($"/api/cart/{userId}/items/{productId}", new UpdateCartItemRequest
@@ -241,11 +399,13 @@ public class CartEndpointsTests : IClassFixture<CartApiFactory>
         body.Items[0].Cantidad.Should().Be(4);
     }
 
-    [Fact]
-    public async Task RemoveItem_WhenCartDoesNotExist_ShouldReturnCrt001()
+    [Theory]
+    [InlineData("00000000-0000-0000-0000-000000000099")]
+    [InlineData("99")]
+    [InlineData("no-es-guid")]
+    public async Task RemoveItem_WhenCartDoesNotExist_ShouldReturnCrt001(string userId)
     {
         using var client = _factory.CreateClient();
-        var userId = Guid.NewGuid();
         var productId = Guid.NewGuid();
 
         var response = await client.DeleteAsync($"/api/cart/{userId}/items/{productId}");
@@ -253,6 +413,30 @@ public class CartEndpointsTests : IClassFixture<CartApiFactory>
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
         document.RootElement.GetProperty("errorCode").GetString().Should().Be("CRT-001");
+    }
+
+    [Theory]
+    [InlineData("99")]
+    [InlineData("no-es-guid")]
+    public async Task RemoveItem_WhenProductIdIsNotAGuid_ShouldReturnNotFound_WithoutErrorCode(string productId)
+    {
+        var userId = Guid.NewGuid();
+        using var scope = _factory.Services.CreateScope();
+        scope.ServiceProvider.GetRequiredService<ICartService>().Save(new CartModel
+        {
+            UsuarioId = userId,
+            Items = [new CartItem { ProductoId = Guid.NewGuid(), Cantidad = 1 }]
+        });
+
+        using var client = _factory.CreateClient();
+        var response = await client.DeleteAsync($"/api/cart/{userId}/items/{productId}");
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        document.RootElement.GetProperty("status").GetInt32().Should().Be(404);
+        document.RootElement.GetProperty("errorCode").GetString().Should().BeEmpty();
+        document.RootElement.GetProperty("errorMessage").GetString().Should().Be("El productId no es un GUID válido.");
+        document.RootElement.GetProperty("correlationId").GetString().Should().NotBeNullOrWhiteSpace();
     }
 
     [Fact]
@@ -287,11 +471,13 @@ public class CartEndpointsTests : IClassFixture<CartApiFactory>
         body.Items[0].Cantidad.Should().Be(1);
     }
 
-    [Fact]
-    public async Task Clear_WhenCartDoesNotExist_ShouldReturnCrt001()
+    [Theory]
+    [InlineData("00000000-0000-0000-0000-000000000099")]
+    [InlineData("99")]
+    [InlineData("no-es-guid")]
+    public async Task Clear_WhenCartDoesNotExist_ShouldReturnCrt001(string userId)
     {
         using var client = _factory.CreateClient();
-        var userId = Guid.NewGuid();
 
         var response = await client.DeleteAsync($"/api/cart/{userId}");
         using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());

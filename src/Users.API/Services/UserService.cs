@@ -33,33 +33,50 @@ public class UserService : IUserService
         var email = NormalizeEmail(request.Email);
 
         using var connection = Open();
-        if (FindByEmail(connection, email) is not null)
+
+        // Same pattern as ProductService.Create: BEGIN IMMEDIATE takes the write lock
+        // before the exists-check, so two concurrent registers with the same email
+        // cannot both read "not registered" and both insert. The second one waits
+        // (busy_timeout) for the first commit and then gets USR-001.
+        // A UNIQUE index would also work, but a dropped users.db with duplicate
+        // emails could not get it, and we do not touch the schema of those files.
+        connection.Execute("PRAGMA busy_timeout = 5000; BEGIN IMMEDIATE;");
+        try
         {
-            throw new BusinessRuleException(
-                ErrorCodes.USR_001,
-                string.Format(ErrorCodes.USR_001_Message, email),
-                ErrorCodes.USR_001_Detail,
-                StatusCodes.Status409Conflict);
+            if (FindByEmail(connection, email) is not null)
+            {
+                throw new BusinessRuleException(
+                    ErrorCodes.USR_001,
+                    string.Format(ErrorCodes.USR_001_Message, email),
+                    ErrorCodes.USR_001_Detail,
+                    StatusCodes.Status409Conflict);
+            }
+
+            var user = new User
+            {
+                Id = Guid.NewGuid(),
+                Nombre = request.Nombre,
+                Apellido = request.Apellido,
+                Email = email,
+                PasswordHash = Password.Hash(request.Password),
+                FechaRegistro = DateTime.UtcNow,
+                Activo = true,
+                IntentosFallidos = 0
+            };
+
+            connection.Execute("""
+                INSERT INTO users (Id, Nombre, Apellido, Email, PasswordHash, FechaRegistro, Activo, IntentosFallidos)
+                VALUES (@Id, @Nombre, @Apellido, @Email, @PasswordHash, @FechaRegistro, @Activo, @IntentosFallidos)
+                """, ToParameters(user));
+
+            connection.Execute("COMMIT;");
+            return user;
         }
-
-        var user = new User
+        catch
         {
-            Id = Guid.NewGuid(),
-            Nombre = request.Nombre,
-            Apellido = request.Apellido,
-            Email = email,
-            PasswordHash = Password.Hash(request.Password),
-            FechaRegistro = DateTime.UtcNow,
-            Activo = true,
-            IntentosFallidos = 0
-        };
-
-        connection.Execute("""
-            INSERT INTO users (Id, Nombre, Apellido, Email, PasswordHash, FechaRegistro, Activo, IntentosFallidos)
-            VALUES (@Id, @Nombre, @Apellido, @Email, @PasswordHash, @FechaRegistro, @Activo, @IntentosFallidos)
-            """, ToParameters(user));
-
-        return user;
+            connection.Execute("ROLLBACK;");
+            throw;
+        }
     }
 
     /// <inheritdoc />

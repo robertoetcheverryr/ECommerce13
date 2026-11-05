@@ -73,13 +73,14 @@ public class CorrelationIdTests : IClassFixture<ProductsApiFactory>
         sink.Events.ShouldAllHaveCorrelationId(incoming);
     }
 
-    [Fact]
-    public async Task GetById_WhenMissing_ShouldRepeatCorrelationIdOnHeaderLogsAndErrorBody()
+    [Theory]
+    [InlineData("00000000-0000-0000-0000-000000000099")]
+    [InlineData("99")]
+    public async Task GetById_WhenMissing_ShouldRepeatCorrelationIdOnHeaderLogsAndErrorBody(string id)
     {
         var sink = new CollectingSink();
         using var client = _factory.CreateClientWithLogs(sink);
         var incoming = "corr-error-003";
-        var id = Guid.Parse("00000000-0000-0000-0000-000000000099");
         var request = new HttpRequestMessage(HttpMethod.Get, $"/api/products/{id}");
         request.Headers.Add(CorrelationId.HeaderName, incoming);
 

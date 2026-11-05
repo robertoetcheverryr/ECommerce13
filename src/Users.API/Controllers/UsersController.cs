@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Mvc;
 using Users.API.DTOs;
 using Users.API.Exceptions;
@@ -70,7 +71,8 @@ public class UsersController : ControllerBase
     }
 
     /// <summary>
-    /// Convierte ModelState en USR-002. errorMessage junta los textos de Data Annotations.
+    /// Convierte ModelState en USR-002. errorMessage junta los textos de Data Annotations
+    /// y los errores de deserialización del JSON, traducidos con <see cref="ToSpanishMessages"/>.
     /// </summary>
     private void EnsureValidModel()
     {
@@ -80,9 +82,14 @@ public class UsersController : ControllerBase
         var errorMessages = new List<string>();
         foreach (var entry in ModelState)
         {
+            // "request" is the [FromBody] parameter. When the body cannot be deserialized MVC adds
+            // a generic "The request field is required." on top of the real error, so we skip it.
+            if (entry.Key == "request")
+                continue;
+
             foreach (var error in entry.Value.Errors)
             {
-                errorMessages.Add(error.ErrorMessage);
+                errorMessages.AddRange(ToSpanishMessages(entry.Key, error.ErrorMessage));
             }
         }
 
@@ -93,6 +100,39 @@ public class UsersController : ControllerBase
             string.IsNullOrWhiteSpace(errors)
                 ? ErrorCodes.USR_002_Message
                 : errors);
+    }
+
+    /// <summary>
+    /// System.Text.Json reporta sus errores en inglés y con nombres de tipos internos
+    /// (System.String, Users.API.DTOs...). Se reconocen por la clave de ModelState y se
+    /// reemplazan por textos en espanol. Los mensajes de Data Annotations pasan tal cual.
+    /// </summary>
+    private static IEnumerable<string> ToSpanishMessages(string key, string message)
+    {
+        // Empty key: there was no body at all (or a literal null)
+        if (key == string.Empty)
+            return ["El cuerpo de la solicitud es obligatorio."];
+
+        // "$" is the JSON root: either [JsonRequired] fields are missing or the JSON is broken
+        if (key == "$")
+        {
+            const string missingRequired = "missing required properties including:";
+            var index = message.IndexOf(missingRequired, StringComparison.Ordinal);
+            if (index < 0)
+                return ["El cuerpo de la solicitud no es un JSON válido."];
+
+            // The message ends with "including: 'nombre', 'stock'." keep only the quoted field names,
+            // the type name is quoted too but it comes before "including:"
+            return Regex.Matches(message[(index + missingRequired.Length)..], "'([^']+)'")
+                .Select(match => $"El campo '{match.Groups[1].Value}' es obligatorio.");
+        }
+
+        // "$.email": the value sent for that field could not be read (e.g. a number for a string)
+        if (key.StartsWith("$.", StringComparison.Ordinal))
+            return [$"El campo '{key[2..]}' tiene un formato inválido."];
+
+        // Any other key is a property validated by Data Annotations, already in Spanish
+        return [message];
     }
 
     // Map here so PasswordHash never leaves the service/controller boundary.

@@ -37,12 +37,17 @@ builder.Services.AddSwaggerGen(options =>
     options.SupportNonNullableReferenceTypes();
     options.OperationFilter<Cart.API.CartSwaggerExamplesFilter>();
 });
+
+// Consistent with Products/Users: suppress the automatic model-validation
+// filter and validate ModelState manually in the controller.
 builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
     options.SuppressModelStateInvalidFilter = true;
+    // Without this, [ApiController] turns 415 into a ProblemDetails without errorCode; StatusCodeErrorWriter writes it instead
+    options.SuppressMapClientErrors = true;
 });
 
-// Context accessor allows other services to read the request.
+builder.Services.AddHttpContextAccessor();
 // Needed for the correlation id handler.
 // Transient registers the handler itself.
 // All of this is needed because a header is NOT part of the body and
@@ -62,6 +67,10 @@ builder.Services.AddSingleton<ICartService>(sp =>
         ?? "Data Source=carts.db";
     return new CartService(connectionString, sp.GetRequiredService<IProductCatalog>());
 });
+
+// Spec 5.2: Development shows exception.Message in detail, Production keeps the generic text
+builder.Services.Configure<Cart.API.ExceptionHandlers.ErrorHandlingOptions>(
+    builder.Configuration.GetSection(Cart.API.ExceptionHandlers.ErrorHandlingOptions.SectionName));
 
 // Exception handlers (order matters: most specific first, generic last)
 builder.Services.AddExceptionHandler<NotFoundExceptionHandler>();
@@ -105,11 +114,16 @@ app.Use(async (context, next) =>
     using (LogContext.PushProperty("Endpoint", context.Request.Path.Value ?? string.Empty))
     using (LogContext.PushProperty(Cart.API.CorrelationId.LogProperty, correlationId))
     {
+        // Spec 5.3: start of the request; UseSerilogRequestLogging logs the end with the duration
+        app.Logger.LogInformation("HTTP {RequestMethod} {RequestPath} started",
+            context.Request.Method, context.Request.Path.Value);
         await next();
     }
 });
 app.UseSerilogRequestLogging();
 app.UseExceptionHandler();
+// 404 unknown route, 405 and 415 have no body by default; give them the ErrorResponse contract
+app.UseStatusCodePages(Cart.API.StatusCodeErrorWriter.WriteAsync);
 app.UseAuthorization();
 app.MapControllers();
 

@@ -77,7 +77,7 @@ public class SwaggerTests : IClassFixture<UsersApiFactory>
         var request = GetRequestExample(swagger, "/api/users/login", "post");
         var example200 = GetResponseExample(swagger, "/api/users/login", "post", "200");
         var example401 = GetResponseExample(swagger, "/api/users/login", "post", "401");
-        var example403 = GetResponseExample(swagger, "/api/users/login", "post", "403");
+        var example403 = GetNamedResponseExample(swagger, "/api/users/login", "post", "403", "usr-004");
 
         request.Should().Contain("maria@email.com");
         example200.Should().Contain("María");
@@ -100,13 +100,21 @@ public class SwaggerTests : IClassFixture<UsersApiFactory>
     }
 
     [Fact]
-    public async Task SwaggerJson_Login_ShouldMentionUsr005On403()
+    public async Task SwaggerJson_Login_When403_ShouldDocumentUsr004AndUsr005AsNamedExamples()
     {
         var swagger = await LoadSwaggerAsync();
-        var json = swagger.RootElement.GetRawText();
 
-        json.Should().Contain(ErrorCodes.USR_005);
-        json.Should().Contain(ErrorCodes.USR_005_Message);
+        var media = GetResponseMediaType(swagger, "/api/users/login", "post", "403");
+        var usr004 = GetNamedResponseExample(swagger, "/api/users/login", "post", "403", "usr-004");
+        var usr005 = GetNamedResponseExample(swagger, "/api/users/login", "post", "403", "usr-005");
+
+        media.TryGetProperty("example", out _).Should().BeFalse();
+        media.GetProperty("examples").EnumerateObject().Select(property => property.Name)
+            .Should().BeEquivalentTo(["usr-004", "usr-005"]);
+        usr004.Should().Contain(ErrorCodes.USR_004);
+        usr004.Should().Contain(ErrorCodes.USR_004_Message);
+        usr005.Should().Contain(ErrorCodes.USR_005);
+        usr005.Should().Contain(ErrorCodes.USR_005_Message);
     }
 
     private async Task<JsonDocument> LoadSwaggerAsync()
@@ -166,6 +174,36 @@ public class SwaggerTests : IClassFixture<UsersApiFactory>
         media.TryGetProperty("example", out var example).Should().BeTrue(
             $"{method.ToUpperInvariant()} {path} {statusCode} should have an example");
         return example.GetRawText();
+    }
+
+    private static JsonElement GetResponseMediaType(
+        JsonDocument swagger,
+        string path,
+        string method,
+        string statusCode)
+    {
+        var operation = GetOperation(swagger, path, method);
+        operation.TryGetProperty("responses", out var responses).Should().BeTrue();
+        responses.TryGetProperty(statusCode, out var response).Should().BeTrue();
+        response.TryGetProperty("content", out var content).Should().BeTrue();
+        content.TryGetProperty("application/json", out var media).Should().BeTrue();
+        return media;
+    }
+
+    private static string GetNamedResponseExample(
+        JsonDocument swagger,
+        string path,
+        string method,
+        string statusCode,
+        string name)
+    {
+        var media = GetResponseMediaType(swagger, path, method, statusCode);
+        media.TryGetProperty("examples", out var examples).Should().BeTrue(
+            $"{method.ToUpperInvariant()} {path} {statusCode} should have named examples");
+        examples.TryGetProperty(name, out var example).Should().BeTrue(
+            $"{method.ToUpperInvariant()} {path} {statusCode} should have the '{name}' example");
+        example.TryGetProperty("value", out var value).Should().BeTrue();
+        return value.GetRawText();
     }
 
     private static string GetRequestExample(JsonDocument swagger, string path, string method)

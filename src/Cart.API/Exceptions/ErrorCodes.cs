@@ -20,4 +20,13 @@ public static class ErrorCodes
 
     public const string CRT_005 = "CRT-005";
     public const string CRT_005_Message = "Error interno al procesar el carrito.";
+
+    // Not in the catalog: 404 for an id that is not a GUID where the spec lists no code
+    // (userId on POST, productId on DELETE item). errorCode goes empty.
+    public const string InvalidUserId_Message = "El userId no es un GUID válido.";
+    public const string InvalidProductId_Message = "El productId no es un GUID válido.";
+
+    // Not in the catalog either: spec consistency error, Cart has no invalid-data code like
+    // PRD-002/USR-002. Fallback errorMessage for a 400 invalid body with empty errorCode.
+    public const string InvalidBody_Message = "Los datos enviados no son válidos.";
 }

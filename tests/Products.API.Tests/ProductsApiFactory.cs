@@ -9,6 +9,8 @@ namespace Products.API.Tests;
 // Keeps WebApplicationFactory off Data Source=products.db, which would land in the test output directory.
 public sealed class ProductsApiFactory : WebApplicationFactory<Program>
 {
+    public const string ErrorHandlingOverrideKey = "ErrorHandling:IncludeExceptionDetails";
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         var dbPath = Path.Combine(Path.GetTempPath(), $"products-{Guid.NewGuid():N}.db");
@@ -17,6 +19,10 @@ public sealed class ProductsApiFactory : WebApplicationFactory<Program>
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["ConnectionStrings:DefaultConnection"] = $"Data Source={dbPath};Pooling=false"
+            });
+            config.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                [ErrorHandlingOverrideKey] = "false"
             });
         });
         builder.ConfigureServices(services =>
