@@ -259,6 +259,8 @@ Logs: Serilog escribe en consola y en un archivo JSON por día, relativo a la ca
 - Users.API → `src/Users.API/logs/users-AAAAMMDD.json`
 - Cart.API → `src/Cart.API/logs/carts-AAAAMMDD.json`
 
+Para la demo hay una colección de Postman con los casos felices y los errores de los tres servicios: ver [`docs/postman/`](docs/postman/README.md).
+
 ### 6. Swagger UI
 
 Con el microservicio corriendo, abrir en el navegador:
