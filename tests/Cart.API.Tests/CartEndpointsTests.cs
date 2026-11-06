@@ -251,7 +251,33 @@ public class CartEndpointsTests : IClassFixture<CartApiFactory>
         body.Items[0].ProductoId.Should().Be(productId);
         body.Items[0].Cantidad.Should().Be(2);
     }
+    [Fact]
+    public async Task AddItem_WhenProductAlreadyExists_ShouldAccumulateQuantity()
+    {
+        var userId = Guid.NewGuid();
+        var productId = Guid.NewGuid();
+        using var client = ClientWithStock(10);
 
+        await client.PostAsJsonAsync($"/api/cart/{userId}/items", new AddCartItemRequest
+        {
+            ProductoId = productId,
+            Cantidad = 2
+        });
+
+        var response = await client.PostAsJsonAsync($"/api/cart/{userId}/items", new AddCartItemRequest
+        {
+            ProductoId = productId,
+            Cantidad = 3
+        });
+
+        var body = await response.Content.ReadFromJsonAsync<CartBody>();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        body.Should().NotBeNull();
+        body!.Items.Should().ContainSingle();
+        body.Items[0].ProductoId.Should().Be(productId);
+        body.Items[0].Cantidad.Should().Be(5);
+    }
 
 
     [Fact]
@@ -398,7 +424,32 @@ public class CartEndpointsTests : IClassFixture<CartApiFactory>
         body.Items[0].ProductoId.Should().Be(productId);
         body.Items[0].Cantidad.Should().Be(4);
     }
+    [Fact]
+    public async Task UpdateItem_WhenProductIsNotInCart_ShouldReturnCrt001()
+    {
+        var userId = Guid.NewGuid();
+        var existingProductId = Guid.NewGuid();
+        var productId = Guid.NewGuid();
 
+        using var host = HostWithStock(10, userId, existingProductId, 1);
+        using var client = host.CreateClient();
+
+        var response = await client.PutAsJsonAsync(
+            $"/api/cart/{userId}/items/{productId}",
+            new UpdateCartItemRequest
+            {
+                Cantidad = 2
+            });
+
+        using var document = JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync());
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        document.RootElement.GetProperty("errorCode").GetString().Should().Be("CRT-001");
+        document.RootElement.GetProperty("errorMessage").GetString()
+            .Should().Be("Carrito no encontrado.");
+    }
+    
     [Theory]
     [InlineData("00000000-0000-0000-0000-000000000099")]
     [InlineData("99")]
@@ -470,7 +521,28 @@ public class CartEndpointsTests : IClassFixture<CartApiFactory>
         body.Items[0].ProductoId.Should().Be(kept);
         body.Items[0].Cantidad.Should().Be(1);
     }
+    [Fact]
+    public async Task RemoveItem_WhenProductIsNotInCart_ShouldReturnCrt001()
+    {
+        var userId = Guid.NewGuid();
+        var existingProductId = Guid.NewGuid();
+        var productId = Guid.NewGuid();
 
+        using var host = HostWithStock(10, userId, existingProductId, 1);
+        using var client = host.CreateClient();
+
+        var response = await client.DeleteAsync(
+            $"/api/cart/{userId}/items/{productId}");
+
+        using var document = JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync());
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        document.RootElement.GetProperty("errorCode").GetString().Should().Be("CRT-001");
+        document.RootElement.GetProperty("errorMessage").GetString()
+            .Should().Be("Carrito no encontrado.");
+    }
+    
     [Theory]
     [InlineData("00000000-0000-0000-0000-000000000099")]
     [InlineData("99")]
