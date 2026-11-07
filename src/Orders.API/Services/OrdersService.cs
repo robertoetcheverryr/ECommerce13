@@ -122,6 +122,12 @@ public class OrdersService : IOrdersService
                 ErrorCodes.ORD_002_Message,
                 StatusCodes.Status400BadRequest);
 
+        // ORD-003: falta validar que el UsuarioId exista en Users API.
+        // Queda pendiente hasta que el profesor defina si hacemos un
+        // endpoint o como lo resolvemos.
+        // Cuando exista, acá se debe consultar y tirar ORD-003 (404)
+        // si el usuario no existe.
+
         var order = new Order
         {
             Id = Guid.NewGuid(),
