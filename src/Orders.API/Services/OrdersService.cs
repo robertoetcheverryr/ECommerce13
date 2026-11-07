@@ -11,6 +11,17 @@ namespace Orders.API.Services;
 /// </summary>
 public class OrdersService : IOrdersService
 {
+    // Únicas transiciones de estado permitidas para una orden.
+    // Cualquier otra combinación de estado actual y estado nuevo es inválida (ORD-006).
+    private static readonly HashSet<(string EstadoActual, string EstadoNuevo)> TransicionesValidas = new()
+    {
+        ("Pendiente", "Confirmada"),
+        ("Confirmada", "Enviada"),
+        ("Enviada", "Entregada"),
+        ("Pendiente", "Cancelada"),
+        ("Confirmada", "Cancelada")
+    };
+
     private readonly string _connectionString;
     private readonly IProductsClient _productsClient;
 
@@ -134,7 +145,8 @@ public class OrdersService : IOrdersService
             if (item.Cantidad > product.Stock)
                 throw new OrderException(
                     ErrorCodes.ORD_005,
-                    ErrorCodes.ORD_005_Message,
+                    $"Stock insuficiente para '{product.Nombre}'. " +
+                    $"Disponible: {product.Stock}, solicitado: {item.Cantidad}.",
                     StatusCodes.Status422UnprocessableEntity);
 
             order.Items.Add(new OrderItem
@@ -209,10 +221,19 @@ public class OrdersService : IOrdersService
     {
         var order = await GetByIdAsync(id, cancellationToken);
 
-        if (order.Estado == "Entregada" && request.Estado == "Pendiente")
+        if (string.IsNullOrWhiteSpace(request.Estado))
+            throw new OrderException(
+                ErrorCodes.ORD_002,
+                ErrorCodes.ORD_002_Message,
+                StatusCodes.Status400BadRequest);
+
+        // La única transición válida es la que está en la tabla.
+        // Cualquier otra (mismo estado, estado inexistente, avance o retroceso
+        // no permitido) es una transición inválida (ORD-006).
+        if (!TransicionesValidas.Contains((order.Estado, request.Estado)))
             throw new OrderException(
                 ErrorCodes.ORD_006,
-                ErrorCodes.ORD_006_Message,
+                $"Una orden en estado '{order.Estado}' no puede pasar a '{request.Estado}'.",
                 StatusCodes.Status409Conflict);
 
         using var connection = new SqliteConnection(_connectionString);

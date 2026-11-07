@@ -11,6 +11,11 @@ public class ProductResponse
     public Guid Id { get; set; }
 
     /// <summary>
+    /// Nombre del producto.
+    /// </summary>
+    public string Nombre { get; set; } = string.Empty;
+
+    /// <summary>
     /// Precio actual del producto.
     /// </summary>
     public decimal Precio { get; set; }
