@@ -1,9 +1,26 @@
 ﻿
+using System.Diagnostics;
 using Orders.API;
 using Orders.API.Services;
 using Orders.API.ExceptionHandlers;
+using Serilog;
+using Serilog.Context;
+using Serilog.Formatting.Json;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Configuración de Serilog
+Log.Logger = new LoggerConfiguration()
+    .Enrich.FromLogContext()
+    .Enrich.WithProperty("Service", "Orders.API")
+    .WriteTo.Console()
+    .WriteTo.File(
+        new JsonFormatter(),
+        "logs/orders-api-.json",
+        rollingInterval: RollingInterval.Day)
+    .CreateLogger();
+
+builder.Host.UseSerilog();
 
 builder.Services.AddControllers();
 
@@ -40,7 +57,32 @@ app.Use(async (context, next) =>
     context.Items["CorrelationId"] = correlationId;
     context.Response.Headers["X-Correlation-Id"] = correlationId;
 
-    await next();
+    var stopwatch = Stopwatch.StartNew();
+
+    using (LogContext.PushProperty("CorrelationId", correlationId))
+    using (LogContext.PushProperty("Endpoint", context.Request.Path))
+    {
+        Log.Information(
+            "Request iniciado: {Method} {Path}",
+            context.Request.Method,
+            context.Request.Path);
+
+        try
+        {
+            await next();
+        }
+        finally
+        {
+            stopwatch.Stop();
+
+            Log.Information(
+                "Request finalizado: {Method} {Path} - StatusCode: {StatusCode} - DuracionMs: {DurationMs}",
+                context.Request.Method,
+                context.Request.Path,
+                context.Response.StatusCode,
+                stopwatch.ElapsedMilliseconds);
+        }
+    }
 });
 
 app.UseExceptionHandler();
