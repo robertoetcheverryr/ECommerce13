@@ -3,6 +3,7 @@ using System.Diagnostics;
 using Orders.API;
 using Orders.API.Services;
 using Orders.API.ExceptionHandlers;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Serilog;
 using Serilog.Context;
 using Serilog.Formatting.Json;
@@ -28,6 +29,8 @@ builder.Services.AddExceptionHandler<OrdersExceptionHandler>();
 builder.Services.AddProblemDetails();
 
 builder.Services.AddScoped<IOrdersService, OrdersService>();
+
+builder.Services.AddHealthChecks();
 
 builder.Services.AddHttpClient<IProductsClient, ProductsClient>(client =>
 {
@@ -102,6 +105,29 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseAuthorization();
 app.MapControllers();
+
+// Health Checks
+var healthCheckOptions = new HealthCheckOptions
+{
+    ResponseWriter = async (context, report) =>
+    {
+        var response = new
+        {
+            status = report.Status.ToString(),
+            checks = report.Entries.Select(entry => new
+            {
+                name = entry.Key,
+                status = entry.Value.Status.ToString()
+            })
+        };
+
+        await context.Response.WriteAsJsonAsync(response);
+    }
+};
+
+app.MapHealthChecks("/health", healthCheckOptions);
+app.MapHealthChecks("/health/live", healthCheckOptions);
+app.MapHealthChecks("/health/ready", healthCheckOptions);
 
 app.Run();
 
