@@ -32,11 +32,14 @@ builder.Services.AddScoped<IOrdersService, OrdersService>();
 
 builder.Services.AddHealthChecks();
 
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddTransient<CorrelationIdHandler>();
+
 builder.Services.AddHttpClient<IProductsClient, ProductsClient>(client =>
 {
     var baseUrl = builder.Configuration["Services:ProductsApi:BaseUrl"];
     client.BaseAddress = new Uri(baseUrl!);
-});
+}).AddHttpMessageHandler<CorrelationIdHandler>();
 
 builder.Services.AddOpenApi();
 builder.Services.AddEndpointsApiExplorer();
