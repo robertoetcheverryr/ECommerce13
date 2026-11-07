@@ -67,7 +67,7 @@ public class OrdersExceptionHandler : IExceptionHandler
         await context.Response.WriteAsJsonAsync(
             new ErrorResponse
             {
-                Type = $"https://httpstatuses.com/{statusCode}",
+                Type = TypeFor(statusCode),
                 Title = statusCode switch
                 {
                     400 => "Bad Request",
@@ -87,4 +87,18 @@ public class OrdersExceptionHandler : IExceptionHandler
 
         return true;
     }
+
+    // URI RFC correspondiente a cada status code del contrato de errores.
+    private static string TypeFor(int status) => status switch
+    {
+        StatusCodes.Status400BadRequest =>
+            "https://tools.ietf.org/html/rfc7231#section-6.5.1",
+        StatusCodes.Status404NotFound =>
+            "https://tools.ietf.org/html/rfc7231#section-6.5.4",
+        StatusCodes.Status409Conflict =>
+            "https://tools.ietf.org/html/rfc7231#section-6.5.9",
+        StatusCodes.Status422UnprocessableEntity =>
+            "https://tools.ietf.org/html/rfc4918#section-11.2",
+        _ => "https://tools.ietf.org/html/rfc7231#section-6.6.1"
+    };
 }
