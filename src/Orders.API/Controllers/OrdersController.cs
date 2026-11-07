@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 using Orders.API.DTOs;
 using Orders.API.Models;
 using Orders.API.Services;
+using Orders.API.Swagger;
+using Swashbuckle.AspNetCore.Filters;
 
 namespace Orders.API.Controllers;
 
@@ -34,6 +36,8 @@ public class OrdersController : ControllerBase
     /// <response code="200">Las órdenes se obtuvieron correctamente.</response>
     /// <response code="500">Ocurrió un error inesperado.</response>
     [HttpGet]
+    [SwaggerResponseExample(StatusCodes.Status200OK, typeof(OrdersResponseExample))]
+    [SwaggerResponseExample(StatusCodes.Status500InternalServerError, typeof(InternalServerErrorExample))]
     [ProducesResponseType(typeof(IEnumerable<Order>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> GetAll(
@@ -56,6 +60,9 @@ public class OrdersController : ControllerBase
     /// <response code="404">La orden solicitada no existe.</response>
     /// <response code="500">Ocurrió un error inesperado.</response>
     [HttpGet("{id:guid}")]
+    [SwaggerResponseExample(StatusCodes.Status200OK, typeof(OrderResponseExample))]
+    [SwaggerResponseExample(StatusCodes.Status404NotFound, typeof(OrderNotFoundErrorExample))]
+    [SwaggerResponseExample(StatusCodes.Status500InternalServerError, typeof(InternalServerErrorExample))]
     [ProducesResponseType(typeof(Order), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
@@ -81,6 +88,12 @@ public class OrdersController : ControllerBase
     /// <response code="422">No hay stock suficiente para alguno de los productos.</response>
     /// <response code="500">Ocurrió un error inesperado.</response>
     [HttpPost]
+    [SwaggerRequestExample(typeof(CreateOrderRequest), typeof(CreateOrderRequestExample))]
+    [SwaggerResponseExample(StatusCodes.Status201Created, typeof(OrderResponseExample))]
+    [SwaggerResponseExample(StatusCodes.Status400BadRequest, typeof(ValidationErrorExample))]
+    [SwaggerResponseExample(StatusCodes.Status404NotFound, typeof(ProductNotFoundErrorExample))]
+    [SwaggerResponseExample(StatusCodes.Status422UnprocessableEntity, typeof(StockInsufficientExample))]
+    [SwaggerResponseExample(StatusCodes.Status500InternalServerError, typeof(InternalServerErrorExample))]
     [ProducesResponseType(typeof(Order), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
@@ -107,11 +120,18 @@ public class OrdersController : ControllerBase
     /// <param name="cancellationToken">Token para cancelar la solicitud.</param>
     /// <returns>La orden con su estado actualizado.</returns>
     /// <response code="200">El estado se actualizó correctamente.</response>
+    /// <response code="400">El estado enviado es inválido.</response>
     /// <response code="404">La orden solicitada no existe.</response>
     /// <response code="409">La transición de estado no está permitida.</response>
     /// <response code="500">Ocurrió un error inesperado.</response>
     [HttpPut("{id:guid}/status")]
+    [SwaggerResponseExample(StatusCodes.Status200OK, typeof(OrderResponseExample))]
+    [SwaggerResponseExample(StatusCodes.Status400BadRequest, typeof(ValidationErrorExample))]
+    [SwaggerResponseExample(StatusCodes.Status404NotFound, typeof(OrderNotFoundErrorExample))]
+    [SwaggerResponseExample(StatusCodes.Status409Conflict, typeof(InvalidTransitionExample))]
+    [SwaggerResponseExample(StatusCodes.Status500InternalServerError, typeof(InternalServerErrorExample))]
     [ProducesResponseType(typeof(Order), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status409Conflict)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
