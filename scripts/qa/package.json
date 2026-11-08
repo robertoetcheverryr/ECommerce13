@@ -5,5 +5,8 @@
   "license": "MIT",
   "dependencies": {
     "newman": "6.2.3"
+  },
+  "overrides": {
+    "handlebars": "^4.7.10"
   }
 }

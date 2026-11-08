@@ -82,6 +82,8 @@ Plan: this PR merges with Schemathesis still advisory, because the current findi
 
 Known vulnerability already on `master`: `SQLitePCLRaw.lib.e_sqlite3` 2.1.11 (`NU1903`, [GHSA-2m69-gcr7-jv3q](https://github.com/advisories/GHSA-2m69-gcr7-jv3q)), a transitive dependency of Products, Users, Cart and their tests. Dependency review does not flag it here because this PR does not change those packages; Dependabot alerts and security updates are where it surfaces. It is not upgraded in this PR.
 
+Newman 6.2.3 pulls in `handlebars` through `postman-runtime` 7.39.1, which asks for exactly 4.7.8. That version is affected by GHSA-2w6w-674q-4c4q, GHSA-8r5x-fm3f-whwj, GHSA-p8wg-vrv2-v86f, GHSA-3mfm-83xf-c92r, GHSA-9cx6-37pm-9jff, GHSA-xhpv-hc6g-r9c6, GHSA-xjpj-3mr7-gcpf, GHSA-2qvq-rjwj-gvw9, GHSA-7rx3-28cr-v5wh, GHSA-xw65-4hp5-5hc7 and GHSA-442j-39wm-28r2, so Dependency review failed on `scripts/qa/package-lock.json`. Some of these were fixed in 4.7.9 and the rest in 4.7.10, the first release that fixes all of them. `scripts/qa/package.json` therefore has an npm `overrides` entry, `"handlebars": "^4.7.10"`. That range is a floor that stays within major 4: it is not a frozen pin. The exact version and its integrity hash are recorded in `package-lock.json`, and `npm ci` installs exactly that. Newman stays at 6.2.3. The check passes because the package is patched; `dependency-review.yml` is not relaxed. Remove the override once a Newman release ships a patched `handlebars` itself.
+
 lizard measures functions and methods. Top-level statements in `Program.cs` are not counted as a function.
 
 Public-repo secret scanning (and push protection) is provided by GitHub itself; no workflow is needed for it.
