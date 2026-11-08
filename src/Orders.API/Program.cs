@@ -4,6 +4,8 @@ using Orders.API;
 using Orders.API.Services;
 using Orders.API.ExceptionHandlers;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Serilog;
 using Serilog.Context;
 using Serilog.Formatting.Json;
@@ -31,7 +33,9 @@ builder.Services.AddProblemDetails();
 
 builder.Services.AddScoped<IOrdersService, OrdersService>();
 
-builder.Services.AddHealthChecks();
+builder.Services.AddHealthChecks()
+    .AddCheck<ApiStatusCheck>("api", tags: ["live"])
+    .AddCheck<SqliteHealthCheck>("sqlite", tags: ["ready"]);
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddTransient<CorrelationIdHandler>();
@@ -97,10 +101,18 @@ app.Use(async (context, next) =>
 
 app.UseExceptionHandler();
 
+// Open the SQLite file and create the orders tables if they are missing.
 var connectionString = app.Configuration.GetConnectionString("DefaultConnection")
                        ?? "Data Source=orders.db";
-
-new DatabaseInitializer(connectionString).Initialize();
+try
+{
+    new DatabaseInitializer(connectionString).Initialize();
+}
+catch (SqliteException ex)
+{
+    // Error 14 (missing directory) must not kill the host. Ready reports Unhealthy; live still answers.
+    Log.Error(ex, "SQLite initialization failed. Ready check will be Unhealthy.");
+}
 
 if (app.Environment.IsDevelopment())
 {
@@ -113,27 +125,24 @@ app.UseAuthorization();
 app.MapControllers();
 
 // Health Checks
-var healthCheckOptions = new HealthCheckOptions
+// Rider was complaining that we were using a local function with return, changed to lambda
+var writeHealthResponse = (HttpContext context, HealthReport report) =>
+    context.Response.WriteAsJsonAsync(new { status = report.Status.ToString() });
+
+// The request hits MapHealthChecks, which calls the IHealthCheck handlers (ready/live only run the tagged one)
+// and gets a HealthReport back. writeHealthResponse is the way back:
+// it writes { status } from report.Status, Healthy, Degraded, or Unhealthy.
+app.MapHealthChecks("/health", new HealthCheckOptions { ResponseWriter = writeHealthResponse });
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
 {
-    ResponseWriter = async (context, report) =>
-    {
-        var response = new
-        {
-            status = report.Status.ToString(),
-            checks = report.Entries.Select(entry => new
-            {
-                name = entry.Key,
-                status = entry.Value.Status.ToString()
-            })
-        };
-
-        await context.Response.WriteAsJsonAsync(response);
-    }
-};
-
-app.MapHealthChecks("/health", healthCheckOptions);
-app.MapHealthChecks("/health/live", healthCheckOptions);
-app.MapHealthChecks("/health/ready", healthCheckOptions);
+    Predicate = check => check.Tags.Contains("ready"),
+    ResponseWriter = writeHealthResponse
+});
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("live"),
+    ResponseWriter = writeHealthResponse
+});
 
 app.Run();
 
