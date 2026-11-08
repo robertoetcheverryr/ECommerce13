@@ -53,6 +53,8 @@ builder.Services.AddControllers()
 
             return new Microsoft.AspNetCore.Mvc.BadRequestObjectResult(response);
         };
+        // Without this, [ApiController] turns 415 into a ProblemDetails without errorCode; StatusCodeErrorWriter writes it instead
+        options.SuppressMapClientErrors = true;
     });
 
 // Services
@@ -159,6 +161,8 @@ if (app.Environment.IsDevelopment())
 
 // Manejo global de excepciones
 app.UseExceptionHandler();
+// 404 unknown route, 405 and 415 have no body by default; give them the ErrorResponse contract
+app.UseStatusCodePages(Notifications.API.StatusCodeErrorWriter.WriteAsync);
 
 
 // Controllers
