@@ -1,4 +1,5 @@
-﻿using Dapper;
+﻿using System.Globalization;
+using Dapper;
 using Microsoft.Data.Sqlite;
 using Orders.API.DTOs;
 using Orders.API.Exceptions;
@@ -60,11 +61,11 @@ public class OrdersService : IOrdersService
             ORDER BY FechaCreacion DESC;
             """;
 
-        var rows = await connection.QueryAsync<Order>(
+        var rows = await connection.QueryAsync<OrderRow>(
             sql,
             new { UsuarioId = usuarioId?.ToString() });
 
-        var orders = rows.ToList();
+        var orders = rows.Select(Map).ToList();
 
         foreach (var order in orders)
             order.Items = await GetItemsAsync(connection, order.Id);
@@ -87,16 +88,17 @@ public class OrdersService : IOrdersService
     {
         using var connection = new SqliteConnection(_connectionString);
 
-        var order = await connection.QuerySingleOrDefaultAsync<Order>(
+        var row = await connection.QuerySingleOrDefaultAsync<OrderRow>(
             "SELECT * FROM orders WHERE Id = @Id;",
             new { Id = id.ToString() });
 
-        if (order is null)
+        if (row is null)
             throw new OrderException(
                 ErrorCodes.ORD_001,
                 ErrorCodes.ORD_001_Message,
                 StatusCodes.Status404NotFound);
 
+        var order = Map(row);
         order.Items = await GetItemsAsync(connection, order.Id);
 
         return order;
@@ -261,7 +263,7 @@ public class OrdersService : IOrdersService
         SqliteConnection connection,
         Guid orderId)
     {
-        var items = await connection.QueryAsync<OrderItem>(
+        var rows = await connection.QueryAsync<OrderItemRow>(
             """
             SELECT ProductoId, Cantidad, PrecioUnitario
             FROM order_items
@@ -269,6 +271,43 @@ public class OrdersService : IOrdersService
             """,
             new { OrderId = orderId.ToString() });
 
-        return items.ToList();
+        return rows.Select(MapItem).ToList();
+    }
+
+    private static Order Map(OrderRow row) => new()
+    {
+        // Back from text to our own object
+        Id = Guid.Parse(row.Id),
+        UsuarioId = Guid.Parse(row.UsuarioId),
+        Total = decimal.Parse(row.Total, CultureInfo.InvariantCulture),
+        Estado = row.Estado,
+        FechaCreacion = DateTime.Parse(
+            row.FechaCreacion,
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.RoundtripKind)
+    };
+
+    private static OrderItem MapItem(OrderItemRow row) => new()
+    {
+        // Back from text to our own object
+        ProductoId = Guid.Parse(row.ProductoId),
+        Cantidad = row.Cantidad,
+        PrecioUnitario = decimal.Parse(row.PrecioUnitario, CultureInfo.InvariantCulture)
+    };
+
+    private sealed class OrderRow
+    {
+        public string Id { get; set; } = string.Empty;
+        public string UsuarioId { get; set; } = string.Empty;
+        public string Total { get; set; } = string.Empty;
+        public string Estado { get; set; } = string.Empty;
+        public string FechaCreacion { get; set; } = string.Empty;
+    }
+
+    private sealed class OrderItemRow
+    {
+        public string ProductoId { get; set; } = string.Empty;
+        public int Cantidad { get; set; }
+        public string PrecioUnitario { get; set; } = string.Empty;
     }
 }
