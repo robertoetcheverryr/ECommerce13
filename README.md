@@ -243,8 +243,25 @@ dotnet test
     - Tests E2E (xUnit + WebApplicationFactory + FluentAssertions). `CartApiFactory` apunta a un sqlite temporal, no a `carts.db` en la carpeta de output
     - Serilog: consola + JSON, request log, Warning/Error con errorCode, Endpoint y CorrelationId en cada evento del request
     - Correlation ID inbound y outbound: header `X-Correlation-Id`, campo `correlationId` en errores, propiedad en logs. `CorrelationIdHandler` lo copia en la llamada a Products
-- Orders / Notifications: solo el esqueleto
-- Pendiente TP: Orders, Notifications, health checks y correlation en esos dos.
+- **Orders.API**
+    - Endpoints 4.4: GET /api/orders (`?usuarioId=` opcional), GET /api/orders/{id}, POST, PUT /api/orders/{id}/status
+    - Persistencia en SQLite con Dapper (`Microsoft.Data.Sqlite`). Al iniciar, `DatabaseInitializer` crea `orders` y `order_items` si no existen. Archivo `orders.db` (`ConnectionStrings:DefaultConnection`).
+    - `ErrorCodes` (ORD-001 a ORD-007) + `OrderException` que ya trae el status code.
+    - ORD-006 maquina de estados: `HashSet` con las 5 transiciones validas del doc. Mismo estado o estado inexistente es 409 parejo. PUT con estado vacio es 400 ORD-002
+    - ORD-003 pendiente: falta definir el endpoint interno de Users para validar UsuarioId, hay un comentario en `CreateAsync` marcando donde va
+    - Llamada a Products via `IProductsClient` en `Services:ProductsApi:BaseUrl` (http://localhost:5001): 404 ORD-004 si el producto no existe, 422 ORD-005 con nombre/disponible/solicitado en el mensaje si no hay stock. El Total y el PrecioUnitario se calculan con el precio de Products, no con lo que mande el cliente
+    - Health checks 5.4: `/health` (ambas sondas), `/health/ready` (tablas `orders` y `order_items`), `/health/live` (proceso). JSON `{ status }`
+    - Swagger: XML comments, `[ProducesResponseType]`, ejemplos con `IExamplesProvider` + `[SwaggerRequestExample]`/`[SwaggerResponseExample]` (`Swashbuckle.AspNetCore.Filters`)
+    - Serilog: consola + JSON con Service=Orders.API. Request log con middleware propio (`Request iniciado/finalizado` + DuracionMs)
+    - Correlation ID inbound y outbound: header `X-Correlation-Id`, campo `correlationId` en errores, propiedad en logs. `CorrelationIdHandler` lo copia en el GET a Products
+- **Notifications.API**
+    - Endpoints 4.5: POST /api/notifications/send (201), GET /api/notifications/{userId} (404 NTF-003 si el usuario no tiene notificaciones)
+    - Persistencia en SQLite con Dapper (`Microsoft.Data.Sqlite`). Al iniciar, `DatabaseInitializer` crea la tabla `notifications` si no existe. Archivo `notifications.db` (`ConnectionStrings:DefaultConnection`). El envio se simula: se guarda con Estado `Enviada` y FechaEnvio UTC
+    - `ErrorCodes` (NTF-002, NTF-003, NTF-004) + excepciones de dominio (`NotFound`, `Validation`, `BusinessRule`, `Global`) con sus `IExceptionHandler`s
+    - Health checks 5.4: `/health` (ambas sondas), `/health/ready` (tabla `notifications`), `/health/live` (proceso). JSON `{ status }`
+    - Swagger: XML comments, `[ProducesResponseType]`, ejemplos con `IExamplesProvider` + `[SwaggerRequestExample]`/`[SwaggerResponseExample]`.
+    - Serilog: consola + JSON con Service=Notifications.API. Request log con middleware propio (`Request iniciado/finalizado` + DuracionMs)
+    - Correlation ID inbound: header `X-Correlation-Id`, campo `correlationId` en errores, propiedad en logs
 
 ## Swagger / OpenAPI
 
@@ -270,18 +287,18 @@ El TP pide estos usos de log:
 
 ## Correlation ID
 
-Implementado en Products.API y Users.API (inbound) y en Cart.API (inbound y outbound hacia Products). Header: `X-Correlation-Id`.
+Implementado en Products.API y Users.API (inbound) y en Cart.API y Orders.API (inbound y outbound hacia Products). Header: `X-Correlation-Id`.
 
 - Si el cliente manda un valor no vacío (después de trim), se reutiliza. No tiene que ser un Guid.
 - Si falta o viene en blanco, se genera un Guid.
 - El mismo valor sale en el header de respuesta, en los logs (`CorrelationId`) y en el campo `correlationId` de cualquier error 4xx/5xx.
 - Probar: `GET http://localhost:5001/api/products` o `POST http://localhost:5002/api/users/login` con y sin el header. Un 401 o un 404 también debe repetir el id en el body.
 
-Cart.API copia el header en `GET /api/products/{id}` con `CorrelationIdHandler`. Products y Users no llaman a nadie.
+Cart.API y Orders.API copian el header en `GET /api/products/{id}` con `CorrelationIdHandler`. Products, Users y Notifications no llaman a nadie.
 
 ## Health Checks
 
-Spec 5.4, en Products.API, Users.API y Cart.API.
+Spec 5.4, en Products.API, Users.API, Cart.API, Orders.API y Notifications.API.
 
 - `GET /health` corre los dos chequeos y devuelve el peor estado.
 - `GET /health/ready` solo el de SQLite (tag `ready`).
@@ -289,7 +306,7 @@ Spec 5.4, en Products.API, Users.API y Cart.API.
 - Body: `{ "status": "Healthy" | "Degraded" | "Unhealthy" }`.
 - Unhealthy sale con 503. Healthy y Degraded con 200.
 
-La prueba de ready abre `ConnectionStrings:DefaultConnection` y busca la tabla del servicio: `products` en `products.db`, `users` en `users.db`.
+La prueba de ready abre `ConnectionStrings:DefaultConnection` y busca la tabla del servicio: `products` en `products.db`, `users` en `users.db`, `carts` y `cart_items` en `carts.db`, `orders` y `order_items` en `orders.db`, `notifications` en `notifications.db`.
 Healthy significa que ese archivo ya tenía la tabla, o que el startup acaba de crearla.
 Si el archivo abre pero no tiene esa tabla, el chequeo devuelve Unhealthy. Si no se puede abrir, también.
 Un directorio que no existe no tira abajo el host: el startup atrapa el error y ready queda Unhealthy. Live sigue contestando.

@@ -7,6 +7,7 @@ using Serilog.Context;
 using Serilog.Formatting.Json;
 using System.Diagnostics;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Swashbuckle.AspNetCore.Filters;
 using Notifications.API.Constants;
 
@@ -90,7 +91,9 @@ builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 
 // Health Checks
-builder.Services.AddHealthChecks();
+builder.Services.AddHealthChecks()
+    .AddCheck<ApiStatusCheck>("api", tags: ["live"])
+    .AddCheck<SqliteHealthCheck>("sqlite", tags: ["ready"]);
 
 var app = builder.Build();
 try
@@ -99,8 +102,8 @@ try
 }
 catch (SqliteException ex)
 {
+    // Error 14 (missing directory) must not kill the host. Ready reports Unhealthy; live still answers.
     Log.Error(ex, "No se pudo inicializar la base de datos de notificaciones.");
-    throw;
 }
 
 app.Use(async (context, next) =>
@@ -163,27 +166,24 @@ app.MapControllers();
 
 
 // Health Checks
-var healthCheckOptions = new HealthCheckOptions
+// Rider was complaining that we were using a local function with return, changed to lambda
+var writeHealthResponse = (HttpContext context, HealthReport report) =>
+    context.Response.WriteAsJsonAsync(new { status = report.Status.ToString() });
+
+// The request hits MapHealthChecks, which calls the IHealthCheck handlers (ready/live only run the tagged one)
+// and gets a HealthReport back. writeHealthResponse is the way back:
+// it writes { status } from report.Status, Healthy, Degraded, or Unhealthy.
+app.MapHealthChecks("/health", new HealthCheckOptions { ResponseWriter = writeHealthResponse });
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
 {
-    ResponseWriter = async (context, report) =>
-    {
-        var response = new
-        {
-            status = report.Status.ToString(),
-            checks = report.Entries.Select(entry => new
-            {
-                name = entry.Key,
-                status = entry.Value.Status.ToString()
-            })
-        };
-
-        await context.Response.WriteAsJsonAsync(response);
-    }
-};
-
-app.MapHealthChecks("/health", healthCheckOptions);
-app.MapHealthChecks("/health/live", healthCheckOptions);
-app.MapHealthChecks("/health/ready", healthCheckOptions);
+    Predicate = check => check.Tags.Contains("ready"),
+    ResponseWriter = writeHealthResponse
+});
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("live"),
+    ResponseWriter = writeHealthResponse
+});
 
 
 app.Run();
