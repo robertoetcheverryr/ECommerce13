@@ -960,110 +960,6 @@
           ]
         },
         {
-          "name": "Registrar con email inválido → 400 USR-002",
-          "id": "d50b7559-44b8-5ced-a078-7b9de8797373",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{usersUrl}}/api/users/register",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"nombre\": \"María\",\n  \"apellido\": \"González\",\n  \"email\": \"no-es-un-email\",\n  \"password\": \"MiPassword123!\"\n}"
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 400', () => pm.response.to.have.status(400));",
-                  "pm.test('errorCode USR-002', () => pm.expect(pm.response.json().errorCode).to.eql('USR-002'));",
-                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El email no tiene un formato válido.\"));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Login sin password → 400 USR-002",
-          "id": "5f138103-a91d-53e3-80c4-35be9486eb82",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{usersUrl}}/api/users/login",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"{{userEmail}}\"\n}"
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 400', () => pm.response.to.have.status(400));",
-                  "pm.test('errorCode USR-002', () => pm.expect(pm.response.json().errorCode).to.eql('USR-002'));",
-                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El campo 'password' es obligatorio.\"));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Login con email inexistente y sin Correlation ID → 401 USR-003",
-          "id": "cd669d8d-2b29-5f94-b784-233223080255",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{usersUrl}}/api/users/login",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"inexistente.{{runId}}@email.com\",\n  \"password\": \"MiPassword123!\"\n}"
-            },
-            "description": "El email inexistente responde lo mismo que una contraseña incorrecta. Sin X-Correlation-Id, Users genera un GUID y lo repite en el body."
-          },
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.request.headers.remove('X-Correlation-Id');"
-                ]
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 401', () => pm.response.to.have.status(401));",
-                  "pm.test('errorCode USR-003', () => pm.expect(pm.response.json().errorCode).to.eql('USR-003'));",
-                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Credenciales incorrectas.\"));",
-                  "pm.test('genera un GUID', () => pm.expect(pm.response.headers.get('X-Correlation-Id')).to.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i));"
-                ]
-              }
-            }
-          ]
-        },
-        {
           "name": "Login correcto",
           "id": "57296f04-7147-5764-b89d-7a09f3311098",
           "request": {
@@ -1121,100 +1017,6 @@
                   "pm.collectionVariables.set('lockEmail', pm.response.json().email);",
                   "pm.collectionVariables.set('lockUserId', pm.response.json().id);",
                   "pm.test('no expone el password', () => { const b = pm.response.json(); pm.expect(b).to.not.have.property('passwordHash'); pm.expect(b).to.not.have.property('password'); });"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Antes del reset: login incorrecto 1/2 → 401 USR-003",
-          "id": "06dfbdfd-85ee-5440-9859-4e76589e0d0d",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{usersUrl}}/api/users/login",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"{{lockEmail}}\",\n  \"password\": \"PasswordIncorrecta1!\"\n}"
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 401', () => pm.response.to.have.status(401));",
-                  "pm.test('errorCode USR-003', () => pm.expect(pm.response.json().errorCode).to.eql('USR-003'));",
-                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Credenciales incorrectas.\"));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Antes del reset: login incorrecto 2/2 → 401 USR-003",
-          "id": "697179e7-22be-5aa5-8350-01331ea19962",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{usersUrl}}/api/users/login",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"{{lockEmail}}\",\n  \"password\": \"PasswordIncorrecta1!\"\n}"
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 401', () => pm.response.to.have.status(401));",
-                  "pm.test('errorCode USR-003', () => pm.expect(pm.response.json().errorCode).to.eql('USR-003'));",
-                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Credenciales incorrectas.\"));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Login correcto después de 2 fallos → reinicia el contador",
-          "id": "f92db26e-4ce5-526f-a5b1-152b1f94bad9",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{usersUrl}}/api/users/login",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"{{lockEmail}}\",\n  \"password\": \"MiPassword123!\"\n}"
-            },
-            "description": "Después de dos fallos, el login correcto resetea IntentosFallidos. Los tres fallos siguientes deben seguir respondiendo 401; si el contador no se reiniciara, el segundo ya sería 403."
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 200', () => pm.response.to.have.status(200));",
-                  "pm.test('no expone el password', () => { const b = pm.response.json(); pm.expect(b).to.not.have.property('passwordHash'); pm.expect(b).to.not.have.property('password'); });",
-                  "pm.test('es el usuario registrado', () => pm.expect(pm.response.json().id).to.eql(pm.collectionVariables.get('lockUserId')));"
                 ]
               }
             }
@@ -1378,51 +1180,256 @@
           ]
         },
         {
-          "name": "Users: ruta inexistente → 404 con errorCode vacío",
-          "id": "40b2e5cf-727f-533c-ba08-8d9cd0a5f37c",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": "{{usersUrl}}/api/no-existe"
-          },
-          "event": [
+          "name": "Casos extra",
+          "id": "70a9b3b5-25ae-59e3-9f4d-3641ee0c7af7",
+          "description": "Casos adicionales de validación, bordes, correlación y errores del framework. No hacen falta para la demo; se corren después de los casos principales.",
+          "item": [
             {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 404', () => pm.response.to.have.status(404));",
-                  "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
-                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"La ruta solicitada no existe.\"));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Users: método no permitido → 405 con errorCode vacío",
-          "id": "f344842d-9e1b-5cdb-bca2-d54158091feb",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": "{{usersUrl}}/api/users/login"
-          },
-          "event": [
+              "name": "Registrar con email inválido → 400 USR-002",
+              "id": "d50b7559-44b8-5ced-a078-7b9de8797373",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{usersUrl}}/api/users/register",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"nombre\": \"María\",\n  \"apellido\": \"González\",\n  \"email\": \"no-es-un-email\",\n  \"password\": \"MiPassword123!\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 400', () => pm.response.to.have.status(400));",
+                      "pm.test('errorCode USR-002', () => pm.expect(pm.response.json().errorCode).to.eql('USR-002'));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El email no tiene un formato válido.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
             {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 405', () => pm.response.to.have.status(405));",
-                  "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
-                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Método no permitido.\"));"
-                ]
-              }
+              "name": "Login sin password → 400 USR-002",
+              "id": "5f138103-a91d-53e3-80c4-35be9486eb82",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{usersUrl}}/api/users/login",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{userEmail}}\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 400', () => pm.response.to.have.status(400));",
+                      "pm.test('errorCode USR-002', () => pm.expect(pm.response.json().errorCode).to.eql('USR-002'));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El campo 'password' es obligatorio.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Login con email inexistente y sin Correlation ID → 401 USR-003",
+              "id": "cd669d8d-2b29-5f94-b784-233223080255",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{usersUrl}}/api/users/login",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"inexistente.{{runId}}@email.com\",\n  \"password\": \"MiPassword123!\"\n}"
+                },
+                "description": "El email inexistente responde lo mismo que una contraseña incorrecta. Sin X-Correlation-Id, Users genera un GUID y lo repite en el body."
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.request.headers.remove('X-Correlation-Id');"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 401', () => pm.response.to.have.status(401));",
+                      "pm.test('errorCode USR-003', () => pm.expect(pm.response.json().errorCode).to.eql('USR-003'));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Credenciales incorrectas.\"));",
+                      "pm.test('genera un GUID', () => pm.expect(pm.response.headers.get('X-Correlation-Id')).to.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Antes del reset: login incorrecto 1/2 → 401 USR-003",
+              "id": "06dfbdfd-85ee-5440-9859-4e76589e0d0d",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{usersUrl}}/api/users/login",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"PasswordIncorrecta1!\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 401', () => pm.response.to.have.status(401));",
+                      "pm.test('errorCode USR-003', () => pm.expect(pm.response.json().errorCode).to.eql('USR-003'));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Credenciales incorrectas.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Antes del reset: login incorrecto 2/2 → 401 USR-003",
+              "id": "697179e7-22be-5aa5-8350-01331ea19962",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{usersUrl}}/api/users/login",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"PasswordIncorrecta1!\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 401', () => pm.response.to.have.status(401));",
+                      "pm.test('errorCode USR-003', () => pm.expect(pm.response.json().errorCode).to.eql('USR-003'));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Credenciales incorrectas.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Login correcto después de 2 fallos → reinicia el contador",
+              "id": "f92db26e-4ce5-526f-a5b1-152b1f94bad9",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{usersUrl}}/api/users/login",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"MiPassword123!\"\n}"
+                },
+                "description": "Después de dos fallos, el login correcto resetea IntentosFallidos. Los tres fallos siguientes deben seguir respondiendo 401; si el contador no se reiniciara, el segundo ya sería 403."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 200', () => pm.response.to.have.status(200));",
+                      "pm.test('no expone el password', () => { const b = pm.response.json(); pm.expect(b).to.not.have.property('passwordHash'); pm.expect(b).to.not.have.property('password'); });",
+                      "pm.test('es el usuario registrado', () => pm.expect(pm.response.json().id).to.eql(pm.collectionVariables.get('userId')));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Users: ruta inexistente → 404 con errorCode vacío",
+              "id": "40b2e5cf-727f-533c-ba08-8d9cd0a5f37c",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{usersUrl}}/api/no-existe"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 404', () => pm.response.to.have.status(404));",
+                      "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"La ruta solicitada no existe.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Users: método no permitido → 405 con errorCode vacío",
+              "id": "f344842d-9e1b-5cdb-bca2-d54158091feb",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{usersUrl}}/api/users/login"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 405', () => pm.response.to.have.status(405));",
+                      "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Método no permitido.\"));"
+                    ]
+                  }
+                }
+              ]
             }
           ]
         }
       ],
-      "description": "Registro y login, validaciones, email inexistente, reset del contador y bloqueo: el tercer fallo responde USR-003 y recién el cuarto login responde USR-004. USR-005 necesita una cuenta bloqueada manualmente (no hay endpoint); USR-006 requiere una falla interna. Esos dos casos se cubren en los tests de Users.API."
+      "description": "Registro, login y bloqueo: el tercer fallo responde USR-003 y recién el cuarto login responde USR-004. Validaciones adicionales, email inexistente, reset del contador y errores del framework están en Casos extra. USR-005 necesita una cuenta bloqueada manualmente (no hay endpoint); USR-006 requiere una falla interna. Esos dos casos se cubren en los tests de Users.API."
     },
     {
       "name": "3 Cart",
@@ -1436,81 +1443,6 @@
             "header": [],
             "url": "{{cartUrl}}/api/cart/{{userId}}",
             "description": "El usuario recién registrado todavía no tiene carrito."
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 404', () => pm.response.to.have.status(404));",
-                  "pm.test('errorCode CRT-001', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-001'));",
-                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Carrito no encontrado.\"));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Actualizar sin carrito → 404 CRT-001",
-          "id": "72f4d159-abc3-5943-b083-030adc49d1ed",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{cartUrl}}/api/cart/{{userId}}/items/{{productId}}",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"cantidad\": 1\n}"
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 404', () => pm.response.to.have.status(404));",
-                  "pm.test('errorCode CRT-001', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-001'));",
-                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Carrito no encontrado.\"));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Quitar item sin carrito → 404 CRT-001",
-          "id": "b775f73f-ded3-5a5e-a7f1-c67c8ec6b069",
-          "request": {
-            "method": "DELETE",
-            "header": [],
-            "url": "{{cartUrl}}/api/cart/{{userId}}/items/{{productId}}"
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 404', () => pm.response.to.have.status(404));",
-                  "pm.test('errorCode CRT-001', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-001'));",
-                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Carrito no encontrado.\"));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Vaciar sin carrito → 404 CRT-001",
-          "id": "55315065-5d1c-5e11-a484-eebe730bdc5d",
-          "request": {
-            "method": "DELETE",
-            "header": [],
-            "url": "{{cartUrl}}/api/cart/{{userId}}"
           },
           "event": [
             {
@@ -1704,161 +1636,6 @@
           ]
         },
         {
-          "name": "Actualizar con cantidad negativa → 400 CRT-004",
-          "id": "964cabdd-d0e8-51a8-ac86-9d0b63928a87",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{cartUrl}}/api/cart/{{userId}}/items/{{productId}}",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"cantidad\": -1\n}"
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 400', () => pm.response.to.have.status(400));",
-                  "pm.test('errorCode CRT-004', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-004'));",
-                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Cantidad inválida.\"));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Agregar sin cantidad → 400 sin errorCode",
-          "id": "30690d64-854e-5e17-abcb-0cd1b208705c",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{cartUrl}}/api/cart/{{userId}}/items",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"productoId\": \"{{productId}}\"\n}"
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 400', () => pm.response.to.have.status(400));",
-                  "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
-                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El campo 'cantidad' es obligatorio.\"));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Actualizar sin cantidad → 400 sin errorCode",
-          "id": "b6203718-c79a-5e72-969d-c4649fbe2204",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{cartUrl}}/api/cart/{{userId}}/items/{{productId}}",
-            "body": {
-              "mode": "raw",
-              "raw": "{}"
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 400', () => pm.response.to.have.status(400));",
-                  "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
-                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El campo 'cantidad' es obligatorio.\"));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Agregar con productoId vacío → 404 CRT-002",
-          "id": "87113f7a-99cb-5eb0-8633-6cf7ef490fc4",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{cartUrl}}/api/cart/{{userId}}/items",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"productoId\": \"00000000-0000-0000-0000-000000000000\",\n  \"cantidad\": 1\n}"
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 404', () => pm.response.to.have.status(404));",
-                  "pm.test('errorCode CRT-002', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-002'));",
-                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Producto no encontrado.\"));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Agregar con userId no GUID → 404 sin errorCode",
-          "id": "46e2acdd-8c4c-5d7c-9eda-0d9e05907af8",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{cartUrl}}/api/cart/no-es-guid/items",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"productoId\": \"{{productId}}\",\n  \"cantidad\": 1\n}"
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 404', () => pm.response.to.have.status(404));",
-                  "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
-                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El userId no es un GUID válido.\"));"
-                ]
-              }
-            }
-          ]
-        },
-        {
           "name": "Agregar producto inexistente → 404 CRT-002",
           "id": "866dcf80-0002-5a35-9dd4-4c8949fde6e9",
           "request": {
@@ -1875,37 +1652,6 @@
               "raw": "{\n  \"productoId\": \"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\n  \"cantidad\": 1\n}"
             },
             "description": "Products responde 404 y Cart lo traduce a CRT-002."
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 404', () => pm.response.to.have.status(404));",
-                  "pm.test('errorCode CRT-002', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-002'));",
-                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Producto no encontrado.\"));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Actualizar producto inexistente → 404 CRT-002",
-          "id": "1773d943-e1d4-57b9-b827-894cdbc518ac",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{cartUrl}}/api/cart/{{userId}}/items/3fa85f64-5717-4562-b3fc-2c963f66afa6",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"cantidad\": 1\n}"
-            }
           },
           "event": [
             {
@@ -2027,81 +1773,6 @@
           ]
         },
         {
-          "name": "Actualizar B fuera del carrito → 404 CRT-001",
-          "id": "6c0b314a-fc9d-5e3a-97b1-6aac91b2f699",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{cartUrl}}/api/cart/{{userId}}/items/{{productId2}}",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"cantidad\": 1\n}"
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 404', () => pm.response.to.have.status(404));",
-                  "pm.test('errorCode CRT-001', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-001'));",
-                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Carrito no encontrado.\"));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Quitar B otra vez → 404 CRT-001",
-          "id": "5203b927-d69f-56f3-940e-6a30a335da04",
-          "request": {
-            "method": "DELETE",
-            "header": [],
-            "url": "{{cartUrl}}/api/cart/{{userId}}/items/{{productId2}}"
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 404', () => pm.response.to.have.status(404));",
-                  "pm.test('errorCode CRT-001', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-001'));",
-                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Carrito no encontrado.\"));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Quitar con productId no GUID → 404 sin errorCode",
-          "id": "1b56dac3-9126-55e0-bcdb-043ff676cb9c",
-          "request": {
-            "method": "DELETE",
-            "header": [],
-            "url": "{{cartUrl}}/api/cart/{{userId}}/items/no-es-guid"
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 404', () => pm.response.to.have.status(404));",
-                  "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
-                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El productId no es un GUID válido.\"));"
-                ]
-              }
-            }
-          ]
-        },
-        {
           "name": "Vaciar carrito",
           "id": "61ae4918-db56-5736-959e-08f32c13d3f9",
           "request": {
@@ -2154,82 +1825,425 @@
           ]
         },
         {
-          "name": "Ruta inexistente de Cart → 404 sin errorCode",
-          "id": "16e33d43-07c6-533f-9cae-c50c41ecfcc8",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": "{{cartUrl}}/api/no-existe"
-          },
-          "event": [
+          "name": "Casos extra",
+          "id": "a66fd3e4-8fd9-5b86-a24f-76d21c6f110f",
+          "description": "Casos adicionales de validación, bordes, correlación y errores del framework. No hacen falta para la demo; se corren después de los casos principales.",
+          "item": [
             {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 404', () => pm.response.to.have.status(404));",
-                  "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
-                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"La ruta solicitada no existe.\"));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Método no permitido de Cart → 405 sin errorCode",
-          "id": "6b1c6ccc-5848-5c86-a819-86fa1e879f66",
-          "request": {
-            "method": "PATCH",
-            "header": [],
-            "url": "{{cartUrl}}/api/cart/{{userId}}"
-          },
-          "event": [
+              "name": "Actualizar sin carrito → 404 CRT-001",
+              "id": "72f4d159-abc3-5943-b083-030adc49d1ed",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{cartUrl}}/api/cart/{{userId}}/items/{{productId}}",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"cantidad\": 1\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 404', () => pm.response.to.have.status(404));",
+                      "pm.test('errorCode CRT-001', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-001'));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Carrito no encontrado.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
             {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 405', () => pm.response.to.have.status(405));",
-                  "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
-                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Método no permitido.\"));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Content-Type no soportado en Cart → 415 sin errorCode",
-          "id": "8504dd2c-de23-5d5d-b49a-4f6d06843873",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "text/plain"
-              }
-            ],
-            "url": "{{cartUrl}}/api/cart/{{userId}}/items",
-            "body": {
-              "mode": "raw",
-              "raw": "cantidad=1"
-            }
-          },
-          "event": [
+              "name": "Quitar item sin carrito → 404 CRT-001",
+              "id": "b775f73f-ded3-5a5e-a7f1-c67c8ec6b069",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": "{{cartUrl}}/api/cart/{{userId}}/items/{{productId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 404', () => pm.response.to.have.status(404));",
+                      "pm.test('errorCode CRT-001', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-001'));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Carrito no encontrado.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
             {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 415', () => pm.response.to.have.status(415));",
-                  "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
-                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El body debe enviarse como application/json.\"));"
-                ]
-              }
+              "name": "Vaciar sin carrito → 404 CRT-001",
+              "id": "55315065-5d1c-5e11-a484-eebe730bdc5d",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": "{{cartUrl}}/api/cart/{{userId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 404', () => pm.response.to.have.status(404));",
+                      "pm.test('errorCode CRT-001', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-001'));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Carrito no encontrado.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Actualizar con cantidad negativa → 400 CRT-004",
+              "id": "964cabdd-d0e8-51a8-ac86-9d0b63928a87",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{cartUrl}}/api/cart/{{userId}}/items/{{productId}}",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"cantidad\": -1\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 400', () => pm.response.to.have.status(400));",
+                      "pm.test('errorCode CRT-004', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-004'));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Cantidad inválida.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Agregar sin cantidad → 400 sin errorCode",
+              "id": "30690d64-854e-5e17-abcb-0cd1b208705c",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{cartUrl}}/api/cart/{{userId}}/items",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"productoId\": \"{{productId}}\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 400', () => pm.response.to.have.status(400));",
+                      "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El campo 'cantidad' es obligatorio.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Actualizar sin cantidad → 400 sin errorCode",
+              "id": "b6203718-c79a-5e72-969d-c4649fbe2204",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{cartUrl}}/api/cart/{{userId}}/items/{{productId}}",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 400', () => pm.response.to.have.status(400));",
+                      "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El campo 'cantidad' es obligatorio.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Agregar con productoId vacío → 404 CRT-002",
+              "id": "87113f7a-99cb-5eb0-8633-6cf7ef490fc4",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{cartUrl}}/api/cart/{{userId}}/items",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"productoId\": \"00000000-0000-0000-0000-000000000000\",\n  \"cantidad\": 1\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 404', () => pm.response.to.have.status(404));",
+                      "pm.test('errorCode CRT-002', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-002'));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Producto no encontrado.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Agregar con userId no GUID → 404 sin errorCode",
+              "id": "46e2acdd-8c4c-5d7c-9eda-0d9e05907af8",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{cartUrl}}/api/cart/no-es-guid/items",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"productoId\": \"{{productId}}\",\n  \"cantidad\": 1\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 404', () => pm.response.to.have.status(404));",
+                      "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El userId no es un GUID válido.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Actualizar producto inexistente → 404 CRT-002",
+              "id": "1773d943-e1d4-57b9-b827-894cdbc518ac",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{cartUrl}}/api/cart/{{userId}}/items/3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"cantidad\": 1\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 404', () => pm.response.to.have.status(404));",
+                      "pm.test('errorCode CRT-002', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-002'));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Producto no encontrado.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Actualizar B fuera del carrito → 404 CRT-001",
+              "id": "6c0b314a-fc9d-5e3a-97b1-6aac91b2f699",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{cartUrl}}/api/cart/{{userId}}/items/{{productId2}}",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"cantidad\": 1\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 404', () => pm.response.to.have.status(404));",
+                      "pm.test('errorCode CRT-001', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-001'));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Carrito no encontrado.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Quitar B otra vez → 404 CRT-001",
+              "id": "5203b927-d69f-56f3-940e-6a30a335da04",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": "{{cartUrl}}/api/cart/{{userId}}/items/{{productId2}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 404', () => pm.response.to.have.status(404));",
+                      "pm.test('errorCode CRT-001', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-001'));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Carrito no encontrado.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Quitar con productId no GUID → 404 sin errorCode",
+              "id": "1b56dac3-9126-55e0-bcdb-043ff676cb9c",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": "{{cartUrl}}/api/cart/{{userId}}/items/no-es-guid"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 404', () => pm.response.to.have.status(404));",
+                      "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El productId no es un GUID válido.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Ruta inexistente de Cart → 404 sin errorCode",
+              "id": "16e33d43-07c6-533f-9cae-c50c41ecfcc8",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{cartUrl}}/api/no-existe"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 404', () => pm.response.to.have.status(404));",
+                      "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"La ruta solicitada no existe.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Método no permitido de Cart → 405 sin errorCode",
+              "id": "6b1c6ccc-5848-5c86-a819-86fa1e879f66",
+              "request": {
+                "method": "PATCH",
+                "header": [],
+                "url": "{{cartUrl}}/api/cart/{{userId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 405', () => pm.response.to.have.status(405));",
+                      "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Método no permitido.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Content-Type no soportado en Cart → 415 sin errorCode",
+              "id": "8504dd2c-de23-5d5d-b49a-4f6d06843873",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "text/plain"
+                  }
+                ],
+                "url": "{{cartUrl}}/api/cart/{{userId}}/items",
+                "body": {
+                  "mode": "raw",
+                  "raw": "cantidad=1"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 415', () => pm.response.to.have.status(415));",
+                      "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El body debe enviarse como application/json.\"));"
+                    ]
+                  }
+                }
+              ]
             }
           ]
         }
       ],
-      "description": "Necesita Products levantado: Cart consulta el producto y el stock en cada POST y PUT."
+      "description": "Necesita Products levantado: Cart consulta el producto y el stock en cada POST y PUT. Los casos adicionales (sin carrito, item ya quitado, cantidad negativa o ausente, ids inválidos y errores del framework) están en Casos extra y corren con el carrito ya vaciado."
     },
     {
       "name": "4 Correlation ID",
@@ -2437,7 +2451,7 @@
     {
       "name": "6 Notifications",
       "id": "6ffb3073-17dc-5499-8230-a3b2c6046323",
-      "description": "Envío simulado Email, SMS y Push, persistencia y validaciones NTF-002, usuario sin notificaciones NTF-003, correlación generada y errores del framework. NTF-001 sigue pendiente (no hay consulta de usuario por id en Users.API); NTF-004 requiere una falla interna y se cubre en los tests de la API, no en esta demo HTTP.",
+      "description": "Envío simulado Email, SMS y Push, listado, NTF-002 y usuario sin notificaciones NTF-003. Las demás validaciones NTF-002, la correlación generada y los errores del framework están en Casos extra; el último request confirma que esas validaciones no agregaron notificaciones. NTF-001 sigue pendiente (no hay consulta de usuario por id en Users.API); NTF-004 requiere una falla interna y se cubre en los tests de la API, no en esta demo HTTP.",
       "item": [
         {
           "name": "Usuario sin notificaciones → 404 NTF-003",
@@ -2636,410 +2650,417 @@
           ]
         },
         {
-          "name": "Enviar sin mensaje → 400 NTF-002",
-          "id": "2c05eebd-f120-5f10-a922-fb34afacb239",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{notificationsUrl}}/api/notifications/send",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"usuarioId\": \"{{userId}}\",\n  \"tipo\": \"Push\"\n}"
-            }
-          },
-          "event": [
+          "name": "Casos extra",
+          "id": "647fab7f-b47a-5e7d-96bf-83e8bc4a6945",
+          "description": "Casos adicionales de validación, bordes, correlación y errores del framework. No hacen falta para la demo; se corren después de los casos principales.",
+          "item": [
             {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 400', () => pm.response.to.have.status(400));",
-                  "pm.test('errorCode NTF-002', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-002'));",
-                  "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El mensaje es obligatorio.\"));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Mensaje en blanco → 400 NTF-002",
-          "id": "3109ff3e-e8dc-55c1-b8ea-c8667163b82a",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{notificationsUrl}}/api/notifications/send",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"usuarioId\": \"{{userId}}\",\n  \"mensaje\": \"   \",\n  \"tipo\": \"Push\"\n}"
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 400', () => pm.response.to.have.status(400));",
-                  "pm.test('errorCode NTF-002', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-002'));",
-                  "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El mensaje es obligatorio.\"));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Mensaje de 501 caracteres → 400 NTF-002",
-          "id": "c479096b-9dca-5821-9bf5-af2fb10f6ea3",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{notificationsUrl}}/api/notifications/send",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"usuarioId\": \"{{userId}}\",\n  \"mensaje\": \"PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP\",\n  \"tipo\": \"Push\"\n}"
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 400', () => pm.response.to.have.status(400));",
-                  "pm.test('errorCode NTF-002', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-002'));",
-                  "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El mensaje no puede superar los 500 caracteres.\"));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Enviar sin tipo → 400 NTF-002",
-          "id": "893b46fd-81b7-5db7-9f45-f165177ff944",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{notificationsUrl}}/api/notifications/send",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"usuarioId\": \"{{userId}}\",\n  \"mensaje\": \"Mensaje de prueba.\"\n}"
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 400', () => pm.response.to.have.status(400));",
-                  "pm.test('errorCode NTF-002', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-002'));",
-                  "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El tipo es obligatorio.\"));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Enviar sin UsuarioId → 400 NTF-002",
-          "id": "f4674419-6740-5818-8c76-bf2063f815da",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{notificationsUrl}}/api/notifications/send",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"mensaje\": \"Mensaje de prueba.\",\n  \"tipo\": \"Push\"\n}"
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 400', () => pm.response.to.have.status(400));",
-                  "pm.test('errorCode NTF-002', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-002'));",
-                  "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El UsuarioId no tiene un formato válido.\"));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "UsuarioId GUID vacío → 400 NTF-002",
-          "id": "188ebe09-6568-5918-91dd-f3694dedcfab",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{notificationsUrl}}/api/notifications/send",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"usuarioId\": \"00000000-0000-0000-0000-000000000000\",\n  \"mensaje\": \"Mensaje de prueba.\",\n  \"tipo\": \"Push\"\n}"
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 400', () => pm.response.to.have.status(400));",
-                  "pm.test('errorCode NTF-002', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-002'));",
-                  "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El UsuarioId no tiene un formato válido.\"));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "UsuarioId no GUID → 400 NTF-002",
-          "id": "c4aa83cf-13a9-513e-ab72-2598ae3a9564",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{notificationsUrl}}/api/notifications/send",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"usuarioId\": \"no-es-guid\",\n  \"mensaje\": \"Mensaje de prueba.\",\n  \"tipo\": \"Push\"\n}"
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 400', () => pm.response.to.have.status(400));",
-                  "pm.test('errorCode NTF-002', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-002'));",
-                  "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El campo 'usuarioId' tiene un formato inválido.\"));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "JSON mal formado → 400 NTF-002",
-          "id": "b12c838c-fa4b-56ea-a724-c6083d5d4bda",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{notificationsUrl}}/api/notifications/send",
-            "body": {
-              "mode": "raw",
-              "raw": "{"
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 400', () => pm.response.to.have.status(400));",
-                  "pm.test('errorCode NTF-002', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-002'));",
-                  "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El cuerpo de la solicitud no es un JSON válido.\"));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Sin body → 400 NTF-002",
-          "id": "e7ded364-cb40-5272-a86e-8d1e20e97c46",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{notificationsUrl}}/api/notifications/send",
-            "body": {
-              "mode": "raw",
-              "raw": ""
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 400', () => pm.response.to.have.status(400));",
-                  "pm.test('errorCode NTF-002', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-002'));",
-                  "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El cuerpo de la solicitud es obligatorio.\"));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "userId no GUID → 404 sin código",
-          "id": "13810072-cdc2-5009-9c95-8478083666a3",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": "{{notificationsUrl}}/api/notifications/no-es-guid"
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 404', () => pm.response.to.have.status(404));",
-                  "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
-                  "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"La ruta solicitada no existe.\"));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Ruta inexistente de Notifications → 404 sin código",
-          "id": "1e0ceabf-4460-5d45-8355-2d58a9ffcd26",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": "{{notificationsUrl}}/api/notifications/ruta/inexistente"
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 404', () => pm.response.to.have.status(404));",
-                  "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
-                  "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"La ruta solicitada no existe.\"));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Método no permitido de Notifications → 405 sin código",
-          "id": "2f9e8c37-a080-51ca-ba5c-2f08f0d65999",
-          "request": {
-            "method": "DELETE",
-            "header": [],
-            "url": "{{notificationsUrl}}/api/notifications/{{userId}}"
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 405', () => pm.response.to.have.status(405));",
-                  "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
-                  "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Método no permitido.\"));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Content-Type no soportado de Notifications → 415 sin código",
-          "id": "4a14008a-78f5-5699-8050-0e1445ecff3f",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "text/plain"
-              }
-            ],
-            "url": "{{notificationsUrl}}/api/notifications/send",
-            "body": {
-              "mode": "raw",
-              "raw": "texto"
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 415', () => pm.response.to.have.status(415));",
-                  "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
-                  "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El body debe enviarse como application/json.\"));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Sin header genera un GUID en Notifications → 404 NTF-003",
-          "id": "13b79135-a7a8-5ad0-8930-0b68d2e73adb",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": "{{notificationsUrl}}/api/notifications/{{$guid}}"
-          },
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.request.headers.remove('X-Correlation-Id');"
-                ]
-              }
+              "name": "Enviar sin mensaje → 400 NTF-002",
+              "id": "2c05eebd-f120-5f10-a922-fb34afacb239",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{notificationsUrl}}/api/notifications/send",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"usuarioId\": \"{{userId}}\",\n  \"tipo\": \"Push\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 400', () => pm.response.to.have.status(400));",
+                      "pm.test('errorCode NTF-002', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-002'));",
+                      "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El mensaje es obligatorio.\"));"
+                    ]
+                  }
+                }
+              ]
             },
             {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 404', () => pm.response.to.have.status(404));",
-                  "pm.test('errorCode NTF-003', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-003'));",
-                  "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"No se encontraron notificaciones para el usuario.\"));",
-                  "pm.test('genera un GUID', () => pm.expect(pm.response.headers.get('X-Correlation-Id')).to.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i));"
-                ]
-              }
+              "name": "Mensaje en blanco → 400 NTF-002",
+              "id": "3109ff3e-e8dc-55c1-b8ea-c8667163b82a",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{notificationsUrl}}/api/notifications/send",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"usuarioId\": \"{{userId}}\",\n  \"mensaje\": \"   \",\n  \"tipo\": \"Push\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 400', () => pm.response.to.have.status(400));",
+                      "pm.test('errorCode NTF-002', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-002'));",
+                      "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El mensaje es obligatorio.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Mensaje de 501 caracteres → 400 NTF-002",
+              "id": "c479096b-9dca-5821-9bf5-af2fb10f6ea3",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{notificationsUrl}}/api/notifications/send",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"usuarioId\": \"{{userId}}\",\n  \"mensaje\": \"PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP\",\n  \"tipo\": \"Push\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 400', () => pm.response.to.have.status(400));",
+                      "pm.test('errorCode NTF-002', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-002'));",
+                      "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El mensaje no puede superar los 500 caracteres.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Enviar sin tipo → 400 NTF-002",
+              "id": "893b46fd-81b7-5db7-9f45-f165177ff944",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{notificationsUrl}}/api/notifications/send",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"usuarioId\": \"{{userId}}\",\n  \"mensaje\": \"Mensaje de prueba.\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 400', () => pm.response.to.have.status(400));",
+                      "pm.test('errorCode NTF-002', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-002'));",
+                      "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El tipo es obligatorio.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Enviar sin UsuarioId → 400 NTF-002",
+              "id": "f4674419-6740-5818-8c76-bf2063f815da",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{notificationsUrl}}/api/notifications/send",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"mensaje\": \"Mensaje de prueba.\",\n  \"tipo\": \"Push\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 400', () => pm.response.to.have.status(400));",
+                      "pm.test('errorCode NTF-002', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-002'));",
+                      "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El UsuarioId no tiene un formato válido.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "UsuarioId GUID vacío → 400 NTF-002",
+              "id": "188ebe09-6568-5918-91dd-f3694dedcfab",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{notificationsUrl}}/api/notifications/send",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"usuarioId\": \"00000000-0000-0000-0000-000000000000\",\n  \"mensaje\": \"Mensaje de prueba.\",\n  \"tipo\": \"Push\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 400', () => pm.response.to.have.status(400));",
+                      "pm.test('errorCode NTF-002', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-002'));",
+                      "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El UsuarioId no tiene un formato válido.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "UsuarioId no GUID → 400 NTF-002",
+              "id": "c4aa83cf-13a9-513e-ab72-2598ae3a9564",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{notificationsUrl}}/api/notifications/send",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"usuarioId\": \"no-es-guid\",\n  \"mensaje\": \"Mensaje de prueba.\",\n  \"tipo\": \"Push\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 400', () => pm.response.to.have.status(400));",
+                      "pm.test('errorCode NTF-002', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-002'));",
+                      "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El campo 'usuarioId' tiene un formato inválido.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "JSON mal formado → 400 NTF-002",
+              "id": "b12c838c-fa4b-56ea-a724-c6083d5d4bda",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{notificationsUrl}}/api/notifications/send",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 400', () => pm.response.to.have.status(400));",
+                      "pm.test('errorCode NTF-002', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-002'));",
+                      "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El cuerpo de la solicitud no es un JSON válido.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Sin body → 400 NTF-002",
+              "id": "e7ded364-cb40-5272-a86e-8d1e20e97c46",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{notificationsUrl}}/api/notifications/send",
+                "body": {
+                  "mode": "raw",
+                  "raw": ""
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 400', () => pm.response.to.have.status(400));",
+                      "pm.test('errorCode NTF-002', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-002'));",
+                      "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El cuerpo de la solicitud es obligatorio.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "userId no GUID → 404 sin código",
+              "id": "13810072-cdc2-5009-9c95-8478083666a3",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{notificationsUrl}}/api/notifications/no-es-guid"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 404', () => pm.response.to.have.status(404));",
+                      "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
+                      "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"La ruta solicitada no existe.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Ruta inexistente de Notifications → 404 sin código",
+              "id": "1e0ceabf-4460-5d45-8355-2d58a9ffcd26",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{notificationsUrl}}/api/notifications/ruta/inexistente"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 404', () => pm.response.to.have.status(404));",
+                      "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
+                      "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"La ruta solicitada no existe.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Método no permitido de Notifications → 405 sin código",
+              "id": "2f9e8c37-a080-51ca-ba5c-2f08f0d65999",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": "{{notificationsUrl}}/api/notifications/{{userId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 405', () => pm.response.to.have.status(405));",
+                      "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
+                      "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Método no permitido.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Content-Type no soportado de Notifications → 415 sin código",
+              "id": "4a14008a-78f5-5699-8050-0e1445ecff3f",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "text/plain"
+                  }
+                ],
+                "url": "{{notificationsUrl}}/api/notifications/send",
+                "body": {
+                  "mode": "raw",
+                  "raw": "texto"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 415', () => pm.response.to.have.status(415));",
+                      "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
+                      "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El body debe enviarse como application/json.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Sin header genera un GUID en Notifications → 404 NTF-003",
+              "id": "13b79135-a7a8-5ad0-8930-0b68d2e73adb",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{notificationsUrl}}/api/notifications/{{$guid}}"
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.request.headers.remove('X-Correlation-Id');"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 404', () => pm.response.to.have.status(404));",
+                      "pm.test('errorCode NTF-003', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-003'));",
+                      "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"No se encontraron notificaciones para el usuario.\"));",
+                      "pm.test('genera un GUID', () => pm.expect(pm.response.headers.get('X-Correlation-Id')).to.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i));"
+                    ]
+                  }
+                }
+              ]
             }
           ]
         },
