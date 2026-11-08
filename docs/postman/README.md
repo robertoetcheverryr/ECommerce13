@@ -43,7 +43,7 @@ Se puede correr varias veces seguidas sobre la misma base: cada corrida usa un `
 | 0 Health | `/health`, `/health/ready` y `/health/live` de Products, Users, Orders, Cart y Notifications. |
 | 1 Products | Alta, filtros por `categoria` y `nombre`, consulta, modificación. PRD-001, PRD-002, PRD-003 y PRD-004 (crea el producto C, una orden Pendiente en Orders y intenta borrarlo). |
 | 2 Users | Registro y login; USR-001; USR-002 por apellido faltante, email inválido y login sin password; USR-003 por email inexistente. Dos fallos y un login correcto reinician el contador; después, 3 × 401 USR-003 y recién el cuarto login devuelve 403 USR-004 (también con la contraseña correcta). Sin header, Users genera un GUID; rutas/métodos inválidos devuelven 404/405 con `errorCode` vacío. |
-| 3 Cart | Agregar, actualizar, quitar y vaciar. CRT-001, CRT-002, CRT-003 (en `POST` la cantidad se suma a la que ya había), CRT-004. |
+| 3 Cart | 29 requests: agregar (crea y acumula), actualizar (reemplaza), quitar y vaciar. CRT-001 también en PUT/DELETE sin carrito y al operar sobre un item ya quitado; CRT-002 en POST/PUT; CRT-003 en POST (total acumulado) y PUT (cantidad nueva), sin modificar el carrito al fallar; CRT-004 con cero y negativo. Campos faltantes, ids inválidos, GUID de correlación generado y 404/405/415 propios de Cart. |
 | 4 Correlation ID | El id enviado vuelve en el header y en el body de los errores; sin header se genera un GUID; Cart lo reenvía a Products. |
 | 5 Errores del framework | Ruta inexistente (404), método no permitido (405) y `Content-Type` no soportado (415), con `errorCode` vacío. |
 | 6 Notifications | Envío Email y SMS, listado del usuario. NTF-003 (usuario sin notificaciones), NTF-002 (tipo no reconocido y mensaje faltante). |
@@ -53,11 +53,13 @@ NTF-001 no aparece: Notifications.API todavía no valida el `UsuarioId` contra U
 
 USR-005 está implementado: el login devuelve 403 si `Activo == false` e `IntentosFallidos < 3`. No se incluye en la demo HTTP porque Users no tiene un endpoint de bloqueo manual; lo cubren `UsersEndpointsTests` y `UserServicePersistenceTests` con `UserService.MarkManuallyBlocked`. USR-006 (500) necesita una falla interna de servicio o persistencia; lo cubre `UnhandledExceptionTests`, sin romper la base de la demo. Las capturas de Users muestran los cuatro códigos que se pueden provocar con sus endpoints públicos (USR-001 a USR-004).
 
+En Cart, un body sin `cantidad` devuelve 400 con `errorCode` vacío (no CRT-004: ese código es para un valor menor o igual a cero). El POST con `userId` no GUID y el DELETE de item con `productId` no GUID devuelven 404 con `errorCode` vacío; no se les asigna un código de otro caso del catálogo. El PUT sobre un producto que existe en Products pero ya no está en el carrito devuelve CRT-001.
+
 Los requests del carrito y de notificaciones usan el `userId` que devuelve el registro de la carpeta 2, así que las carpetas se corren en orden.
 
 ## Tests
 
-Cada request verifica el status y el `errorCode` esperados. Los errores de la carpeta Users también verifican el `errorMessage` exacto. A nivel colección se verifica además que:
+Cada request verifica el status y el `errorCode` esperados. Los errores de las carpetas Users y Cart, y el CRT-005 manual, también verifican el `errorMessage` exacto. A nivel colección se verifica además que:
 
 - la respuesta trae el header `X-Correlation-Id` y es igual al enviado;
 - toda respuesta 4xx/5xx tiene `errorCode`, un `errorMessage` no vacío y un `correlationId` igual al header.

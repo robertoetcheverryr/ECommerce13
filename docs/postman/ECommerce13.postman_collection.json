@@ -1440,7 +1440,83 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('status 404', () => pm.response.to.have.status(404));",
-                  "pm.test('errorCode CRT-001', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-001'));"
+                  "pm.test('errorCode CRT-001', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-001'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Carrito no encontrado.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Actualizar sin carrito → 404 CRT-001",
+          "id": "72f4d159-abc3-5943-b083-030adc49d1ed",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{cartUrl}}/api/cart/{{userId}}/items/{{productId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cantidad\": 1\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('errorCode CRT-001', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-001'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Carrito no encontrado.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Quitar item sin carrito → 404 CRT-001",
+          "id": "b775f73f-ded3-5a5e-a7f1-c67c8ec6b069",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{cartUrl}}/api/cart/{{userId}}/items/{{productId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('errorCode CRT-001', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-001'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Carrito no encontrado.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Vaciar sin carrito → 404 CRT-001",
+          "id": "55315065-5d1c-5e11-a484-eebe730bdc5d",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{cartUrl}}/api/cart/{{userId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('errorCode CRT-001', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-001'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Carrito no encontrado.\"));"
                 ]
               }
             }
@@ -1534,7 +1610,59 @@
                 "exec": [
                   "pm.test('status 422', () => pm.response.to.have.status(422));",
                   "pm.test('errorCode CRT-003', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-003'));",
-                  "pm.test('informa disponible y solicitado (acumulado)', () => pm.expect(pm.response.json().errorMessage).to.include('Disponible: 5, solicitado: 12'));"
+                  "pm.test('errorMessage acumulado', () => pm.expect(pm.response.json().errorMessage).to.eql('Stock insuficiente. Disponible: 5, solicitado: 12.'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Ver carrito sin cambios después del stock insuficiente",
+          "id": "318ddd5e-11a9-5e60-86d6-9380ffc1e595",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{cartUrl}}/api/cart/{{userId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('A sigue en 2', () => pm.expect(pm.response.json().items.find(i => i.productoId === pm.collectionVariables.get('productId')).cantidad).to.eql(2));",
+                  "pm.test('dos items', () => pm.expect(pm.response.json().items.length).to.eql(2));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Agregar A x1 acumula a 3",
+          "id": "5f402135-bb69-5817-b2ff-e25ac99b9181",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{cartUrl}}/api/cart/{{userId}}/items",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productoId\": \"{{productId}}\",\n  \"cantidad\": 1\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('A acumula a 3', () => pm.expect(pm.response.json().items.find(i => i.productoId === pm.collectionVariables.get('productId')).cantidad).to.eql(3));"
                 ]
               }
             }
@@ -1564,7 +1692,163 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('status 400', () => pm.response.to.have.status(400));",
-                  "pm.test('errorCode CRT-004', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-004'));"
+                  "pm.test('errorCode CRT-004', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-004'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Cantidad inválida.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Actualizar con cantidad negativa → 400 CRT-004",
+          "id": "964cabdd-d0e8-51a8-ac86-9d0b63928a87",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{cartUrl}}/api/cart/{{userId}}/items/{{productId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cantidad\": -1\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('errorCode CRT-004', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-004'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Cantidad inválida.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Agregar sin cantidad → 400 sin errorCode",
+          "id": "30690d64-854e-5e17-abcb-0cd1b208705c",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{cartUrl}}/api/cart/{{userId}}/items",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productoId\": \"{{productId}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El campo 'cantidad' es obligatorio.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Actualizar sin cantidad → 400 sin errorCode",
+          "id": "b6203718-c79a-5e72-969d-c4649fbe2204",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{cartUrl}}/api/cart/{{userId}}/items/{{productId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El campo 'cantidad' es obligatorio.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Agregar con productoId vacío → 404 CRT-002",
+          "id": "87113f7a-99cb-5eb0-8633-6cf7ef490fc4",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{cartUrl}}/api/cart/{{userId}}/items",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productoId\": \"00000000-0000-0000-0000-000000000000\",\n  \"cantidad\": 1\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('errorCode CRT-002', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-002'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Producto no encontrado.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Agregar con userId no GUID → 404 sin errorCode",
+          "id": "46e2acdd-8c4c-5d7c-9eda-0d9e05907af8",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{cartUrl}}/api/cart/no-es-guid/items",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productoId\": \"{{productId}}\",\n  \"cantidad\": 1\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El userId no es un GUID válido.\"));"
                 ]
               }
             }
@@ -1595,7 +1879,39 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('status 404', () => pm.response.to.have.status(404));",
-                  "pm.test('errorCode CRT-002', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-002'));"
+                  "pm.test('errorCode CRT-002', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-002'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Producto no encontrado.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Actualizar producto inexistente → 404 CRT-002",
+          "id": "1773d943-e1d4-57b9-b827-894cdbc518ac",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{cartUrl}}/api/cart/{{userId}}/items/3fa85f64-5717-4562-b3fc-2c963f66afa6",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cantidad\": 1\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('errorCode CRT-002', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-002'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Producto no encontrado.\"));"
                 ]
               }
             }
@@ -1656,7 +1972,8 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('status 422', () => pm.response.to.have.status(422));",
-                  "pm.test('errorCode CRT-003', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-003'));"
+                  "pm.test('errorCode CRT-003', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-003'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Stock insuficiente. Disponible: 5, solicitado: 6.\"));"
                 ]
               }
             }
@@ -1706,6 +2023,81 @@
           ]
         },
         {
+          "name": "Actualizar B fuera del carrito → 404 CRT-001",
+          "id": "6c0b314a-fc9d-5e3a-97b1-6aac91b2f699",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{cartUrl}}/api/cart/{{userId}}/items/{{productId2}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cantidad\": 1\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('errorCode CRT-001', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-001'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Carrito no encontrado.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Quitar B otra vez → 404 CRT-001",
+          "id": "5203b927-d69f-56f3-940e-6a30a335da04",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{cartUrl}}/api/cart/{{userId}}/items/{{productId2}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('errorCode CRT-001', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-001'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Carrito no encontrado.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Quitar con productId no GUID → 404 sin errorCode",
+          "id": "1b56dac3-9126-55e0-bcdb-043ff676cb9c",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{cartUrl}}/api/cart/{{userId}}/items/no-es-guid"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El productId no es un GUID válido.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "Vaciar carrito",
           "id": "61ae4918-db56-5736-959e-08f32c13d3f9",
           "request": {
@@ -1726,10 +2118,64 @@
           ]
         },
         {
-          "name": "Carrito vaciado → 404 CRT-001",
+          "name": "Carrito vaciado y sin Correlation ID → 404 CRT-001",
           "id": "288815bf-1f04-529b-8234-dfc7e92858b0",
           "request": {
             "method": "GET",
+            "header": [],
+            "url": "{{cartUrl}}/api/cart/{{userId}}"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.request.headers.remove('X-Correlation-Id');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('errorCode CRT-001', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-001'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Carrito no encontrado.\"));",
+                  "pm.test('genera un GUID', () => pm.expect(pm.response.headers.get('X-Correlation-Id')).to.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Ruta inexistente de Cart → 404 sin errorCode",
+          "id": "16e33d43-07c6-533f-9cae-c50c41ecfcc8",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{cartUrl}}/api/no-existe"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"La ruta solicitada no existe.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Método no permitido de Cart → 405 sin errorCode",
+          "id": "6b1c6ccc-5848-5c86-a819-86fa1e879f66",
+          "request": {
+            "method": "PATCH",
             "header": [],
             "url": "{{cartUrl}}/api/cart/{{userId}}"
           },
@@ -1739,8 +2185,40 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('status 404', () => pm.response.to.have.status(404));",
-                  "pm.test('errorCode CRT-001', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-001'));"
+                  "pm.test('status 405', () => pm.response.to.have.status(405));",
+                  "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Método no permitido.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Content-Type no soportado en Cart → 415 sin errorCode",
+          "id": "8504dd2c-de23-5d5d-b49a-4f6d06843873",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{cartUrl}}/api/cart/{{userId}}/items",
+            "body": {
+              "mode": "raw",
+              "raw": "cantidad=1"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 415', () => pm.response.to.have.status(415));",
+                  "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El body debe enviarse como application/json.\"));"
                 ]
               }
             }

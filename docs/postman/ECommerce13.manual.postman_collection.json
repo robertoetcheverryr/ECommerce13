@@ -90,7 +90,8 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('status 500', () => pm.response.to.have.status(500));",
-                  "pm.test('errorCode CRT-005', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-005'));"
+                  "pm.test('errorCode CRT-005', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-005'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Error interno al procesar el carrito.\"));"
                 ]
               }
             }
