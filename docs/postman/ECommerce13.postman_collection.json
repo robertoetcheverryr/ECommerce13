@@ -917,7 +917,8 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('status 409', () => pm.response.to.have.status(409));",
-                  "pm.test('errorCode USR-001', () => pm.expect(pm.response.json().errorCode).to.eql('USR-001'));"
+                  "pm.test('errorCode USR-001', () => pm.expect(pm.response.json().errorCode).to.eql('USR-001'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El email '\" + pm.collectionVariables.get('userEmail') + \"' ya está registrado.\"));"
                 ]
               }
             }
@@ -947,7 +948,112 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('status 400', () => pm.response.to.have.status(400));",
-                  "pm.test('errorCode USR-002', () => pm.expect(pm.response.json().errorCode).to.eql('USR-002'));"
+                  "pm.test('errorCode USR-002', () => pm.expect(pm.response.json().errorCode).to.eql('USR-002'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El campo 'apellido' es obligatorio.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Registrar con email inválido → 400 USR-002",
+          "id": "d50b7559-44b8-5ced-a078-7b9de8797373",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{usersUrl}}/api/users/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"María\",\n  \"apellido\": \"González\",\n  \"email\": \"no-es-un-email\",\n  \"password\": \"MiPassword123!\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('errorCode USR-002', () => pm.expect(pm.response.json().errorCode).to.eql('USR-002'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El email no tiene un formato válido.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login sin password → 400 USR-002",
+          "id": "5f138103-a91d-53e3-80c4-35be9486eb82",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{usersUrl}}/api/users/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('errorCode USR-002', () => pm.expect(pm.response.json().errorCode).to.eql('USR-002'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El campo 'password' es obligatorio.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login con email inexistente y sin Correlation ID → 401 USR-003",
+          "id": "cd669d8d-2b29-5f94-b784-233223080255",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{usersUrl}}/api/users/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"inexistente.{{runId}}@email.com\",\n  \"password\": \"MiPassword123!\"\n}"
+            },
+            "description": "El email inexistente responde lo mismo que una contraseña incorrecta. Sin X-Correlation-Id, Users genera un GUID y lo repite en el body."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.request.headers.remove('X-Correlation-Id');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 401', () => pm.response.to.have.status(401));",
+                  "pm.test('errorCode USR-003', () => pm.expect(pm.response.json().errorCode).to.eql('USR-003'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Credenciales incorrectas.\"));",
+                  "pm.test('genera un GUID', () => pm.expect(pm.response.headers.get('X-Correlation-Id')).to.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i));"
                 ]
               }
             }
@@ -1008,7 +1114,103 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('status 201', () => pm.response.to.have.status(201));",
-                  "pm.collectionVariables.set('lockEmail', pm.response.json().email);"
+                  "pm.collectionVariables.set('lockEmail', pm.response.json().email);",
+                  "pm.collectionVariables.set('lockUserId', pm.response.json().id);",
+                  "pm.test('no expone el password', () => { const b = pm.response.json(); pm.expect(b).to.not.have.property('passwordHash'); pm.expect(b).to.not.have.property('password'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Antes del reset: login incorrecto 1/2 → 401 USR-003",
+          "id": "06dfbdfd-85ee-5440-9859-4e76589e0d0d",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{usersUrl}}/api/users/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{lockEmail}}\",\n  \"password\": \"PasswordIncorrecta1!\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 401', () => pm.response.to.have.status(401));",
+                  "pm.test('errorCode USR-003', () => pm.expect(pm.response.json().errorCode).to.eql('USR-003'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Credenciales incorrectas.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Antes del reset: login incorrecto 2/2 → 401 USR-003",
+          "id": "697179e7-22be-5aa5-8350-01331ea19962",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{usersUrl}}/api/users/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{lockEmail}}\",\n  \"password\": \"PasswordIncorrecta1!\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 401', () => pm.response.to.have.status(401));",
+                  "pm.test('errorCode USR-003', () => pm.expect(pm.response.json().errorCode).to.eql('USR-003'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Credenciales incorrectas.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login correcto después de 2 fallos → reinicia el contador",
+          "id": "f92db26e-4ce5-526f-a5b1-152b1f94bad9",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{usersUrl}}/api/users/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{lockEmail}}\",\n  \"password\": \"MiPassword123!\"\n}"
+            },
+            "description": "Después de dos fallos, el login correcto resetea IntentosFallidos. Los tres fallos siguientes deben seguir respondiendo 401; si el contador no se reiniciara, el segundo ya sería 403."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('no expone el password', () => { const b = pm.response.json(); pm.expect(b).to.not.have.property('passwordHash'); pm.expect(b).to.not.have.property('password'); });",
+                  "pm.test('es el usuario registrado', () => pm.expect(pm.response.json().id).to.eql(pm.collectionVariables.get('lockUserId')));"
                 ]
               }
             }
@@ -1038,7 +1240,8 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('status 401', () => pm.response.to.have.status(401));",
-                  "pm.test('errorCode USR-003', () => pm.expect(pm.response.json().errorCode).to.eql('USR-003'));"
+                  "pm.test('errorCode USR-003', () => pm.expect(pm.response.json().errorCode).to.eql('USR-003'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Credenciales incorrectas.\"));"
                 ]
               }
             }
@@ -1068,7 +1271,8 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('status 401', () => pm.response.to.have.status(401));",
-                  "pm.test('errorCode USR-003', () => pm.expect(pm.response.json().errorCode).to.eql('USR-003'));"
+                  "pm.test('errorCode USR-003', () => pm.expect(pm.response.json().errorCode).to.eql('USR-003'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Credenciales incorrectas.\"));"
                 ]
               }
             }
@@ -1099,7 +1303,8 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('status 401', () => pm.response.to.have.status(401));",
-                  "pm.test('errorCode USR-003', () => pm.expect(pm.response.json().errorCode).to.eql('USR-003'));"
+                  "pm.test('errorCode USR-003', () => pm.expect(pm.response.json().errorCode).to.eql('USR-003'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Credenciales incorrectas.\"));"
                 ]
               }
             }
@@ -1129,7 +1334,8 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('status 403', () => pm.response.to.have.status(403));",
-                  "pm.test('errorCode USR-004', () => pm.expect(pm.response.json().errorCode).to.eql('USR-004'));"
+                  "pm.test('errorCode USR-004', () => pm.expect(pm.response.json().errorCode).to.eql('USR-004'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Su cuenta fue bloqueada por superar el m\\u00e1ximo de intentos fallidos. Contacte a soporte.\"));"
                 ]
               }
             }
@@ -1160,14 +1366,59 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('status 403', () => pm.response.to.have.status(403));",
-                  "pm.test('errorCode USR-004', () => pm.expect(pm.response.json().errorCode).to.eql('USR-004'));"
+                  "pm.test('errorCode USR-004', () => pm.expect(pm.response.json().errorCode).to.eql('USR-004'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Su cuenta fue bloqueada por superar el m\\u00e1ximo de intentos fallidos. Contacte a soporte.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Users: ruta inexistente → 404 con errorCode vacío",
+          "id": "40b2e5cf-727f-533c-ba08-8d9cd0a5f37c",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{usersUrl}}/api/no-existe"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"La ruta solicitada no existe.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Users: método no permitido → 405 con errorCode vacío",
+          "id": "f344842d-9e1b-5cdb-bca2-d54158091feb",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{usersUrl}}/api/users/login"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 405', () => pm.response.to.have.status(405));",
+                  "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Método no permitido.\"));"
                 ]
               }
             }
           ]
         }
       ],
-      "description": "Bloqueo: los tres fallos responden USR-003 y recién el login siguiente responde USR-004."
+      "description": "Registro y login, validaciones, email inexistente, reset del contador y bloqueo: el tercer fallo responde USR-003 y recién el cuarto login responde USR-004. USR-005 necesita una cuenta bloqueada manualmente (no hay endpoint); USR-006 requiere una falla interna. Esos dos casos se cubren en los tests de Users.API."
     },
     {
       "name": "3 Cart",

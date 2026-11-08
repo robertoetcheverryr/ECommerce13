@@ -118,7 +118,7 @@ Cart y Orders lo consultan para validar productos y stock. Al borrar un producto
 
 **Users.API (5002)** - Registro y login sobre `users.db`.
 El password se guarda con hash y nunca vuelve en las respuestas.
-Después de 3 logins fallidos el usuario queda bloqueado (USR-004).
+Al tercer login fallido consecutivo el usuario queda bloqueado (`Activo = false`), pero ese request todavía devuelve 401 USR-003. Recién el cuarto login devuelve 403 USR-004, incluso con la contraseña correcta.
 No llama a otros servicios.
 
 **Orders.API (5003)** - Creación y gestión de órdenes sobre `orders.db`.
