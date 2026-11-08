@@ -5,6 +5,9 @@
 /// </summary>
 public static class ErrorCodes
 {
+    // Los textos largos que muestra la guía para cada código están marcados como
+    // "sugerido"; acá se usan las formas cortas de la tabla de códigos de error.
+
     /// <summary>
     /// Código de orden no encontrada.
     /// </summary>

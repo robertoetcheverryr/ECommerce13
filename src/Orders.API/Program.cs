@@ -33,10 +33,20 @@ builder.Services.AddControllers()
         // when the body fails validation; here we answer ORD-002 with the error contract.
         options.InvalidModelStateResponseFactory = context =>
         {
-            var errorMessage = string.Join("; ", context.ModelState
-                .Values
-                .SelectMany(value => value.Errors)
-                .Select(error => error.ErrorMessage));
+            var errorMessages = new List<string>();
+            foreach (var entry in context.ModelState)
+            {
+                // "request" is the [FromBody] parameter. When the body cannot be deserialized MVC adds
+                // a generic "The request field is required." on top of the real error, so we skip it.
+                if (entry.Key == "request")
+                    continue;
+
+                foreach (var error in entry.Value.Errors)
+                {
+                    errorMessages.AddRange(ValidationMessages.ToSpanishMessages(entry.Key, error.ErrorMessage));
+                }
+            }
+            var errorMessage = string.Join("; ", errorMessages);
 
             var response = new Orders.API.DTOs.ErrorResponse
             {

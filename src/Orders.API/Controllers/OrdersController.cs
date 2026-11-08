@@ -143,6 +143,9 @@ public class OrdersController : ControllerBase
         var order = await _ordersService.UpdateStatusAsync(
             id, request, cancellationToken);
 
+        // El ejemplo del TP para este endpoint muestra { id, estado, fechaActualizacion },
+        // pero el Apéndice A define Order sin FechaActualizacion: ese campo es del Cart.
+        // El ejemplo contradice al propio UML de la guía; se devuelve la orden completa.
         return Ok(order);
     }
 }

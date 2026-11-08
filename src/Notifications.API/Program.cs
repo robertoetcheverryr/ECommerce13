@@ -32,10 +32,19 @@ builder.Services.AddControllers()
     {
         options.InvalidModelStateResponseFactory = context =>
         {
-            var errors = context.ModelState
-                .Values
-                .SelectMany(value => value.Errors)
-                .Select(error => error.ErrorMessage);
+            var errors = new List<string>();
+            foreach (var entry in context.ModelState)
+            {
+                // "request" is the [FromBody] parameter. When the body cannot be deserialized MVC adds
+                // a generic "The request field is required." on top of the real error, so we skip it.
+                if (entry.Key == "request")
+                    continue;
+
+                foreach (var error in entry.Value.Errors)
+                {
+                    errors.AddRange(Notifications.API.ValidationMessages.ToSpanishMessages(entry.Key, error.ErrorMessage));
+                }
+            }
 
             var errorMessage = string.Join("; ", errors);
 
