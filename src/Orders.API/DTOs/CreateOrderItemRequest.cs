@@ -1,4 +1,6 @@
-﻿namespace Orders.API.DTOs;
+﻿using System.Text.Json.Serialization;
+
+namespace Orders.API.DTOs;
 
 /// <summary>
 /// Representa un producto solicitado al crear una orden.
@@ -6,12 +8,21 @@
 public class CreateOrderItemRequest
 {
     /// <summary>
-    /// Identificador del producto.
+    /// Identificador del producto. Requerido.
+    /// [JsonRequired] exige el campo a nivel de deserialización: sin él,
+    /// un Guid no nullable simplemente tomaría Guid.Empty ([Required]
+    /// sobre un Guid no nullable es un no-op). Un Guid.Empty explícito
+    /// resuelve como producto inexistente (ORD-004).
     /// </summary>
+    /// <example>3fa85f64-5717-4562-b3fc-2c963f66afa6</example>
+    [JsonRequired]
     public Guid ProductoId { get; set; }
 
     /// <summary>
-    /// Cantidad de unidades solicitadas.
+    /// Cantidad de unidades solicitadas. Requerida a nivel de
+    /// deserialización ([JsonRequired]).
     /// </summary>
+    /// <example>2</example>
+    [JsonRequired]
     public int Cantidad { get; set; }
 }

@@ -26,7 +26,45 @@ Log.Logger = new LoggerConfiguration()
 
 builder.Host.UseSerilog();
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .ConfigureApiBehaviorOptions(options =>
+    {
+        // Without this, [ApiController] returns its own ProblemDetails (no errorCode)
+        // when the body fails validation; here we answer ORD-002 with the error contract.
+        options.InvalidModelStateResponseFactory = context =>
+        {
+            var errorMessages = new List<string>();
+            foreach (var entry in context.ModelState)
+            {
+                // "request" is the [FromBody] parameter. When the body cannot be deserialized MVC adds
+                // a generic "The request field is required." on top of the real error, so we skip it.
+                if (entry.Key == "request")
+                    continue;
+
+                foreach (var error in entry.Value.Errors)
+                {
+                    errorMessages.AddRange(ValidationMessages.ToSpanishMessages(entry.Key, error.ErrorMessage));
+                }
+            }
+            var errorMessage = string.Join("; ", errorMessages);
+
+            var response = new Orders.API.DTOs.ErrorResponse
+            {
+                Type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
+                Title = "Bad Request",
+                Status = StatusCodes.Status400BadRequest,
+                Detail = Orders.API.Exceptions.ErrorCodes.ORD_002_Message,
+                Instance = context.HttpContext.Request.Path.Value ?? string.Empty,
+                ErrorCode = Orders.API.Exceptions.ErrorCodes.ORD_002,
+                ErrorMessage = errorMessage,
+                CorrelationId = context.HttpContext.Items["CorrelationId"]?.ToString() ?? string.Empty
+            };
+
+            return new Microsoft.AspNetCore.Mvc.BadRequestObjectResult(response);
+        };
+        // Without this, [ApiController] turns 415 into a ProblemDetails without errorCode; StatusCodeErrorWriter writes it instead
+        options.SuppressMapClientErrors = true;
+    });
 
 builder.Services.AddExceptionHandler<OrdersExceptionHandler>();
 builder.Services.AddProblemDetails();
@@ -122,6 +160,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseAuthorization();
+app.UseStatusCodePages(Orders.API.StatusCodeErrorWriter.WriteAsync);
 app.MapControllers();
 
 // Health Checks

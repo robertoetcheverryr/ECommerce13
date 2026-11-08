@@ -32,10 +32,19 @@ builder.Services.AddControllers()
     {
         options.InvalidModelStateResponseFactory = context =>
         {
-            var errors = context.ModelState
-                .Values
-                .SelectMany(value => value.Errors)
-                .Select(error => error.ErrorMessage);
+            var errors = new List<string>();
+            foreach (var entry in context.ModelState)
+            {
+                // "request" is the [FromBody] parameter. When the body cannot be deserialized MVC adds
+                // a generic "The request field is required." on top of the real error, so we skip it.
+                if (entry.Key == "request")
+                    continue;
+
+                foreach (var error in entry.Value.Errors)
+                {
+                    errors.AddRange(Notifications.API.ValidationMessages.ToSpanishMessages(entry.Key, error.ErrorMessage));
+                }
+            }
 
             var errorMessage = string.Join("; ", errors);
 
@@ -53,6 +62,8 @@ builder.Services.AddControllers()
 
             return new Microsoft.AspNetCore.Mvc.BadRequestObjectResult(response);
         };
+        // Without this, [ApiController] turns 415 into a ProblemDetails without errorCode; StatusCodeErrorWriter writes it instead
+        options.SuppressMapClientErrors = true;
     });
 
 // Services
@@ -159,6 +170,8 @@ if (app.Environment.IsDevelopment())
 
 // Manejo global de excepciones
 app.UseExceptionHandler();
+// 404 unknown route, 405 and 415 have no body by default; give them the ErrorResponse contract
+app.UseStatusCodePages(Notifications.API.StatusCodeErrorWriter.WriteAsync);
 
 
 // Controllers

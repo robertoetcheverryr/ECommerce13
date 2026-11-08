@@ -30,7 +30,7 @@ Cada funcionalidad se expone como una REST API independiente.
 ## Códigos de error
 
 Todas las respuestas 4xx/5xx usan Problem Details más `errorCode` y `errorMessage`.  
-Hoy Products.API, Users.API y Cart.API implementan el catálogo; Orders y Notifications quedan documentados para cuando existan.
+Las 5 APIs (Products, Users, Orders, Cart y Notifications) implementan el catálogo, con las dos únicas excepciones documentadas: ORD-003 y NTF-001, que necesitan un endpoint de Users para validar el `UsuarioId` que todavía no existe (ver los puntos pendientes de cada sección).
 
 ### Products.API
 
@@ -58,8 +58,8 @@ Hoy Products.API, Users.API y Cart.API implementan el catálogo; Orders y Notifi
 | errorCode | HTTP | errorMessage | Cuándo |
 |-----------|------|--------------|--------|
 | **ORD-001** | 404 | Orden no encontrada. | GET/PUT con ID inexistente |
-| **ORD-002** | 400 | Los datos de la orden son inválidos. | POST inválido o items vacíos |
-| **ORD-003** | 404 | Usuario no encontrado al crear la orden. | UsuarioId no existe en Users |
+| **ORD-002** | 400 | Los datos de la orden son inválidos. | POST con campos faltantes (JsonRequired), `usuarioId` Guid.Empty, `cantidad` <= 0 o items vacíos |
+| **ORD-003** | 404 | Usuario no encontrado al crear la orden. | UsuarioId no existe en Users. Pendiente: ver sección Orders |
 | **ORD-004** | 404 | Producto no encontrado al crear la orden. | ProductoId no existe en Products |
 | **ORD-005** | 422 | Stock insuficiente para uno o más productos. | Cantidad > stock |
 | **ORD-006** | 409 | El estado de la orden no puede ser modificado. | Transición de estado inválida |
@@ -79,7 +79,7 @@ Hoy Products.API, Users.API y Cart.API implementan el catálogo; Orders y Notifi
 
 | errorCode | HTTP | errorMessage | Cuándo |
 |-----------|------|--------------|--------|
-| **NTF-001** | 404 | Usuario no encontrado. | UsuarioId no existe en Users |
+| **NTF-001** | 404 | Usuario no encontrado. | UsuarioId no existe en Users. Pendiente: ver sección Notifications |
 | **NTF-002** | 400 | Los datos de la notificación son inválidos. | Campos faltantes o tipo no reconocido |
 | **NTF-003** | 404 | No se encontraron notificaciones para el usuario. | userId sin notificaciones |
 | **NTF-004** | 500 | Error interno al procesar la notificación. | Error inesperado |
@@ -97,7 +97,8 @@ ECommerce13/
 ├── tests/
 │   ├── Products.API.Tests/
 │   ├── Users.API.Tests/
-│   └── Cart.API.Tests/
+│   ├── Cart.API.Tests/
+│   └── Notifications.API.Tests/
 ├── docs/
 └── README.md
 ```
@@ -164,7 +165,9 @@ dotnet test
 ```powershell
 dotnet run --project src/Products.API
 dotnet run --project src/Users.API
+dotnet run --project src/Orders.API
 dotnet run --project src/Cart.API
+dotnet run --project src/Notifications.API
 ```
 
 Puertos configurados:
@@ -208,7 +211,7 @@ dotnet test
     - `IExceptionHandler`s registrados en orden de especificidad
     - 404 de ruta inexistente, 405 y 415: `UseStatusCodePages` + `StatusCodeErrorWriter` devuelven el mismo `ErrorResponse` con `correlationId`. La sección 4 no tiene código para estos casos, así que `errorCode` va vacío. `SuppressMapClientErrors` evita que `[ApiController]` arme su propio ProblemDetails en el 415
     - PRD-003 solo en POST. Ya que no esta en la spec, PUT no revalida unicidad nombre+categoría
-    - PRD-004 vía `IActiveOrdersChecker` implementada por `ActiveOrdersClient`: GET Orders `/api/orders` (puerto 5003, `Orders:BaseUrl`) y busca el `productoId` en los items de órdenes Pendiente o Confirmada. Si Orders no responde, el DELETE es PRD-005: mejor fallar que asumir que no hay órdenes. Los tests inyectan un checker que siempre devuelve true
+    - PRD-004 vía `IActiveOrdersChecker` implementada por `ActiveOrdersClient`: GET Orders `/api/orders` (puerto 5003, `Orders:BaseUrl`) y busca el `productoId` en los items de órdenes Pendiente o Confirmada. Si Orders no responde, el DELETE es PRD-005: mejor fallar que asumir que no hay órdenes. Los tests inyectan un fake: `NeverActiveOrdersChecker` por defecto (`ProductsApiFactory`) y `AlwaysActiveOrdersChecker` en los casos que esperan el 409; el camino HTTP real lo cubre `ActiveOrdersClientTests` contra un Orders falso servido en Kestrel
     - Health checks 5.4: `/health` (ambas sondas), `/health/ready` (tabla `products`), `/health/live` (proceso). JSON `{ status }`
     - Swagger: XML comments, `[ProducesResponseType]` con los status del contrato (incluye 500/PRD-005)
     - Ejemplos de request/response por status: `ProductsSwaggerExamplesFilter` (`IOperationFilter`)
@@ -230,9 +233,23 @@ dotnet test
     - Swagger: XML comments, `[ProducesResponseType]`, `UsersSwaggerExamplesFilter`. El 403 del login tiene dos ejemplos nombrados, `usr-004` y `usr-005`, sin `example` suelto: OpenAPI no permite `example` y `examples` juntos en el mismo media type
     - Tests E2E (xUnit + WebApplicationFactory + FluentAssertions). `UsersApiFactory` apunta a un sqlite temporal, no a `users.db` en la carpeta de output
     - Serilog: consola + JSON, request log, Warning/Error con errorCode, Endpoint y CorrelationId en cada evento del request
-    - Correlation ID inbound (TODO outbound, no hay HttpClient): header `X-Correlation-Id`, campo `correlationId` en errores, propiedad en logs
+    - Correlation ID inbound: header `X-Correlation-Id`, campo `correlationId` en errores, propiedad en logs. Users no llama a nadie, no hay outbound
+- **Orders.API**
+    - Endpoints 4.3: GET /api/orders (`?usuarioId=` opcional), GET /api/orders/{id}, POST, PUT /api/orders/{id}/status
+    - Persistencia en SQLite con Dapper (`Microsoft.Data.Sqlite`). Al iniciar, `DatabaseInitializer` crea `orders` y `order_items` si no existen. Archivo `orders.db` (`ConnectionStrings:DefaultConnection`). Guids, totales y fechas se guardan como TEXT y Dapper no materializa Guid desde una columna texto: las queries leen en clases Row con campos `string` y mapean a mano con `Guid.Parse` / `decimal.Parse`, igual que Products
+    - `ErrorCodes` (ORD-001 a ORD-007) + `OrderException` que ya trae el status code. Un único `OrdersExceptionHandler` los escribe (el pattern de un handler por tipo de excepción de Products/Users/Cart no estaba en el codigo original de la rama y no lo cambiamos)
+    - ORD-006 maquina de estados: `HashSet` con las 5 transiciones validas del doc. Mismo estado o estado inexistente es 409 parejo. PUT con estado vacio es 400 ORD-002
+    - ORD-003 pendiente: falta definir el endpoint interno de Users para validar UsuarioId, hay un comentario en `CreateAsync` marcando donde va
+    - 404 de ruta inexistente, 405 y 415: `UseStatusCodePages` + `StatusCodeErrorWriter` devuelven el mismo `ErrorResponse` con `correlationId`. La sección 4 no tiene código para estos casos, así que `errorCode` va vacío.
+    - Validación de POST en dos capas, el patrón de Cart: los DTOs exigen `usuarioId`, `items`, `productoId` y `cantidad` con `[JsonRequired]` (si falta un campo en un Guid no nullable toma Guid.Empty), y `CreateAsync` rechaza además valores inválidos: `usuarioId` Guid.Empty explícito, `cantidad` <= 0 e items vacíos, todos 400 ORD-002
+    - Llamada a Products via `IProductsClient` en `Services:ProductsApi:BaseUrl` (http://localhost:5001): 404 ORD-004 si el producto no existe, 422 ORD-005 con nombre/disponible/solicitado en el mensaje si no hay stock. El Total y el PrecioUnitario se calculan con el precio de Products, no con lo que mande el cliente
+    - Health checks 5.4: `/health` (ambas sondas), `/health/ready` (tablas `orders` y `order_items`), `/health/live` (proceso). JSON `{ status }`
+    - Swagger: XML comments, `[ProducesResponseType]`, ejemplos con `IExamplesProvider` + `[SwaggerRequestExample]`/`[SwaggerResponseExample]` (`Swashbuckle.AspNetCore.Filters`), el pattern de Notifications y no el OperationFilter de Products/Cart
+    - Serilog: consola + JSON con Service=Orders.API. Request log con middleware propio (`Request iniciado/finalizado` + DuracionMs), calcado de Notifications
+    - Correlation ID inbound y outbound: header `X-Correlation-Id`, campo `correlationId` en errores, propiedad en logs. `CorrelationIdHandler` lo copia en el GET a Products
+    - Sin tests E2E, decisión de esta pasada
 - **Cart.API**
-    - Endpoints 4.3: GET /api/cart/{userId}, POST /api/cart/{userId}/items, PUT /api/cart/{userId}/items/{productId}, DELETE item, DELETE carrito
+    - Endpoints 4.4: GET /api/cart/{userId}, POST /api/cart/{userId}/items, PUT /api/cart/{userId}/items/{productId}, DELETE item, DELETE carrito
     - Persistencia en SQLite con Dapper (`Microsoft.Data.Sqlite`). Al iniciar, `DatabaseInitializer` crea `carts` y `cart_items` si no existen. `UsuarioId` es la PK: el Apéndice A no da un Id al carrito. `cart_items` guarda ProductoId y Cantidad; `UsuarioId` ahí es solo la clave del dueño. Archivo `carts.db` (`ConnectionStrings:DefaultConnection`)
     - POST crea el carrito si no existe y suma la cantidad si el producto ya estaba. PUT reemplaza la cantidad. Stock se valida contra ese total
     - Stock vía `IProductCatalog` / `ProductCatalogClient`: GET Products `/api/products/{id}` en `Products:BaseUrl` (http://localhost:5001). CRT-002 es un 404 de Products. CRT-003 es cantidad mayor al stock
@@ -243,27 +260,17 @@ dotnet test
     - Tests E2E (xUnit + WebApplicationFactory + FluentAssertions). `CartApiFactory` apunta a un sqlite temporal, no a `carts.db` en la carpeta de output
     - Serilog: consola + JSON, request log, Warning/Error con errorCode, Endpoint y CorrelationId en cada evento del request
     - Correlation ID inbound y outbound: header `X-Correlation-Id`, campo `correlationId` en errores, propiedad en logs. `CorrelationIdHandler` lo copia en la llamada a Products
-- **Orders.API**
-    - Endpoints 4.4: GET /api/orders (`?usuarioId=` opcional), GET /api/orders/{id}, POST, PUT /api/orders/{id}/status
-    - Persistencia en SQLite con Dapper (`Microsoft.Data.Sqlite`). Al iniciar, `DatabaseInitializer` crea `orders` y `order_items` si no existen. Archivo `orders.db` (`ConnectionStrings:DefaultConnection`). Guids, totales y fechas se guardan como TEXT y Dapper no materializa Guid desde una columna texto: las queries leen en clases Row con campos `string` y mapean a mano con `Guid.Parse` / `decimal.Parse`, igual que Products
-    - `ErrorCodes` (ORD-001 a ORD-007) + `OrderException` que ya trae el status code. Un único `OrdersExceptionHandler` los escribe (el pattern de un handler por tipo de excepción de Products/Users/Cart no estaba en el codigo original de la rama y no lo cambiamos)
-    - ORD-006 maquina de estados: `HashSet` con las 5 transiciones validas del doc. Mismo estado o estado inexistente es 409 parejo. PUT con estado vacio es 400 ORD-002
-    - ORD-003 pendiente: falta definir el endpoint interno de Users para validar UsuarioId, hay un comentario en `CreateAsync` marcando donde va
-    - Llamada a Products via `IProductsClient` en `Services:ProductsApi:BaseUrl` (http://localhost:5001): 404 ORD-004 si el producto no existe, 422 ORD-005 con nombre/disponible/solicitado en el mensaje si no hay stock. El Total y el PrecioUnitario se calculan con el precio de Products, no con lo que mande el cliente
-    - Health checks 5.4: `/health` (ambas sondas), `/health/ready` (tablas `orders` y `order_items`), `/health/live` (proceso). JSON `{ status }`
-    - Swagger: XML comments, `[ProducesResponseType]`, ejemplos con `IExamplesProvider` + `[SwaggerRequestExample]`/`[SwaggerResponseExample]` (`Swashbuckle.AspNetCore.Filters`), el pattern de Notifications y no el OperationFilter de Products/Cart
-    - Serilog: consola + JSON con Service=Orders.API. Request log con middleware propio (`Request iniciado/finalizado` + DuracionMs), calcado de Notifications
-    - Correlation ID inbound y outbound: header `X-Correlation-Id`, campo `correlationId` en errores, propiedad en logs. `CorrelationIdHandler` lo copia en el GET a Products
-    - Sin tests E2E, decisión de esta pasada
 - **Notifications.API**
     - Endpoints 4.5: POST /api/notifications/send (201), GET /api/notifications/{userId} (404 NTF-003 si el usuario no tiene notificaciones)
     - Persistencia en SQLite con Dapper (`Microsoft.Data.Sqlite`). Al iniciar, `DatabaseInitializer` crea la tabla `notifications` si no existe. Archivo `notifications.db` (`ConnectionStrings:DefaultConnection`). El envio se simula: se guarda con Estado `Enviada` y FechaEnvio UTC
     - `ErrorCodes` (NTF-002, NTF-003, NTF-004) + excepciones de dominio (`NotFound`, `Validation`, `BusinessRule`, `Global`) con sus `IExceptionHandler`s
+    - NTF-001 pendiente: como ORD-003 en Orders, falta el endpoint de Users para validar que el `UsuarioId` exista; el comentario en `NotificationService.SendNotification` marca donde va. Hoy un userId inexistente se guarda y responde 201
+    - 404 de ruta inexistente, 405 y 415: `UseStatusCodePages` + `StatusCodeErrorWriter` devuelven el mismo `ErrorResponse` con `correlationId`. La sección 4 no tiene código para estos casos, así que `errorCode` va vacío.
     - Health checks 5.4: `/health` (ambas sondas), `/health/ready` (tabla `notifications`), `/health/live` (proceso). JSON `{ status }`
     - Swagger: XML comments, `[ProducesResponseType]`, ejemplos con `IExamplesProvider` + `[SwaggerRequestExample]`/`[SwaggerResponseExample]`. Orders copia este pattern
     - Serilog: consola + JSON con Service=Notifications.API. Request log con middleware propio (`Request iniciado/finalizado` + DuracionMs)
-    - Correlation ID inbound (TODO outbound, no llama a nadie): header `X-Correlation-Id`, campo `correlationId` en errores, propiedad en logs
-    - Sin tests E2E, decisión de esta pasada
+    - Correlation ID inbound: header `X-Correlation-Id`, campo `correlationId` en errores, propiedad en logs. Notifications no llama a nadie, no hay outbound
+    - Tests E2E (xUnit + WebApplicationFactory + FluentAssertions): los errores de contrato NTF-003/NTF-004 con su `correlationId` en header y body, y el manejo del header inbound (lo genera si falta, lo trimmea si viene con espacios)
 
 ## Swagger / OpenAPI
 
@@ -280,8 +287,9 @@ https://github.com/domaindrivendev/Swashbuckle.AspNetCore/blob/master/docs/migra
 El TP pide estos usos de log:
 
 - **Request HTTP** - un evento al iniciar (`HTTP {método} {path} started`,
-  middleware del Correlation ID en Products, Users y Cart) y otro al terminar
-  (`UseSerilogRequestLogging`): método, path, status y duración.
+  middleware del Correlation ID en Products, Users y Cart; Orders y Notifications
+  usan middleware propio con `Request iniciado/finalizado`) y otro al terminar
+  (`UseSerilogRequestLogging`, o el cierre del middleware propio): método, path, status y duración.
 - **Reglas de negocio** - `LogWarning`
 - **Excepción no contemplada** - `LogError`
 - **Todo evento logeado debe incluir el endpoint que lo genero**
@@ -289,14 +297,14 @@ El TP pide estos usos de log:
 
 ## Correlation ID
 
-Implementado en Products.API y Users.API (inbound) y en Cart.API y Orders.API (inbound y outbound hacia Products). Header: `X-Correlation-Id`.
+Implementado en las 5 APIs. Inbound en todas; outbound en Cart.API y Orders.API (hacia Products) y en Products.API (hacia Orders, PRD-004). Header: `X-Correlation-Id`.
 
 - Si el cliente manda un valor no vacío (después de trim), se reutiliza. No tiene que ser un Guid.
 - Si falta o viene en blanco, se genera un Guid.
 - El mismo valor sale en el header de respuesta, en los logs (`CorrelationId`) y en el campo `correlationId` de cualquier error 4xx/5xx.
 - Probar: `GET http://localhost:5001/api/products` o `POST http://localhost:5002/api/users/login` con y sin el header. Un 401 o un 404 también debe repetir el id en el body.
 
-Cart.API y Orders.API copian el header en `GET /api/products/{id}` con `CorrelationIdHandler`. Products, Users y Notifications no llaman a nadie.
+Cart.API y Orders.API copian el header en `GET /api/products/{id}` con `CorrelationIdHandler`, y Products.API en `GET /api/orders` con el suyo, para PRD-004. Users y Notifications no llaman a nadie.
 
 ## Health Checks
 
@@ -311,10 +319,21 @@ Spec 5.4, en Products.API, Users.API, Cart.API, Orders.API y Notifications.API.
 La prueba de ready abre `ConnectionStrings:DefaultConnection` y busca la tabla del servicio: `products` en `products.db`, `users` en `users.db`, `carts` y `cart_items` en `carts.db`, `orders` y `order_items` en `orders.db`, `notifications` en `notifications.db`.
 Healthy significa que ese archivo ya tenía la tabla, o que el startup acaba de crearla.
 Si el archivo abre pero no tiene esa tabla, el chequeo devuelve Unhealthy. Si no se puede abrir, también.
+Aclaración: con el proceso corriendo, SQLite reutiliza conexiones del pool sobre el archivo ya abierto; si se borra o renombra el `.db` en caliente, ready puede seguir diciendo Healthy un rato. El Unhealthy está garantizado en el arranque en frío (directorio roto o tabla inexistente), que es lo que importa al desplegar.
 Un directorio que no existe no tira abajo el host: el startup atrapa el error y ready queda Unhealthy. Live sigue contestando.
 No hay realmente razon para Degraded en este projecto, por lo chico.
 
 Probar: `GET http://localhost:5001/health` y `GET http://localhost:5002/health`, más `/health/ready` y `/health/live` en cada uno.
+
+## Desvíos justificados del TP
+
+Decisiones donde la implementación se aparta de una lectura literal de la guía, cada una con su nota en el código:
+
+- **ORD-003 y NTF-001 no se disparan.** La guía pide 404 si el `UsuarioId` no existe en Users, pero no define el endpoint interno de Users para consultarlo, y leer la base de otro microservicio rompe el silo. El comentario en `OrdersService.CreateAsync` y en `NotificationService.SendNotification` marca exactamente dónde va la llamada cuando el endpoint exista.
+- **`errorCode` vacío en los 404 de ruta inexistente, 405 y 415.** La sección 3 del TP exige el contrato en todo 4xx, pero la sección 4 no define ningún código de catálogo para errores del framework; tomar uno prestado diría otra cosa. Escriben estos casos `StatusCodeErrorWriter` en las cinco APIs.
+- **`cantidad <= 0` y `usuarioId` vacío responden ORD-002.** El Apéndice A pide `Cantidad` "mayor a 0" y el catálogo de Orders no tiene un código propio tipo CRT-004, así que el valor inválido cae en "datos inválidos". El Guid.Empty además no es un usuario a buscar en Users: es un dato inválido, por eso es ORD-002 y no ORD-003.
+- **El PUT de estado devuelve la orden completa, no el body de ejemplo de la guía.** El ejemplo muestra `fechaActualizacion`, un campo que el Apéndice A define solo para el carrito, no para la orden: el ejemplo contradice al propio UML.
+- **Los `errorMessage` usan las formas cortas de la tabla.** Los textos largos que ilustra la guía están marcados "sugerido".
 
 ## Tecnologías previstas
 

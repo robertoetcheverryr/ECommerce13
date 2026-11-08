@@ -118,6 +118,16 @@ public class OrdersService : IOrdersService
         CreateOrderRequest request,
         CancellationToken cancellationToken = default)
     {
+        // The DTO's [JsonRequired] forces usuarioId to be present, but an explicit
+        // 00000000-... still binds; without this guard the order persists with it and
+        // silently poisons the PRD-004 active-orders checks on Products (same
+        // two-layer doctrine Cart uses for productoId, see AddCartItemRequest).
+        if (request.UsuarioId == Guid.Empty)
+            throw new OrderException(
+                ErrorCodes.ORD_002,
+                ErrorCodes.ORD_002_Message,
+                StatusCodes.Status400BadRequest);
+
         if (request.Items is null || request.Items.Count == 0)
             throw new OrderException(
                 ErrorCodes.ORD_002,
@@ -140,6 +150,15 @@ public class OrdersService : IOrdersService
 
         foreach (var item in request.Items)
         {
+            // Cart rejects this with CRT-004; the Orders catalog has no quantity
+            // code, so invalid values (0 or negative) answer as ORD-002. Checked
+            // before the Products call: a bad quantity needs no catalog to reject.
+            if (item.Cantidad <= 0)
+                throw new OrderException(
+                    ErrorCodes.ORD_002,
+                    ErrorCodes.ORD_002_Message,
+                    StatusCodes.Status400BadRequest);
+
             var product = await _productsClient.GetByIdAsync(
                 item.ProductoId,
                 cancellationToken);
