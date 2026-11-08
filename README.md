@@ -27,6 +27,116 @@ Cada funcionalidad se expone como una REST API independiente.
 | **Cart.API**          | 5004   | Carrito de compras                       |
 | **Notifications.API** | 5005   | Envío y consulta de notificaciones       |
 
+## Arquitectura
+
+Diagrama de los cinco servicios (Products, Users, Orders, Cart y Notifications). Cada uno tiene su propia base SQLite y ninguno lee la base de otro.
+
+```mermaid
+flowchart LR
+    Cliente([Cliente<br/>Swagger UI / Postman])
+
+    subgraph Servicios
+        P[Products.API<br/>:5001]
+        U[Users.API<br/>:5002]
+        O[Orders.API<br/>:5003]
+        C[Cart.API<br/>:5004]
+        N[Notifications.API<br/>:5005]
+    end
+
+    PDB[(products.db)]
+    UDB[(users.db)]
+    ODB[(orders.db)]
+    CDB[(carts.db)]
+    NDB[(notifications.db)]
+
+    Cliente -->|HTTP + X-Correlation-Id| P
+    Cliente -->|HTTP + X-Correlation-Id| U
+    Cliente -->|HTTP + X-Correlation-Id| O
+    Cliente -->|HTTP + X-Correlation-Id| C
+    Cliente -->|HTTP + X-Correlation-Id| N
+
+    P --> PDB
+    U --> UDB
+    O --> ODB
+    C --> CDB
+    N --> NDB
+
+    C -->|"GET /api/products/{id}<br/>reenvía X-Correlation-Id"| P
+    O -->|"GET /api/products/{id}<br/>reenvía X-Correlation-Id"| P
+    P -->|"GET /api/orders<br/>reenvía X-Correlation-Id"| O
+    O -.->|"pendiente: validar UsuarioId"| U
+    N -.->|"pendiente: validar UsuarioId"| U
+```
+
+Versión ASCII:
+
+```text
+                                    ┌──────────────────────────────┐
+                                    │            Cliente           │
+                                    │     Swagger UI / Postman     │
+                                    └──────────────┬───────────────┘
+                                                   │ HTTP + X-Correlation-Id
+     ┌──────────────┬───────────────┬──────────────┴───┬───────────────┬────────────────┐
+     ▼              ▼               ▼                  ▼               ▼
+┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌───────────────────┐
+│Products  │  │  Users   │  │  Orders  │  │   Cart   │  │ Notifications.API │
+│  :5001   │  │  :5002   │  │  :5003   │  │  :5004   │  │      :5005        │
+└────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────────┬──────────┘
+     │  ▲          │      ▲      │  ▲          │                 │
+     ▼  │          ▼      ┆      ▼  │          ▼                 ▼
+(products.db) (users.db)  ┆ (orders.db)   (carts.db)   (notifications.db)
+     ▲  │                 ┆      │  │          │
+     │  └──── GET /api/orders ───┘  │          │
+     │       PRD-004, reenvía X-Correlation-Id
+     └──── GET /api/products/{id} ──┴──────────┘
+          Cart y Orders; reenvían X-Correlation-Id
+
+     Orders         ┄┄ pendiente: validar UsuarioId (ORD-003) ┄┄▶ Users
+     Notifications  ┄┄ pendiente: validar UsuarioId (NTF-001) ┄┄▶ Users
+```
+
+### Llamadas entre servicios
+
+| Origen | Destino | Endpoint | Cuándo | Si falla |
+|----------|----------|----------------------------|------------------------------------------------|-------------------------------------------------------------------------------------------|
+| Cart.API | Products.API | `GET /api/products/{id}` | En cada `POST` y `PUT` de items, para validar que el producto existe y que alcanza el stock | 404 de Products → **CRT-002**. Stock insuficiente → **CRT-003**. Products caído o cualquier otro error → **CRT-005** |
+| Orders.API | Products.API | `GET /api/products/{id}` | En cada `POST` de una orden, para validar que cada producto existe y que alcanza el stock. El Total y el PrecioUnitario salen del precio de Products, no de lo que mande el cliente | 404 de Products → **ORD-004**. Stock insuficiente → **ORD-005** |
+| Products.API | Orders.API | `GET /api/orders` | En cada `DELETE` de un producto, para ver si hay órdenes Pendiente o Confirmada | Si hay órdenes activas → **PRD-004**. Si Orders no responde → **PRD-005** (mejor fallar que asumir que no hay órdenes) |
+| Orders.API | Users.API | Pendiente | En `POST /api/orders`, para validar que el `UsuarioId` existe | La spec (4.3) pide **ORD-003** cuando el `UsuarioId` no existe en Users API. Todavía no está implementado: hoy se crea la orden para cualquier Guid no vacío (un `Guid.Empty` es ORD-002) |
+| Notifications.API | Users.API | Pendiente | En `POST /api/notifications/send`, para validar que el `UsuarioId` existe | La spec (4.5) pide **NTF-001** cuando el `UsuarioId` no existe en Users API. Todavía no está implementado: hoy se registra la notificación para cualquier Guid no vacío |
+
+Cart y Orders copian el `X-Correlation-Id` del request entrante en la llamada a Products, y Products lo copia en la llamada a Orders, así el mismo id aparece en los logs de los servicios que participan. La URL de Products sale de `Products:BaseUrl` en Cart (`appsettings.json`, por defecto `http://localhost:5001`) y de `Services:ProductsApi:BaseUrl` en Orders. La URL de Orders sale de `Orders:BaseUrl` en Products (por defecto `http://localhost:5003`).
+
+Error de consistencia en la spec: NTF-001 (y ORD-003) piden validar el usuario contra Users API, pero Users API (4.2) solo expone `register` y `login`, no hay endpoint para consultar un usuario por id.
+
+### Servicios
+
+**Products.API (5001)** - Catálogo de productos sobre `products.db`.
+Alta, baja, modificación y consulta, con filtros por `categoria` y por `nombre` (búsqueda parcial).
+No permite dos productos con el mismo nombre en la misma categoría (PRD-003).
+Cart y Orders lo consultan para validar productos y stock. Al borrar un producto, Products consulta Orders para no eliminar uno con órdenes activas (PRD-004).
+
+**Users.API (5002)** - Registro y login sobre `users.db`.
+El password se guarda con hash y nunca vuelve en las respuestas.
+Al tercer login fallido consecutivo el usuario queda bloqueado (`Activo = false`), pero ese request todavía devuelve 401 USR-003. Recién el cuarto login devuelve 403 USR-004, incluso con la contraseña correcta.
+No llama a otros servicios.
+
+**Orders.API (5003)** - Creación y gestión de órdenes sobre `orders.db`.
+`GET` lista (filtro opcional `usuarioId`), `GET` por id, `POST` y `PUT` del estado.
+Antes de crear consulta a Products.API por cada producto y el stock; el Total y el PrecioUnitario salen del precio de Products.
+Si el producto no existe responde ORD-004; si no hay stock, ORD-005.
+Todavía no llama a Users.API para validar el `UsuarioId` (ORD-003 pendiente).
+
+**Cart.API (5004)** - Carrito por usuario sobre `carts.db`.
+El `POST` de un item crea el carrito si no existe y suma la cantidad a la que ya había; el `PUT` la reemplaza.
+Antes de guardar consulta a Products.API por el producto y el stock.
+Si Products no responde, devuelve CRT-005 y deja el carrito como estaba.
+
+**Notifications.API (5005)** - Registro y envío simulado de notificaciones sobre `notifications.db`.
+`POST /api/notifications/send` guarda la notificación con `Estado` "Enviada" y `FechaEnvio` en UTC. `Tipo` tiene que ser Email, Push o SMS; el mensaje es obligatorio y admite hasta 500 caracteres. Un `UsuarioId` faltante, GUID vacío o mal formado devuelve 400 NTF-002.
+`GET /api/notifications/{userId}` lista las notificaciones del usuario; si no tiene ninguna responde NTF-003.
+Todavía no llama a Users.API para validar el `UsuarioId` (NTF-001 pendiente). NTF-004 requiere una falla interna de servicio o persistencia: se cubre con los tests de la API, sin forzarla en la demo HTTP.
+
 ## Códigos de error
 
 Todas las respuestas 4xx/5xx usan Problem Details más `errorCode` y `errorMessage`.  
@@ -178,6 +288,18 @@ Puertos configurados:
 - Cart.API → http://localhost:5004
 - Notifications.API → http://localhost:5005
 
+Orden de arranque: levantar **Products.API antes que Cart.API y Orders.API**. Cart arranca igual sin Products, pero los `POST` y `PUT` de items necesitan consultarlo (si no, responden CRT-005). Orders arranca igual sin Products, pero el `POST` de una orden lo consulta para validar producto y stock. Products arranca igual sin Orders, pero el `DELETE` de un producto lo consulta (si no, responde PRD-005). Users.API y Notifications.API son independientes (Orders y Notifications todavía no consultan a Users).
+
+Logs: Serilog escribe en consola y en un archivo JSON por día, relativo a la carpeta desde donde se ejecuta el servicio. Con los comandos de arriba (desde la raíz del repo):
+
+- Products.API → `src/Products.API/logs/products-AAAAMMDD.json`
+- Users.API → `src/Users.API/logs/users-AAAAMMDD.json`
+- Orders.API → `src/Orders.API/logs/orders-api-AAAAMMDD.json`
+- Cart.API → `src/Cart.API/logs/carts-AAAAMMDD.json`
+- Notifications.API → `src/Notifications.API/logs/notifications-api-AAAAMMDD.json`
+
+Para la demo hay una colección de Postman con los casos felices y los errores de Products, Users, Cart, Notifications y Orders. Orders tiene carpeta propia (ORD-003 pendiente y ORD-007 manual con Products apagado): ver [`docs/postman/`](docs/postman/README.md).
+
 ### 6. Swagger UI
 
 Con el microservicio corriendo, abrir en el navegador:
@@ -281,6 +403,10 @@ https://stackoverflow.com/questions/67860252/how-to-use-dependency-injection-wit
 Eso no compila: `Content` y `Example` en las interfaces son get-only.
 La guia de migracion a Swashbuckle v10 dice usar el tipo concreto y escribir ahi:
 https://github.com/domaindrivendev/Swashbuckle.AspNetCore/blob/master/docs/migrating-to-v10.md 
+
+## Capturas de Swagger
+
+Las capturas de Swagger UI con las respuestas de error (`errorCode` y `errorMessage`) están en [`docs/capturas/`](docs/capturas/). Orders incluye una vista general y ORD-001, ORD-002, ORD-004, ORD-005, ORD-006 y ORD-007 (Products apagado); ORD-003 sigue pendiente.
 
 ## Logging
 

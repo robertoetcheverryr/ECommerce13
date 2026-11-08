@@ -1,0 +1,209 @@
+{
+  "info": {
+    "_postman_id": "c0fe4513-08ed-5ef7-8725-4fff034dee9f",
+    "name": "ECommerce13 - Manual",
+    "description": "Se corre aparte y a mano, por carpeta: cada carpeta pide apagar un servicio distinto y no se pueden correr juntas.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Un runId nuevo por corrida evita choques con datos de corridas anteriores (PRD-003, USR-001).",
+          "if (!pm.collectionVariables.get('runId')) {",
+          "    pm.collectionVariables.set('runId', Date.now().toString());",
+          "}",
+          "// Si el request no define su propio X-Correlation-Id, se manda el del environment.",
+          "if (!pm.request.headers.has('X-Correlation-Id')) {",
+          "    pm.request.headers.add({ key: 'X-Correlation-Id', value: pm.environment.get('correlationId') || 'demo-postman' });",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Chequeos comunes a todas las respuestas.",
+          "const sent = pm.request.headers.get('X-Correlation-Id');",
+          "const sentId = sent ? pm.variables.replaceIn(sent) : null;",
+          "const echoed = pm.response.headers.get('X-Correlation-Id');",
+          "",
+          "pm.test('[común] la respuesta trae X-Correlation-Id', () => {",
+          "    pm.expect(echoed, 'header X-Correlation-Id').to.be.a('string').and.not.empty;",
+          "    if (sentId) pm.expect(echoed).to.eql(sentId);",
+          "});",
+          "",
+          "if (pm.response.code >= 400) {",
+          "    pm.test('[común] el error respeta el contrato ErrorResponse', () => {",
+          "        const body = pm.response.json();",
+          "        pm.expect(body.status).to.eql(pm.response.code);",
+          "        pm.expect(body).to.have.property('errorCode');",
+          "        pm.expect(body.errorMessage, 'errorMessage').to.be.a('string').and.not.empty;",
+          "        pm.expect(body.correlationId).to.eql(echoed);",
+          "    });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "runId",
+      "value": ""
+    },
+    {
+      "key": "productIdPrd005",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Manual - Products apagado",
+      "id": "9f9541f9-14db-5451-9989-03b893a27a65",
+      "item": [
+        {
+          "name": "Agregar al carrito con Products apagado → 500 CRT-005",
+          "id": "0c454bb9-5f7a-5491-bc28-ac051c82e145",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{cartUrl}}/api/cart/11111111-2222-3333-4444-555555555555/items",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productoId\": \"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\n  \"cantidad\": 1\n}"
+            },
+            "description": "Cart no puede consultar el stock en Products y responde CRT-005 sin exponer el stack trace. El error completo queda en el log de Cart."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 500', () => pm.response.to.have.status(500));",
+                  "pm.test('errorCode CRT-005', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-005'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Error interno al procesar el carrito.\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Manual - Orders apagado",
+      "id": "dfc187b8-8406-45e0-ac90-bdaeb2a1dc06",
+      "item": [
+        {
+          "name": "Crear producto para PRD-005",
+          "id": "61d49c75-0f55-4dd1-b039-c79c1e4eae7f",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{productsUrl}}/api/products",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Soporte PRD-005 {{runId}}\",\n  \"descripcion\": \"Se borra con Orders apagado\",\n  \"precio\": 15.0,\n  \"stock\": 3,\n  \"categoria\": \"Otros\"\n}"
+            },
+            "description": "El alta no consulta Orders. Hace falta un producto real: si el id no existe, el DELETE responde PRD-001 antes de preguntarle a Orders."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('runId', Date.now().toString());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('productIdPrd005', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Eliminar producto con Orders apagado → 500 PRD-005",
+          "id": "b26103f4-efe7-4c76-ba08-7e7ef590ed9b",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{productsUrl}}/api/products/{{productIdPrd005}}",
+            "description": "Products no puede consultar GET /api/orders y responde PRD-005 sin exponer el stack trace. El error completo queda en el log de Products. El producto no se borra."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 500', () => pm.response.to.have.status(500));",
+                  "pm.test('errorCode PRD-005', () => pm.expect(pm.response.json().errorCode).to.eql('PRD-005'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Manual - Orders con Products apagado",
+      "id": "4b932b15-3a92-5361-891a-022e64167323",
+      "item": [
+        {
+          "name": "Crear orden con Products apagado → 500 ORD-007",
+          "id": "e33df7a1-3318-5f63-ad60-937aa0580b94",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{ordersUrl}}/api/orders",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": \"11111111-2222-3333-4444-555555555555\",\n  \"items\": [\n    {\n      \"productoId\": \"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\n      \"cantidad\": 1\n    }\n  ]\n}"
+            },
+            "description": "Dejar Orders levantado y apagar Products. No se persiste ninguna orden: falla la consulta HTTP del producto. Puede usarse el mismo apagado que para CRT-005; no correr con PRD-005, que necesita Products levantado."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 500', () => pm.response.to.have.status(500));",
+                  "pm.test('errorCode ORD-007', () => pm.expect(pm.response.json().errorCode).to.eql('ORD-007'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Error interno al procesar la orden.\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

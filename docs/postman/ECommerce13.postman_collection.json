@@ -1,0 +1,3528 @@
+{
+  "info": {
+    "_postman_id": "8d52ee1b-3e4f-5893-863d-81356054b1e0",
+    "name": "ECommerce13 - Demo Products, Users, Cart, Notifications y Orders",
+    "description": "Demo en vivo de Products.API (5001), Users.API (5002), Orders.API (5003), Cart.API (5004) y Notifications.API (5005). Correr las carpetas en orden: cada una deja creado lo que necesita la siguiente. Ver docs/postman/README.md.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Un runId nuevo por corrida evita choques con datos de corridas anteriores (PRD-003, USR-001).",
+          "if (!pm.collectionVariables.get('runId')) {",
+          "    pm.collectionVariables.set('runId', Date.now().toString());",
+          "}",
+          "// Si el request no define su propio X-Correlation-Id, se manda el del environment.",
+          "if (!pm.request.headers.has('X-Correlation-Id')) {",
+          "    pm.request.headers.add({ key: 'X-Correlation-Id', value: pm.environment.get('correlationId') || 'demo-postman' });",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Chequeos comunes a todas las respuestas.",
+          "const sent = pm.request.headers.get('X-Correlation-Id');",
+          "const sentId = sent ? pm.variables.replaceIn(sent) : null;",
+          "const echoed = pm.response.headers.get('X-Correlation-Id');",
+          "",
+          "pm.test('[común] la respuesta trae X-Correlation-Id', () => {",
+          "    pm.expect(echoed, 'header X-Correlation-Id').to.be.a('string').and.not.empty;",
+          "    if (sentId) pm.expect(echoed).to.eql(sentId);",
+          "});",
+          "",
+          "if (pm.response.code >= 400) {",
+          "    pm.test('[común] el error respeta el contrato ErrorResponse', () => {",
+          "        const body = pm.response.json();",
+          "        pm.expect(body.status).to.eql(pm.response.code);",
+          "        pm.expect(body).to.have.property('errorCode');",
+          "        pm.expect(body.errorMessage, 'errorMessage').to.be.a('string').and.not.empty;",
+          "        pm.expect(body.correlationId).to.eql(echoed);",
+          "    });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "runId",
+      "value": ""
+    },
+    {
+      "key": "productId",
+      "value": ""
+    },
+    {
+      "key": "productId2",
+      "value": ""
+    },
+    {
+      "key": "userId",
+      "value": ""
+    },
+    {
+      "key": "userEmail",
+      "value": ""
+    },
+    {
+      "key": "lockEmail",
+      "value": ""
+    },
+    {
+      "key": "notificationId",
+      "value": ""
+    },
+    {
+      "key": "productIdPrd004",
+      "value": ""
+    },
+    {
+      "key": "orderIdPrd004",
+      "value": ""
+    },
+    {
+      "key": "orderId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "0 Health",
+      "id": "ad64add2-93e8-565d-b097-77bddf25f637",
+      "item": [
+        {
+          "name": "Products /health",
+          "id": "ff70eeca-ed4b-5525-a2c6-a3efc093e688",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{productsUrl}}/health"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Healthy', () => pm.expect(pm.response.json().status).to.eql('Healthy'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Products /health/ready",
+          "id": "c29bf930-399d-5157-a536-bb5a4dc37a30",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{productsUrl}}/health/ready"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Healthy', () => pm.expect(pm.response.json().status).to.eql('Healthy'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Products /health/live",
+          "id": "e0f5afd5-0264-54e7-8b4a-4cec1843bf18",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{productsUrl}}/health/live"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Healthy', () => pm.expect(pm.response.json().status).to.eql('Healthy'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Users /health",
+          "id": "b72813aa-e42b-5168-a902-181325804b9b",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{usersUrl}}/health"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Healthy', () => pm.expect(pm.response.json().status).to.eql('Healthy'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Users /health/ready",
+          "id": "0dd62769-9f05-5313-a37d-c9c37ee45898",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{usersUrl}}/health/ready"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Healthy', () => pm.expect(pm.response.json().status).to.eql('Healthy'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Users /health/live",
+          "id": "f7c8c51d-e35d-5fa2-be5f-ea73b061337a",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{usersUrl}}/health/live"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Healthy', () => pm.expect(pm.response.json().status).to.eql('Healthy'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Orders /health",
+          "id": "cfd7ca6a-be1a-4546-8a97-66a6f0d878ca",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{ordersUrl}}/health"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Healthy', () => pm.expect(pm.response.json().status).to.eql('Healthy'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Orders /health/ready",
+          "id": "e1c63678-b357-49c6-b473-29ee0fcfd681",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{ordersUrl}}/health/ready"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Healthy', () => pm.expect(pm.response.json().status).to.eql('Healthy'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Orders /health/live",
+          "id": "9882311e-0444-44d3-bd85-37eb72e9cc21",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{ordersUrl}}/health/live"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Healthy', () => pm.expect(pm.response.json().status).to.eql('Healthy'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cart /health",
+          "id": "2670061e-682a-5410-8687-c0a3c31e7d1c",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{cartUrl}}/health"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Healthy', () => pm.expect(pm.response.json().status).to.eql('Healthy'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cart /health/ready",
+          "id": "aa2bfe08-2616-59a7-b8ea-005bae59646b",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{cartUrl}}/health/ready"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Healthy', () => pm.expect(pm.response.json().status).to.eql('Healthy'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cart /health/live",
+          "id": "779a7703-8c9c-56da-ae00-f9a506ee1e8d",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{cartUrl}}/health/live"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Healthy', () => pm.expect(pm.response.json().status).to.eql('Healthy'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Notifications /health",
+          "id": "9d66b960-c26c-5560-a9eb-e9788cc100b2",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{notificationsUrl}}/health"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Healthy', () => pm.expect(pm.response.json().status).to.eql('Healthy'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Notifications /health/ready",
+          "id": "72bfd57d-c6a3-5d12-a491-a5b573b193f7",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{notificationsUrl}}/health/ready"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Healthy', () => pm.expect(pm.response.json().status).to.eql('Healthy'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Notifications /health/live",
+          "id": "eef6faf5-5a7a-5755-a201-56cfde440d7b",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{notificationsUrl}}/health/live"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Healthy', () => pm.expect(pm.response.json().status).to.eql('Healthy'));"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Los tres servicios tienen que estar levantados."
+    },
+    {
+      "name": "1 Products",
+      "id": "c3abaaa3-b0b2-5c87-8323-c24f7e1876e7",
+      "item": [
+        {
+          "name": "Crear producto A (stock 5)",
+          "id": "7e2d8992-63de-5dcf-a100-a9279d1ffac6",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{productsUrl}}/api/products",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Notebook Demo {{runId}}\",\n  \"descripcion\": \"Laptop 15 pulgadas, 32GB RAM\",\n  \"precio\": 1500.0,\n  \"stock\": 5,\n  \"categoria\": \"Electrónica\"\n}"
+            },
+            "description": "Arranca una corrida nueva: genera un runId nuevo para que el nombre no choque con corridas anteriores."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('runId', Date.now().toString());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "const p = pm.response.json();",
+                  "pm.test('devuelve el producto con id y fechaCreacion', () => {",
+                  "    pm.expect(p.id).to.be.a('string');",
+                  "    pm.expect(p.stock).to.eql(5);",
+                  "    pm.expect(p.fechaCreacion).to.be.a('string');",
+                  "});",
+                  "pm.test('header Location', () => pm.expect(pm.response.headers.get('Location')).to.include(p.id));",
+                  "pm.collectionVariables.set('productId', p.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear producto B (stock 10)",
+          "id": "25641fc4-ea85-5e1e-abee-87b27e472a99",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{productsUrl}}/api/products",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Lámpara Demo {{runId}}\",\n  \"descripcion\": \"Lámpara de pie\",\n  \"precio\": 80.5,\n  \"stock\": 10,\n  \"categoria\": \"Hogar y Deco\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('productId2', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear producto duplicado → 409 PRD-003",
+          "id": "c1b7433c-b38f-52b5-a379-824539af4c35",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{productsUrl}}/api/products",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Notebook Demo {{runId}}\",\n  \"descripcion\": \"Mismo nombre y categoría\",\n  \"precio\": 1500.0,\n  \"stock\": 1,\n  \"categoria\": \"Electrónica\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 409', () => pm.response.to.have.status(409));",
+                  "pm.test('errorCode PRD-003', () => pm.expect(pm.response.json().errorCode).to.eql('PRD-003'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear producto con precio 0 → 400 PRD-002",
+          "id": "2eedbd6d-71c2-5ad2-a652-688e1a579c42",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{productsUrl}}/api/products",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Producto inválido {{runId}}\",\n  \"precio\": 0,\n  \"stock\": 1,\n  \"categoria\": \"Otros\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('errorCode PRD-002', () => pm.expect(pm.response.json().errorCode).to.eql('PRD-002'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Listar productos",
+          "id": "bf5e1e15-67d7-5628-9c5a-3d4ee15f02e6",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{productsUrl}}/api/products"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('incluye el producto A', () => pm.expect(pm.response.json().map(p => p.id)).to.include(pm.collectionVariables.get('productId')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Filtrar por categoría",
+          "id": "138f2ab5-1e1f-5fa6-bc44-bbddfc271b0c",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{productsUrl}}/api/products?categoria=Electrónica"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const list = pm.response.json();",
+                  "pm.test('solo Electrónica', () => list.forEach(p => pm.expect(p.categoria).to.eql('Electrónica')));",
+                  "pm.test('incluye A y no B', () => {",
+                  "    const ids = list.map(p => p.id);",
+                  "    pm.expect(ids).to.include(pm.collectionVariables.get('productId'));",
+                  "    pm.expect(ids).to.not.include(pm.collectionVariables.get('productId2'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Filtrar por nombre parcial",
+          "id": "f7f869c1-4562-5b68-8681-07856fe7ebfe",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{productsUrl}}/api/products?nombre=demo {{runId}}",
+            "description": "Búsqueda parcial y sin distinguir mayúsculas: 'demo' encuentra 'Notebook Demo' y 'Lámpara Demo'."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('encuentra A y B', () => pm.expect(pm.response.json().length).to.eql(2));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Obtener producto A por id",
+          "id": "3d8d07bc-068d-5225-b3e4-b783f97625c2",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{productsUrl}}/api/products/{{productId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('es el producto A', () => pm.expect(pm.response.json().id).to.eql(pm.collectionVariables.get('productId')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Obtener producto inexistente (99) → 404 PRD-001",
+          "id": "3ae2ddd7-7542-541e-911b-70b58fc78915",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{productsUrl}}/api/products/99",
+            "description": "El ejemplo de la consigna: un id que no es GUID también es PRD-001."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('errorCode PRD-001', () => pm.expect(pm.response.json().errorCode).to.eql('PRD-001'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Actualizar producto A",
+          "id": "063dac60-15a0-58eb-b168-b0c2211a42be",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{productsUrl}}/api/products/{{productId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Notebook Demo {{runId}}\",\n  \"descripcion\": \"Laptop 15 pulgadas, 64GB RAM\",\n  \"precio\": 1750.0,\n  \"stock\": 5,\n  \"categoria\": \"Electrónica\"\n}"
+            },
+            "description": "El stock queda en 5: el carrito lo usa después para provocar CRT-003."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('precio actualizado', () => pm.expect(pm.response.json().precio).to.eql(1750));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Actualizar producto inexistente → 404 PRD-001",
+          "id": "68590485-a5fe-5501-8179-afc5d2e27cab",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{productsUrl}}/api/products/3fa85f64-5717-4562-b3fc-2c963f66afa6",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"No existe\",\n  \"precio\": 10,\n  \"stock\": 1,\n  \"categoria\": \"Otros\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('errorCode PRD-001', () => pm.expect(pm.response.json().errorCode).to.eql('PRD-001'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Actualizar con nombre vacío → 400 PRD-002",
+          "id": "b7539a18-2196-5264-ac74-1e24f7bd28b5",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{productsUrl}}/api/products/{{productId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"\",\n  \"precio\": 10,\n  \"stock\": 1,\n  \"categoria\": \"Otros\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('errorCode PRD-002', () => pm.expect(pm.response.json().errorCode).to.eql('PRD-002'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear producto C (para PRD-004)",
+          "id": "d6d5eb31-8c8b-464d-8d95-8ae21a7ea4dd",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{productsUrl}}/api/products",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Soporte PRD-004 {{runId}}\",\n  \"descripcion\": \"Producto con una orden Pendiente, para mostrar PRD-004\",\n  \"precio\": 25.0,\n  \"stock\": 5,\n  \"categoria\": \"Otros\"\n}"
+            },
+            "description": "Nombre y categoría distintos de A y B para no romper el filtro por nombre `demo {{runId}}` ni el de categoría Electrónica."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('productIdPrd004', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear orden Pendiente con producto C",
+          "id": "cf8439ac-2e3a-4b3e-b69e-f06061d4c90d",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{ordersUrl}}/api/orders",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": \"11111111-2222-3333-4444-555555555555\",\n  \"items\": [\n    {\n      \"productoId\": \"{{productIdPrd004}}\",\n      \"cantidad\": 1\n    }\n  ]\n}"
+            },
+            "description": "Orders todavía no valida el UsuarioId (ORD-003 pendiente), así que cualquier Guid no vacío sirve. La orden queda Pendiente y bloquea el DELETE del producto C (PRD-004)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "const o = pm.response.json();",
+                  "pm.test('estado Pendiente', () => pm.expect(o.estado).to.eql('Pendiente'));",
+                  "pm.test('incluye el producto C', () => pm.expect(o.items[0].productoId).to.eql(pm.collectionVariables.get('productIdPrd004')));",
+                  "pm.collectionVariables.set('orderIdPrd004', o.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Eliminar producto C con orden activa → 409 PRD-004",
+          "id": "deed0809-8e71-4138-8e24-9d406ec171dd",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{productsUrl}}/api/products/{{productIdPrd004}}",
+            "description": "Products consulta GET /api/orders y encuentra una orden Pendiente que referencia al producto."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 409', () => pm.response.to.have.status(409));",
+                  "pm.test('errorCode PRD-004', () => pm.expect(pm.response.json().errorCode).to.eql('PRD-004'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2 Users",
+      "id": "9b6ff645-bc03-520a-933b-e859af4df80d",
+      "item": [
+        {
+          "name": "Registrar usuario",
+          "id": "98e7277a-46ec-5536-8aaa-a68a2042c919",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{usersUrl}}/api/users/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"María\",\n  \"apellido\": \"González\",\n  \"email\": \"maria.{{runId}}@email.com\",\n  \"password\": \"MiPassword123!\"\n}"
+            },
+            "description": "Genera un runId nuevo para que el email no esté registrado de una corrida anterior."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('runId', Date.now().toString());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('no expone el password', () => { const b = pm.response.json(); pm.expect(b).to.not.have.property('passwordHash'); pm.expect(b).to.not.have.property('password'); });",
+                  "const u = pm.response.json();",
+                  "pm.test('activo', () => pm.expect(u.activo).to.eql(true));",
+                  "pm.collectionVariables.set('userId', u.id);",
+                  "pm.collectionVariables.set('userEmail', u.email);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Registrar email duplicado → 409 USR-001",
+          "id": "402a0b86-bbb1-51e1-98c0-51024b50348e",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{usersUrl}}/api/users/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"María\",\n  \"apellido\": \"González\",\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"MiPassword123!\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 409', () => pm.response.to.have.status(409));",
+                  "pm.test('errorCode USR-001', () => pm.expect(pm.response.json().errorCode).to.eql('USR-001'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El email '\" + pm.collectionVariables.get('userEmail') + \"' ya está registrado.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Registrar sin apellido → 400 USR-002",
+          "id": "0a7eba01-b9ba-5cf2-8d2f-55c0891a0414",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{usersUrl}}/api/users/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"María\",\n  \"email\": \"otra.{{runId}}@email.com\",\n  \"password\": \"MiPassword123!\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('errorCode USR-002', () => pm.expect(pm.response.json().errorCode).to.eql('USR-002'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El campo 'apellido' es obligatorio.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login correcto",
+          "id": "57296f04-7147-5764-b89d-7a09f3311098",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{usersUrl}}/api/users/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"MiPassword123!\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('no expone el password', () => { const b = pm.response.json(); pm.expect(b).to.not.have.property('passwordHash'); pm.expect(b).to.not.have.property('password'); });",
+                  "pm.test('es el usuario registrado', () => pm.expect(pm.response.json().id).to.eql(pm.collectionVariables.get('userId')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Registrar usuario para el bloqueo",
+          "id": "6eb5077f-79de-56b6-9332-542d96cf3bec",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{usersUrl}}/api/users/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Juan\",\n  \"apellido\": \"Pérez\",\n  \"email\": \"bloqueo.{{runId}}@email.com\",\n  \"password\": \"MiPassword123!\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('lockEmail', pm.response.json().email);",
+                  "pm.collectionVariables.set('lockUserId', pm.response.json().id);",
+                  "pm.test('no expone el password', () => { const b = pm.response.json(); pm.expect(b).to.not.have.property('passwordHash'); pm.expect(b).to.not.have.property('password'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login incorrecto 1/3 → 401 USR-003",
+          "id": "707238d6-7cf6-55de-9d66-c76c8370ca15",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{usersUrl}}/api/users/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{lockEmail}}\",\n  \"password\": \"PasswordIncorrecta1!\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 401', () => pm.response.to.have.status(401));",
+                  "pm.test('errorCode USR-003', () => pm.expect(pm.response.json().errorCode).to.eql('USR-003'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Credenciales incorrectas.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login incorrecto 2/3 → 401 USR-003",
+          "id": "6de7b36f-51eb-558f-b8a6-da9b2204a6bc",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{usersUrl}}/api/users/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{lockEmail}}\",\n  \"password\": \"PasswordIncorrecta1!\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 401', () => pm.response.to.have.status(401));",
+                  "pm.test('errorCode USR-003', () => pm.expect(pm.response.json().errorCode).to.eql('USR-003'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Credenciales incorrectas.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login incorrecto 3/3 → 401 USR-003",
+          "id": "6ff30aaa-5f0f-5f07-a4ad-e974e53f4795",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{usersUrl}}/api/users/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{lockEmail}}\",\n  \"password\": \"PasswordIncorrecta1!\"\n}"
+            },
+            "description": "El tercer fallo pone Activo en false, pero ese request sigue siendo USR-003."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 401', () => pm.response.to.have.status(401));",
+                  "pm.test('errorCode USR-003', () => pm.expect(pm.response.json().errorCode).to.eql('USR-003'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Credenciales incorrectas.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login después de 3 fallos → 403 USR-004",
+          "id": "908f4831-564b-5349-ace2-071aab061a5a",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{usersUrl}}/api/users/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{lockEmail}}\",\n  \"password\": \"PasswordIncorrecta1!\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 403', () => pm.response.to.have.status(403));",
+                  "pm.test('errorCode USR-004', () => pm.expect(pm.response.json().errorCode).to.eql('USR-004'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Su cuenta fue bloqueada por superar el m\\u00e1ximo de intentos fallidos. Contacte a soporte.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login correcto con usuario bloqueado → 403 USR-004",
+          "id": "60a22faf-0d28-5cb0-a302-02ce65aa657d",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{usersUrl}}/api/users/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{lockEmail}}\",\n  \"password\": \"MiPassword123!\"\n}"
+            },
+            "description": "El bloqueo se chequea antes que la contraseña: ni la correcta entra."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 403', () => pm.response.to.have.status(403));",
+                  "pm.test('errorCode USR-004', () => pm.expect(pm.response.json().errorCode).to.eql('USR-004'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Su cuenta fue bloqueada por superar el m\\u00e1ximo de intentos fallidos. Contacte a soporte.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Casos extra",
+          "id": "70a9b3b5-25ae-59e3-9f4d-3641ee0c7af7",
+          "description": "Casos adicionales de validación, bordes, correlación y errores del framework. No hacen falta para la demo; se corren después de los casos principales.",
+          "item": [
+            {
+              "name": "Registrar con email inválido → 400 USR-002",
+              "id": "d50b7559-44b8-5ced-a078-7b9de8797373",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{usersUrl}}/api/users/register",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"nombre\": \"María\",\n  \"apellido\": \"González\",\n  \"email\": \"no-es-un-email\",\n  \"password\": \"MiPassword123!\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 400', () => pm.response.to.have.status(400));",
+                      "pm.test('errorCode USR-002', () => pm.expect(pm.response.json().errorCode).to.eql('USR-002'));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El email no tiene un formato válido.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Login sin password → 400 USR-002",
+              "id": "5f138103-a91d-53e3-80c4-35be9486eb82",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{usersUrl}}/api/users/login",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{userEmail}}\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 400', () => pm.response.to.have.status(400));",
+                      "pm.test('errorCode USR-002', () => pm.expect(pm.response.json().errorCode).to.eql('USR-002'));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El campo 'password' es obligatorio.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Login con email inexistente y sin Correlation ID → 401 USR-003",
+              "id": "cd669d8d-2b29-5f94-b784-233223080255",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{usersUrl}}/api/users/login",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"inexistente.{{runId}}@email.com\",\n  \"password\": \"MiPassword123!\"\n}"
+                },
+                "description": "El email inexistente responde lo mismo que una contraseña incorrecta. Sin X-Correlation-Id, Users genera un GUID y lo repite en el body."
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.request.headers.remove('X-Correlation-Id');"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 401', () => pm.response.to.have.status(401));",
+                      "pm.test('errorCode USR-003', () => pm.expect(pm.response.json().errorCode).to.eql('USR-003'));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Credenciales incorrectas.\"));",
+                      "pm.test('genera un GUID', () => pm.expect(pm.response.headers.get('X-Correlation-Id')).to.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Antes del reset: login incorrecto 1/2 → 401 USR-003",
+              "id": "06dfbdfd-85ee-5440-9859-4e76589e0d0d",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{usersUrl}}/api/users/login",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"PasswordIncorrecta1!\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 401', () => pm.response.to.have.status(401));",
+                      "pm.test('errorCode USR-003', () => pm.expect(pm.response.json().errorCode).to.eql('USR-003'));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Credenciales incorrectas.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Antes del reset: login incorrecto 2/2 → 401 USR-003",
+              "id": "697179e7-22be-5aa5-8350-01331ea19962",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{usersUrl}}/api/users/login",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"PasswordIncorrecta1!\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 401', () => pm.response.to.have.status(401));",
+                      "pm.test('errorCode USR-003', () => pm.expect(pm.response.json().errorCode).to.eql('USR-003'));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Credenciales incorrectas.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Login correcto después de 2 fallos → reinicia el contador",
+              "id": "f92db26e-4ce5-526f-a5b1-152b1f94bad9",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{usersUrl}}/api/users/login",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"MiPassword123!\"\n}"
+                },
+                "description": "Después de dos fallos, el login correcto resetea IntentosFallidos. Los tres fallos siguientes deben seguir respondiendo 401; si el contador no se reiniciara, el segundo ya sería 403."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 200', () => pm.response.to.have.status(200));",
+                      "pm.test('no expone el password', () => { const b = pm.response.json(); pm.expect(b).to.not.have.property('passwordHash'); pm.expect(b).to.not.have.property('password'); });",
+                      "pm.test('es el usuario registrado', () => pm.expect(pm.response.json().id).to.eql(pm.collectionVariables.get('userId')));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Users: ruta inexistente → 404 con errorCode vacío",
+              "id": "40b2e5cf-727f-533c-ba08-8d9cd0a5f37c",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{usersUrl}}/api/no-existe"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 404', () => pm.response.to.have.status(404));",
+                      "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"La ruta solicitada no existe.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Users: método no permitido → 405 con errorCode vacío",
+              "id": "f344842d-9e1b-5cdb-bca2-d54158091feb",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{usersUrl}}/api/users/login"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 405', () => pm.response.to.have.status(405));",
+                      "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Método no permitido.\"));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "description": "Registro, login y bloqueo: el tercer fallo responde USR-003 y recién el cuarto login responde USR-004. Validaciones adicionales, email inexistente, reset del contador y errores del framework están en Casos extra. USR-005 necesita una cuenta bloqueada manualmente (no hay endpoint); USR-006 requiere una falla interna. Esos dos casos se cubren en los tests de Users.API."
+    },
+    {
+      "name": "3 Cart",
+      "id": "954aa70a-1094-5fb5-b4b9-fea139433eb0",
+      "item": [
+        {
+          "name": "Carrito inexistente → 404 CRT-001",
+          "id": "ac3fd579-c65a-59f6-9be2-ef294c195d58",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{cartUrl}}/api/cart/{{userId}}",
+            "description": "El usuario recién registrado todavía no tiene carrito."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('errorCode CRT-001', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-001'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Carrito no encontrado.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Agregar producto A x2",
+          "id": "099fea0b-f031-591c-b5a6-f1f0b564bb49",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{cartUrl}}/api/cart/{{userId}}/items",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productoId\": \"{{productId}}\",\n  \"cantidad\": 2\n}"
+            },
+            "description": "El POST crea el carrito si no existe. Cart consulta el stock en Products."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('usuarioId', () => pm.expect(pm.response.json().usuarioId).to.eql(pm.collectionVariables.get('userId')));",
+                  "pm.test('productId tiene cantidad 2', () => pm.expect(pm.response.json().items.find(i => i.productoId === pm.collectionVariables.get('productId')).cantidad).to.eql(2));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Agregar producto B x1",
+          "id": "c2ca27ab-46d0-5f40-b752-0db2817fa017",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{cartUrl}}/api/cart/{{userId}}/items",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productoId\": \"{{productId2}}\",\n  \"cantidad\": 1\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('dos items', () => pm.expect(pm.response.json().items.length).to.eql(2));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Agregar A x10 → 422 CRT-003",
+          "id": "b6d3797b-458e-5bf9-b2c9-6f9a1f3f7a56",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{cartUrl}}/api/cart/{{userId}}/items",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productoId\": \"{{productId}}\",\n  \"cantidad\": 10\n}"
+            },
+            "description": "El POST suma a lo que ya está en el carrito: 2 + 10 = 12 contra un stock de 5."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 422', () => pm.response.to.have.status(422));",
+                  "pm.test('errorCode CRT-003', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-003'));",
+                  "pm.test('errorMessage acumulado', () => pm.expect(pm.response.json().errorMessage).to.eql('Stock insuficiente. Disponible: 5, solicitado: 12.'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Ver carrito sin cambios después del stock insuficiente",
+          "id": "318ddd5e-11a9-5e60-86d6-9380ffc1e595",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{cartUrl}}/api/cart/{{userId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('A sigue en 2', () => pm.expect(pm.response.json().items.find(i => i.productoId === pm.collectionVariables.get('productId')).cantidad).to.eql(2));",
+                  "pm.test('dos items', () => pm.expect(pm.response.json().items.length).to.eql(2));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Agregar A x1 acumula a 3",
+          "id": "5f402135-bb69-5817-b2ff-e25ac99b9181",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{cartUrl}}/api/cart/{{userId}}/items",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productoId\": \"{{productId}}\",\n  \"cantidad\": 1\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('A acumula a 3', () => pm.expect(pm.response.json().items.find(i => i.productoId === pm.collectionVariables.get('productId')).cantidad).to.eql(3));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Agregar con cantidad 0 → 400 CRT-004",
+          "id": "05ad9fbe-25ea-5138-b557-a558c4dd59d1",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{cartUrl}}/api/cart/{{userId}}/items",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productoId\": \"{{productId}}\",\n  \"cantidad\": 0\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('errorCode CRT-004', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-004'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Cantidad inválida.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Agregar producto inexistente → 404 CRT-002",
+          "id": "866dcf80-0002-5a35-9dd4-4c8949fde6e9",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{cartUrl}}/api/cart/{{userId}}/items",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productoId\": \"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\n  \"cantidad\": 1\n}"
+            },
+            "description": "Products responde 404 y Cart lo traduce a CRT-002."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('errorCode CRT-002', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-002'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Producto no encontrado.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Actualizar cantidad de A a 4",
+          "id": "cc1a9a8e-e36e-50c5-96fa-07b3bfc391bc",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{cartUrl}}/api/cart/{{userId}}/items/{{productId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cantidad\": 4\n}"
+            },
+            "description": "El PUT reemplaza la cantidad, no suma."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('productId tiene cantidad 4', () => pm.expect(pm.response.json().items.find(i => i.productoId === pm.collectionVariables.get('productId')).cantidad).to.eql(4));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Actualizar A a 6 → 422 CRT-003",
+          "id": "5b1a6c18-3172-5bf5-8cdc-1ff1c5700f9d",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{cartUrl}}/api/cart/{{userId}}/items/{{productId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cantidad\": 6\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 422', () => pm.response.to.have.status(422));",
+                  "pm.test('errorCode CRT-003', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-003'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Stock insuficiente. Disponible: 5, solicitado: 6.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Ver carrito",
+          "id": "63db6c4d-47cd-59e1-aadf-102febd8141e",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{cartUrl}}/api/cart/{{userId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('dos items', () => pm.expect(pm.response.json().items.length).to.eql(2));",
+                  "pm.test('productId tiene cantidad 4', () => pm.expect(pm.response.json().items.find(i => i.productoId === pm.collectionVariables.get('productId')).cantidad).to.eql(4));",
+                  "pm.test('productId2 tiene cantidad 1', () => pm.expect(pm.response.json().items.find(i => i.productoId === pm.collectionVariables.get('productId2')).cantidad).to.eql(1));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Quitar producto B",
+          "id": "7d206934-db76-5db3-80e4-ebf9958cc2e5",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{cartUrl}}/api/cart/{{userId}}/items/{{productId2}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Vaciar carrito",
+          "id": "61ae4918-db56-5736-959e-08f32c13d3f9",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{cartUrl}}/api/cart/{{userId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Carrito vaciado y sin Correlation ID → 404 CRT-001",
+          "id": "288815bf-1f04-529b-8234-dfc7e92858b0",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{cartUrl}}/api/cart/{{userId}}"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.request.headers.remove('X-Correlation-Id');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('errorCode CRT-001', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-001'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Carrito no encontrado.\"));",
+                  "pm.test('genera un GUID', () => pm.expect(pm.response.headers.get('X-Correlation-Id')).to.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Casos extra",
+          "id": "a66fd3e4-8fd9-5b86-a24f-76d21c6f110f",
+          "description": "Casos adicionales de validación, bordes, correlación y errores del framework. No hacen falta para la demo; se corren después de los casos principales.",
+          "item": [
+            {
+              "name": "Actualizar sin carrito → 404 CRT-001",
+              "id": "72f4d159-abc3-5943-b083-030adc49d1ed",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{cartUrl}}/api/cart/{{userId}}/items/{{productId}}",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"cantidad\": 1\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 404', () => pm.response.to.have.status(404));",
+                      "pm.test('errorCode CRT-001', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-001'));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Carrito no encontrado.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Quitar item sin carrito → 404 CRT-001",
+              "id": "b775f73f-ded3-5a5e-a7f1-c67c8ec6b069",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": "{{cartUrl}}/api/cart/{{userId}}/items/{{productId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 404', () => pm.response.to.have.status(404));",
+                      "pm.test('errorCode CRT-001', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-001'));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Carrito no encontrado.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Vaciar sin carrito → 404 CRT-001",
+              "id": "55315065-5d1c-5e11-a484-eebe730bdc5d",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": "{{cartUrl}}/api/cart/{{userId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 404', () => pm.response.to.have.status(404));",
+                      "pm.test('errorCode CRT-001', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-001'));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Carrito no encontrado.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Actualizar con cantidad negativa → 400 CRT-004",
+              "id": "964cabdd-d0e8-51a8-ac86-9d0b63928a87",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{cartUrl}}/api/cart/{{userId}}/items/{{productId}}",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"cantidad\": -1\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 400', () => pm.response.to.have.status(400));",
+                      "pm.test('errorCode CRT-004', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-004'));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Cantidad inválida.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Agregar sin cantidad → 400 sin errorCode",
+              "id": "30690d64-854e-5e17-abcb-0cd1b208705c",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{cartUrl}}/api/cart/{{userId}}/items",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"productoId\": \"{{productId}}\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 400', () => pm.response.to.have.status(400));",
+                      "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El campo 'cantidad' es obligatorio.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Actualizar sin cantidad → 400 sin errorCode",
+              "id": "b6203718-c79a-5e72-969d-c4649fbe2204",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{cartUrl}}/api/cart/{{userId}}/items/{{productId}}",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 400', () => pm.response.to.have.status(400));",
+                      "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El campo 'cantidad' es obligatorio.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Agregar con productoId vacío → 404 CRT-002",
+              "id": "87113f7a-99cb-5eb0-8633-6cf7ef490fc4",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{cartUrl}}/api/cart/{{userId}}/items",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"productoId\": \"00000000-0000-0000-0000-000000000000\",\n  \"cantidad\": 1\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 404', () => pm.response.to.have.status(404));",
+                      "pm.test('errorCode CRT-002', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-002'));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Producto no encontrado.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Agregar con userId no GUID → 404 sin errorCode",
+              "id": "46e2acdd-8c4c-5d7c-9eda-0d9e05907af8",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{cartUrl}}/api/cart/no-es-guid/items",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"productoId\": \"{{productId}}\",\n  \"cantidad\": 1\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 404', () => pm.response.to.have.status(404));",
+                      "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El userId no es un GUID válido.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Actualizar producto inexistente → 404 CRT-002",
+              "id": "1773d943-e1d4-57b9-b827-894cdbc518ac",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{cartUrl}}/api/cart/{{userId}}/items/3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"cantidad\": 1\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 404', () => pm.response.to.have.status(404));",
+                      "pm.test('errorCode CRT-002', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-002'));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Producto no encontrado.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Actualizar B fuera del carrito → 404 CRT-001",
+              "id": "6c0b314a-fc9d-5e3a-97b1-6aac91b2f699",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{cartUrl}}/api/cart/{{userId}}/items/{{productId2}}",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"cantidad\": 1\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 404', () => pm.response.to.have.status(404));",
+                      "pm.test('errorCode CRT-001', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-001'));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Carrito no encontrado.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Quitar B otra vez → 404 CRT-001",
+              "id": "5203b927-d69f-56f3-940e-6a30a335da04",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": "{{cartUrl}}/api/cart/{{userId}}/items/{{productId2}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 404', () => pm.response.to.have.status(404));",
+                      "pm.test('errorCode CRT-001', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-001'));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Carrito no encontrado.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Quitar con productId no GUID → 404 sin errorCode",
+              "id": "1b56dac3-9126-55e0-bcdb-043ff676cb9c",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": "{{cartUrl}}/api/cart/{{userId}}/items/no-es-guid"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 404', () => pm.response.to.have.status(404));",
+                      "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El productId no es un GUID válido.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Ruta inexistente de Cart → 404 sin errorCode",
+              "id": "16e33d43-07c6-533f-9cae-c50c41ecfcc8",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{cartUrl}}/api/no-existe"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 404', () => pm.response.to.have.status(404));",
+                      "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"La ruta solicitada no existe.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Método no permitido de Cart → 405 sin errorCode",
+              "id": "6b1c6ccc-5848-5c86-a819-86fa1e879f66",
+              "request": {
+                "method": "PATCH",
+                "header": [],
+                "url": "{{cartUrl}}/api/cart/{{userId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 405', () => pm.response.to.have.status(405));",
+                      "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Método no permitido.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Content-Type no soportado en Cart → 415 sin errorCode",
+              "id": "8504dd2c-de23-5d5d-b49a-4f6d06843873",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "text/plain"
+                  }
+                ],
+                "url": "{{cartUrl}}/api/cart/{{userId}}/items",
+                "body": {
+                  "mode": "raw",
+                  "raw": "cantidad=1"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 415', () => pm.response.to.have.status(415));",
+                      "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El body debe enviarse como application/json.\"));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "description": "Necesita Products levantado: Cart consulta el producto y el stock en cada POST y PUT. Los casos adicionales (sin carrito, item ya quitado, cantidad negativa o ausente, ids inválidos y errores del framework) están en Casos extra y corren con el carrito ya vaciado."
+    },
+    {
+      "name": "4 Correlation ID",
+      "id": "ca14c983-4ca8-5675-9186-6d5df73ba38d",
+      "item": [
+        {
+          "name": "Respeta el X-Correlation-Id enviado",
+          "id": "b0329cf0-6afe-5ed1-9479-b995bec73ea1",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Correlation-Id",
+                "value": "demo-{{runId}}"
+              }
+            ],
+            "url": "{{productsUrl}}/api/products/{{productId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('devuelve el mismo id', () => pm.expect(pm.response.headers.get('X-Correlation-Id')).to.eql('demo-' + pm.collectionVariables.get('runId')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Lo repite en el body de un error",
+          "id": "4396ede6-4e40-599b-823b-5ee65839b104",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Correlation-Id",
+                "value": "demo-error-{{runId}}"
+              }
+            ],
+            "url": "{{productsUrl}}/api/products/99"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('errorCode PRD-001', () => pm.expect(pm.response.json().errorCode).to.eql('PRD-001'));",
+                  "pm.test('correlationId en el body', () => pm.expect(pm.response.json().correlationId).to.eql('demo-error-' + pm.collectionVariables.get('runId')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sin header genera un GUID",
+          "id": "b3456ad3-fd72-5dfc-a885-50764aeb03ea",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{productsUrl}}/api/products/{{productId}}"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.request.headers.remove('X-Correlation-Id');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('genera un GUID', () => pm.expect(pm.response.headers.get('X-Correlation-Id')).to.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cart lo propaga a Products",
+          "id": "19ad82be-59b5-5b52-b68c-76b17e7dde27",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Correlation-Id",
+                "value": "demo-cart-{{runId}}"
+              }
+            ],
+            "url": "{{cartUrl}}/api/cart/{{userId}}/items",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productoId\": \"{{productId}}\",\n  \"cantidad\": 1\n}"
+            },
+            "description": "Buscar `demo-cart-<runId>` en `src/Cart.API/logs/carts-AAAAMMDD.json` y en `src/Products.API/logs/products-AAAAMMDD.json`: el mismo id aparece en los dos servicios."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('devuelve el mismo id', () => pm.expect(pm.response.headers.get('X-Correlation-Id')).to.eql('demo-cart-' + pm.collectionVariables.get('runId')));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5 Errores del framework (404/405/415)",
+      "id": "2bedbe29-3b40-56b1-993c-3de406d4df23",
+      "item": [
+        {
+          "name": "Ruta inexistente → 404 sin errorCode",
+          "id": "cab19739-d74c-507f-901b-61dd8ca10f9f",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{productsUrl}}/api/no-existe"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Método no permitido → 405 sin errorCode",
+          "id": "7c16582b-137b-5b4a-b521-b4e79dce8774",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": "{{productsUrl}}/api/products"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 405', () => pm.response.to.have.status(405));",
+                  "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Content-Type no soportado → 415 sin errorCode",
+          "id": "9ef0392b-6143-5194-bb63-bfa9742c2422",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{usersUrl}}/api/users/login",
+            "body": {
+              "mode": "raw",
+              "raw": "email=maria@email.com"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 415', () => pm.response.to.have.status(415));",
+                  "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "La sección 4 no tiene código para estos casos, por eso errorCode va vacío."
+    },
+    {
+      "name": "6 Notifications",
+      "id": "6ffb3073-17dc-5499-8230-a3b2c6046323",
+      "description": "Envío simulado Email, SMS y Push, listado, NTF-002 y usuario sin notificaciones NTF-003. Las demás validaciones NTF-002, la correlación generada y los errores del framework están en Casos extra; el último request confirma que esas validaciones no agregaron notificaciones. NTF-001 sigue pendiente (no hay consulta de usuario por id en Users.API); NTF-004 requiere una falla interna y se cubre en los tests de la API, no en esta demo HTTP.",
+      "item": [
+        {
+          "name": "Usuario sin notificaciones → 404 NTF-003",
+          "id": "b19d2507-8380-50af-a70a-9d2ed50eccb1",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{notificationsUrl}}/api/notifications/{{userId}}",
+            "description": "Usa el userId registrado en la carpeta 2, que todavía no tiene notificaciones."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('errorCode NTF-003', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-003'));",
+                  "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"No se encontraron notificaciones para el usuario.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Enviar notificación Email",
+          "id": "edafc751-7e01-5cc1-b638-f24c29191b2f",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{notificationsUrl}}/api/notifications/send",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": \"{{userId}}\",\n  \"mensaje\": \"Bienvenida, María {{runId}}.\",\n  \"tipo\": \"Email\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "const n = pm.response.json();",
+                  "const sent = JSON.parse(pm.variables.replaceIn(pm.request.body.raw));",
+                  "pm.test('id GUID', () => pm.expect(n.id).to.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i));",
+                  "pm.test('usuarioId', () => pm.expect(n.usuarioId).to.eql(pm.collectionVariables.get('userId')));",
+                  "pm.test('tipo Email', () => pm.expect(n.tipo).to.eql('Email'));",
+                  "pm.test('mensaje sin cambios', () => pm.expect(n.mensaje).to.eql(sent.mensaje));",
+                  "pm.test('estado Enviada', () => pm.expect(n.estado).to.eql('Enviada'));",
+                  "pm.test('fechaEnvio UTC válida', () => { pm.expect(n.fechaEnvio).to.match(/Z$/); pm.expect(Number.isNaN(Date.parse(n.fechaEnvio))).to.eql(false); });",
+                  "pm.collectionVariables.set('notificationId', n.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Enviar notificación SMS",
+          "id": "582e9e35-89e1-5960-87c0-6c794bf58c72",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{notificationsUrl}}/api/notifications/send",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": \"{{userId}}\",\n  \"mensaje\": \"Su carrito tiene productos pendientes.\",\n  \"tipo\": \"SMS\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "const n = pm.response.json();",
+                  "const sent = JSON.parse(pm.variables.replaceIn(pm.request.body.raw));",
+                  "pm.test('id GUID', () => pm.expect(n.id).to.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i));",
+                  "pm.test('usuarioId', () => pm.expect(n.usuarioId).to.eql(pm.collectionVariables.get('userId')));",
+                  "pm.test('tipo SMS', () => pm.expect(n.tipo).to.eql('SMS'));",
+                  "pm.test('mensaje sin cambios', () => pm.expect(n.mensaje).to.eql(sent.mensaje));",
+                  "pm.test('estado Enviada', () => pm.expect(n.estado).to.eql('Enviada'));",
+                  "pm.test('fechaEnvio UTC válida', () => { pm.expect(n.fechaEnvio).to.match(/Z$/); pm.expect(Number.isNaN(Date.parse(n.fechaEnvio))).to.eql(false); });",
+                  "pm.collectionVariables.set('notificationSmsId', n.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Enviar notificación Push con mensaje de 500 caracteres",
+          "id": "a726eb2e-76f6-55f3-af74-dcd61453dd15",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{notificationsUrl}}/api/notifications/send",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": \"{{userId}}\",\n  \"mensaje\": \"PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP\",\n  \"tipo\": \"Push\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "const n = pm.response.json();",
+                  "const sent = JSON.parse(pm.variables.replaceIn(pm.request.body.raw));",
+                  "pm.test('id GUID', () => pm.expect(n.id).to.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i));",
+                  "pm.test('usuarioId', () => pm.expect(n.usuarioId).to.eql(pm.collectionVariables.get('userId')));",
+                  "pm.test('tipo Push', () => pm.expect(n.tipo).to.eql('Push'));",
+                  "pm.test('mensaje sin cambios', () => pm.expect(n.mensaje).to.eql(sent.mensaje));",
+                  "pm.test('estado Enviada', () => pm.expect(n.estado).to.eql('Enviada'));",
+                  "pm.test('fechaEnvio UTC válida', () => { pm.expect(n.fechaEnvio).to.match(/Z$/); pm.expect(Number.isNaN(Date.parse(n.fechaEnvio))).to.eql(false); });",
+                  "pm.collectionVariables.set('notificationPushId', n.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Listar notificaciones del usuario",
+          "id": "e6dc44b7-f6a0-5cb4-a3c7-8d42b55ef58a",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{notificationsUrl}}/api/notifications/{{userId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const list = pm.response.json();",
+                  "pm.test('tres notificaciones', () => pm.expect(list.length).to.eql(3));",
+                  "pm.test('incluye Email, SMS y Push', () => {",
+                  "    const ids = list.map(n => n.id);",
+                  "    ['notificationId', 'notificationSmsId', 'notificationPushId'].forEach(k => pm.expect(ids).to.include(pm.collectionVariables.get(k)));",
+                  "    pm.expect(list.map(n => n.tipo)).to.have.members(['Email', 'SMS', 'Push']);",
+                  "});",
+                  "pm.test('todas del usuario y enviadas', () => list.forEach(n => { pm.expect(n.usuarioId).to.eql(pm.collectionVariables.get('userId')); pm.expect(n.estado).to.eql('Enviada'); }));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Tipo no reconocido → 400 NTF-002",
+          "id": "a19c05d9-11c8-5a16-8994-bb1a4d693a54",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{notificationsUrl}}/api/notifications/send",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": \"{{userId}}\",\n  \"mensaje\": \"Mensaje de prueba.\",\n  \"tipo\": \"Fax\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('errorCode NTF-002', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-002'));",
+                  "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El tipo debe ser Email, Push o SMS.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Casos extra",
+          "id": "647fab7f-b47a-5e7d-96bf-83e8bc4a6945",
+          "description": "Casos adicionales de validación, bordes, correlación y errores del framework. No hacen falta para la demo; se corren después de los casos principales.",
+          "item": [
+            {
+              "name": "Enviar sin mensaje → 400 NTF-002",
+              "id": "2c05eebd-f120-5f10-a922-fb34afacb239",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{notificationsUrl}}/api/notifications/send",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"usuarioId\": \"{{userId}}\",\n  \"tipo\": \"Push\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 400', () => pm.response.to.have.status(400));",
+                      "pm.test('errorCode NTF-002', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-002'));",
+                      "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El mensaje es obligatorio.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Mensaje en blanco → 400 NTF-002",
+              "id": "3109ff3e-e8dc-55c1-b8ea-c8667163b82a",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{notificationsUrl}}/api/notifications/send",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"usuarioId\": \"{{userId}}\",\n  \"mensaje\": \"   \",\n  \"tipo\": \"Push\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 400', () => pm.response.to.have.status(400));",
+                      "pm.test('errorCode NTF-002', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-002'));",
+                      "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El mensaje es obligatorio.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Mensaje de 501 caracteres → 400 NTF-002",
+              "id": "c479096b-9dca-5821-9bf5-af2fb10f6ea3",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{notificationsUrl}}/api/notifications/send",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"usuarioId\": \"{{userId}}\",\n  \"mensaje\": \"PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP\",\n  \"tipo\": \"Push\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 400', () => pm.response.to.have.status(400));",
+                      "pm.test('errorCode NTF-002', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-002'));",
+                      "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El mensaje no puede superar los 500 caracteres.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Enviar sin tipo → 400 NTF-002",
+              "id": "893b46fd-81b7-5db7-9f45-f165177ff944",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{notificationsUrl}}/api/notifications/send",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"usuarioId\": \"{{userId}}\",\n  \"mensaje\": \"Mensaje de prueba.\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 400', () => pm.response.to.have.status(400));",
+                      "pm.test('errorCode NTF-002', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-002'));",
+                      "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El tipo es obligatorio.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Enviar sin UsuarioId → 400 NTF-002",
+              "id": "f4674419-6740-5818-8c76-bf2063f815da",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{notificationsUrl}}/api/notifications/send",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"mensaje\": \"Mensaje de prueba.\",\n  \"tipo\": \"Push\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 400', () => pm.response.to.have.status(400));",
+                      "pm.test('errorCode NTF-002', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-002'));",
+                      "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El UsuarioId no tiene un formato válido.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "UsuarioId GUID vacío → 400 NTF-002",
+              "id": "188ebe09-6568-5918-91dd-f3694dedcfab",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{notificationsUrl}}/api/notifications/send",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"usuarioId\": \"00000000-0000-0000-0000-000000000000\",\n  \"mensaje\": \"Mensaje de prueba.\",\n  \"tipo\": \"Push\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 400', () => pm.response.to.have.status(400));",
+                      "pm.test('errorCode NTF-002', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-002'));",
+                      "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El UsuarioId no tiene un formato válido.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "UsuarioId no GUID → 400 NTF-002",
+              "id": "c4aa83cf-13a9-513e-ab72-2598ae3a9564",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{notificationsUrl}}/api/notifications/send",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"usuarioId\": \"no-es-guid\",\n  \"mensaje\": \"Mensaje de prueba.\",\n  \"tipo\": \"Push\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 400', () => pm.response.to.have.status(400));",
+                      "pm.test('errorCode NTF-002', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-002'));",
+                      "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El campo 'usuarioId' tiene un formato inválido.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "JSON mal formado → 400 NTF-002",
+              "id": "b12c838c-fa4b-56ea-a724-c6083d5d4bda",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{notificationsUrl}}/api/notifications/send",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 400', () => pm.response.to.have.status(400));",
+                      "pm.test('errorCode NTF-002', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-002'));",
+                      "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El cuerpo de la solicitud no es un JSON válido.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Sin body → 400 NTF-002",
+              "id": "e7ded364-cb40-5272-a86e-8d1e20e97c46",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{notificationsUrl}}/api/notifications/send",
+                "body": {
+                  "mode": "raw",
+                  "raw": ""
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 400', () => pm.response.to.have.status(400));",
+                      "pm.test('errorCode NTF-002', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-002'));",
+                      "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El cuerpo de la solicitud es obligatorio.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "userId no GUID → 404 sin código",
+              "id": "13810072-cdc2-5009-9c95-8478083666a3",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{notificationsUrl}}/api/notifications/no-es-guid"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 404', () => pm.response.to.have.status(404));",
+                      "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
+                      "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"La ruta solicitada no existe.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Ruta inexistente de Notifications → 404 sin código",
+              "id": "1e0ceabf-4460-5d45-8355-2d58a9ffcd26",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{notificationsUrl}}/api/notifications/ruta/inexistente"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 404', () => pm.response.to.have.status(404));",
+                      "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
+                      "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"La ruta solicitada no existe.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Método no permitido de Notifications → 405 sin código",
+              "id": "2f9e8c37-a080-51ca-ba5c-2f08f0d65999",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": "{{notificationsUrl}}/api/notifications/{{userId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 405', () => pm.response.to.have.status(405));",
+                      "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
+                      "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Método no permitido.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Content-Type no soportado de Notifications → 415 sin código",
+              "id": "4a14008a-78f5-5699-8050-0e1445ecff3f",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "text/plain"
+                  }
+                ],
+                "url": "{{notificationsUrl}}/api/notifications/send",
+                "body": {
+                  "mode": "raw",
+                  "raw": "texto"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 415', () => pm.response.to.have.status(415));",
+                      "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
+                      "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El body debe enviarse como application/json.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Sin header genera un GUID en Notifications → 404 NTF-003",
+              "id": "13b79135-a7a8-5ad0-8930-0b68d2e73adb",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{notificationsUrl}}/api/notifications/{{$guid}}"
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.request.headers.remove('X-Correlation-Id');"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 404', () => pm.response.to.have.status(404));",
+                      "pm.test('errorCode NTF-003', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-003'));",
+                      "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"No se encontraron notificaciones para el usuario.\"));",
+                      "pm.test('genera un GUID', () => pm.expect(pm.response.headers.get('X-Correlation-Id')).to.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Las validaciones fallidas no agregan notificaciones",
+          "id": "4942f40e-dfb1-54b0-91b4-25eb82a2852e",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{notificationsUrl}}/api/notifications/{{userId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const list = pm.response.json();",
+                  "pm.test('tres notificaciones', () => pm.expect(list.length).to.eql(3));",
+                  "pm.test('incluye Email, SMS y Push', () => {",
+                  "    const ids = list.map(n => n.id);",
+                  "    ['notificationId', 'notificationSmsId', 'notificationPushId'].forEach(k => pm.expect(ids).to.include(pm.collectionVariables.get(k)));",
+                  "    pm.expect(list.map(n => n.tipo)).to.have.members(['Email', 'SMS', 'Push']);",
+                  "});",
+                  "pm.test('todas del usuario y enviadas', () => list.forEach(n => { pm.expect(n.usuarioId).to.eql(pm.collectionVariables.get('userId')); pm.expect(n.estado).to.eql('Enviada'); }));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "7 Orders",
+      "id": "88e91f7e-335d-5d23-b06f-9caaedc6ff5c",
+      "item": [
+        {
+          "name": "Crear orden Pendiente (producto B × 2)",
+          "id": "1999660d-8ebe-5c5c-b240-b0347793170d",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{ordersUrl}}/api/orders",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": \"{{userId}}\",\n  \"items\": [\n    {\n      \"productoId\": \"{{productId2}}\",\n      \"cantidad\": 2\n    }\n  ]\n}"
+            },
+            "description": "Reutiliza el producto B (precio 80.5, stock 10) y el usuario registrado. La última petición de esta carpeta cancela la orden para permitir la limpieza de B."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "const o = pm.response.json();",
+                  "pm.test('orden con precios de Products y total calculado', () => {",
+                  "    pm.expect(o.id).to.be.a('string').and.not.empty;",
+                  "    pm.expect(o.usuarioId).to.eql(pm.collectionVariables.get('userId'));",
+                  "    pm.expect(o.estado).to.eql('Pendiente');",
+                  "    pm.expect(o.items).to.have.lengthOf(1);",
+                  "    pm.expect(o.items[0]).to.include({ productoId: pm.collectionVariables.get('productId2'), cantidad: 2, precioUnitario: 80.5 });",
+                  "    pm.expect(o.total).to.eql(161);",
+                  "});",
+                  "pm.test('header Location', () => pm.expect(pm.response.headers.get('Location')).to.include(o.id));",
+                  "pm.collectionVariables.set('orderId', o.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Obtener orden creada",
+          "id": "782b4928-a218-5388-afef-3ce7cfaec5a5",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{ordersUrl}}/api/orders/{{orderId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('devuelve la orden creada', () => pm.expect(pm.response.json()).to.include({ id: pm.collectionVariables.get('orderId'), estado: 'Pendiente', total: 161 }));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Listar órdenes",
+          "id": "70f6b56f-cddd-544b-bcbc-303e6d423c07",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{ordersUrl}}/api/orders"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('incluye la orden creada', () => pm.expect(pm.response.json().map(o => o.id)).to.include(pm.collectionVariables.get('orderId')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Filtrar órdenes por usuario",
+          "id": "3315e35e-5dfd-5cfe-ad4e-7445e9beb2c3",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{ordersUrl}}/api/orders?usuarioId={{userId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const orders = pm.response.json();",
+                  "pm.test('solo el usuario indicado e incluye su orden', () => {",
+                  "    pm.expect(orders.map(o => o.id)).to.include(pm.collectionVariables.get('orderId'));",
+                  "    orders.forEach(o => pm.expect(o.usuarioId).to.eql(pm.collectionVariables.get('userId')));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Orden inexistente → 404 ORD-001",
+          "id": "7e4610e8-63cf-5a7a-98c5-2407ca5c1b23",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{ordersUrl}}/api/orders/3fa85f64-5717-4562-b3fc-2c963f66afa6"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('errorCode ORD-001', () => pm.expect(pm.response.json().errorCode).to.eql('ORD-001'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Orden no encontrada.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear orden sin items → 400 ORD-002",
+          "id": "e3d07bba-2031-57a9-b343-fb78b9ab1c26",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{ordersUrl}}/api/orders",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": \"{{userId}}\",\n  \"items\": []\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('errorCode ORD-002', () => pm.expect(pm.response.json().errorCode).to.eql('ORD-002'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Los datos de la orden son inválidos.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Producto inexistente → 404 ORD-004",
+          "id": "c5de7034-0546-5502-aebb-f4defc586d73",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{ordersUrl}}/api/orders",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": \"{{userId}}\",\n  \"items\": [\n    {\n      \"productoId\": \"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\n      \"cantidad\": 1\n    }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('errorCode ORD-004', () => pm.expect(pm.response.json().errorCode).to.eql('ORD-004'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Producto no encontrado.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cantidad mayor al stock → 422 ORD-005",
+          "id": "754ec43a-f2ee-54d3-801a-bc8935985ef0",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{ordersUrl}}/api/orders",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": \"{{userId}}\",\n  \"items\": [\n    {\n      \"productoId\": \"{{productId2}}\",\n      \"cantidad\": 11\n    }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 422', () => pm.response.to.have.status(422));",
+                  "pm.test('errorCode ORD-005', () => pm.expect(pm.response.json().errorCode).to.eql('ORD-005'));",
+                  "pm.test('errorMessage con nombre, stock y cantidad', () => pm.expect(pm.response.json().errorMessage).to.match(/^Stock insuficiente para 'Lámpara Demo [0-9]+'\\. Disponible: 10, solicitado: 11\\.$/));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Pendiente → Entregada → 409 ORD-006",
+          "id": "04e50cf8-76ad-5c6f-8e73-8626cd494f89",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{ordersUrl}}/api/orders/{{orderId}}/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": \"Entregada\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 409', () => pm.response.to.have.status(409));",
+                  "pm.test('errorCode ORD-006', () => pm.expect(pm.response.json().errorCode).to.eql('ORD-006'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Una orden en estado 'Pendiente' no puede pasar a 'Entregada'.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cancelar orden (Pendiente → Cancelada)",
+          "id": "2d8c400d-e5bb-5af8-9624-9f52f016cb8a",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{ordersUrl}}/api/orders/{{orderId}}/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": \"Cancelada\"\n}"
+            },
+            "description": "No hay endpoint DELETE de órdenes. Se cancela para liberar el producto B, que la carpeta de limpieza elimina."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('orden cancelada', () => pm.expect(pm.response.json()).to.include({ id: pm.collectionVariables.get('orderId'), estado: 'Cancelada' }));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "8 Limpieza",
+      "id": "66d6bb01-6841-5304-bc0b-62fb3fb4660b",
+      "item": [
+        {
+          "name": "Vaciar carrito",
+          "id": "61ae4918-db56-5736-959e-08f32c13d3f9",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{cartUrl}}/api/cart/{{userId}}",
+            "description": "La carpeta Correlation ID dejó un item en el carrito."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cancelar orden del producto C",
+          "id": "2bc56f81-8676-4aaf-9b7a-fa9d26254d3f",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{ordersUrl}}/api/orders/{{orderIdPrd004}}/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": \"Cancelada\"\n}"
+            },
+            "description": "Pendiente → Cancelada. Con la orden ya no activa, el DELETE del producto C responde 204."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('estado Cancelada', () => pm.expect(pm.response.json().estado).to.eql('Cancelada'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Eliminar producto C",
+          "id": "1efe7030-151f-401a-a55b-7cc436f25e04",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{productsUrl}}/api/products/{{productIdPrd004}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Eliminar producto A",
+          "id": "3fa6fb3f-3aa1-5ffc-9e63-4ba91b206fcf",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{productsUrl}}/api/products/{{productId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Eliminar producto B",
+          "id": "e36fe091-2686-5fe2-af13-676720e03f24",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{productsUrl}}/api/products/{{productId2}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Producto eliminado → 404 PRD-001",
+          "id": "ef0f7cf1-8dee-5684-8a84-5329e8b39f58",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{productsUrl}}/api/products/{{productId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('errorCode PRD-001', () => pm.expect(pm.response.json().errorCode).to.eql('PRD-001'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
