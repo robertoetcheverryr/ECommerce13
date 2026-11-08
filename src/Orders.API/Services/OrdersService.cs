@@ -150,6 +150,15 @@ public class OrdersService : IOrdersService
 
         foreach (var item in request.Items)
         {
+            // Cart rejects this with CRT-004; the Orders catalog has no quantity
+            // code, so invalid values (0 or negative) answer as ORD-002. Checked
+            // before the Products call: a bad quantity needs no catalog to reject.
+            if (item.Cantidad <= 0)
+                throw new OrderException(
+                    ErrorCodes.ORD_002,
+                    ErrorCodes.ORD_002_Message,
+                    StatusCodes.Status400BadRequest);
+
             var product = await _productsClient.GetByIdAsync(
                 item.ProductoId,
                 cancellationToken);
