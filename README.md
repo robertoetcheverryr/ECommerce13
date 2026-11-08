@@ -208,13 +208,13 @@ dotnet test
     - `IExceptionHandler`s registrados en orden de especificidad
     - 404 de ruta inexistente, 405 y 415: `UseStatusCodePages` + `StatusCodeErrorWriter` devuelven el mismo `ErrorResponse` con `correlationId`. La sección 4 no tiene código para estos casos, así que `errorCode` va vacío. `SuppressMapClientErrors` evita que `[ApiController]` arme su propio ProblemDetails en el 415
     - PRD-003 solo en POST. Ya que no esta en la spec, PUT no revalida unicidad nombre+categoría
-    - PRD-004 vía `IActiveOrdersChecker` + `NoOpActiveOrdersChecker`. Los tests inyectan un checker que siempre devuelve true
+    - PRD-004 vía `IActiveOrdersChecker` implementada por `ActiveOrdersClient`: GET Orders `/api/orders` (puerto 5003, `Orders:BaseUrl`) y busca el `productoId` en los items de órdenes Pendiente o Confirmada. Si Orders no responde, el DELETE es PRD-005: mejor fallar que asumir que no hay órdenes. Los tests inyectan un checker que siempre devuelve true
     - Health checks 5.4: `/health` (ambas sondas), `/health/ready` (tabla `products`), `/health/live` (proceso). JSON `{ status }`
     - Swagger: XML comments, `[ProducesResponseType]` con los status del contrato (incluye 500/PRD-005)
     - Ejemplos de request/response por status: `ProductsSwaggerExamplesFilter` (`IOperationFilter`)
     - Tests E2E (xUnit + WebApplicationFactory + FluentAssertions)
     - Serilog: consola + JSON, request log, Warning/Error con errorCode, Endpoint y CorrelationId en cada evento del request
-    - Correlation ID (TODO outbound): header `X-Correlation-Id`, campo `correlationId` en errores, propiedad en logs
+    - Correlation ID inbound y outbound: header `X-Correlation-Id`, campo `correlationId` en errores, propiedad en logs. `CorrelationIdHandler` lo copia en la llamada a Orders para PRD-004
 - **Users.API**
     - Endpoints 4.2: POST /api/users/register, POST /api/users/login. No hay GET ni lock/unlock de admin
     - Persistencia en SQLite con Dapper (`Microsoft.Data.Sqlite`). Al iniciar, `DatabaseInitializer` crea la tabla `users` si no existe, con las columnas del usuario: Id, Nombre, Apellido, Email, PasswordHash, FechaRegistro, Activo, IntentosFallidos. Archivo `users.db` (`ConnectionStrings:DefaultConnection`). El email se guarda en minúsculas. La unicidad sigue en el servicio, no hay índice unique, así un archivo que nos dejen carga igual.
@@ -245,23 +245,25 @@ dotnet test
     - Correlation ID inbound y outbound: header `X-Correlation-Id`, campo `correlationId` en errores, propiedad en logs. `CorrelationIdHandler` lo copia en la llamada a Products
 - **Orders.API**
     - Endpoints 4.4: GET /api/orders (`?usuarioId=` opcional), GET /api/orders/{id}, POST, PUT /api/orders/{id}/status
-    - Persistencia en SQLite con Dapper (`Microsoft.Data.Sqlite`). Al iniciar, `DatabaseInitializer` crea `orders` y `order_items` si no existen. Archivo `orders.db` (`ConnectionStrings:DefaultConnection`).
-    - `ErrorCodes` (ORD-001 a ORD-007) + `OrderException` que ya trae el status code.
+    - Persistencia en SQLite con Dapper (`Microsoft.Data.Sqlite`). Al iniciar, `DatabaseInitializer` crea `orders` y `order_items` si no existen. Archivo `orders.db` (`ConnectionStrings:DefaultConnection`). Guids, totales y fechas se guardan como TEXT y Dapper no materializa Guid desde una columna texto: las queries leen en clases Row con campos `string` y mapean a mano con `Guid.Parse` / `decimal.Parse`, igual que Products
+    - `ErrorCodes` (ORD-001 a ORD-007) + `OrderException` que ya trae el status code. Un único `OrdersExceptionHandler` los escribe (el pattern de un handler por tipo de excepción de Products/Users/Cart no estaba en el codigo original de la rama y no lo cambiamos)
     - ORD-006 maquina de estados: `HashSet` con las 5 transiciones validas del doc. Mismo estado o estado inexistente es 409 parejo. PUT con estado vacio es 400 ORD-002
     - ORD-003 pendiente: falta definir el endpoint interno de Users para validar UsuarioId, hay un comentario en `CreateAsync` marcando donde va
     - Llamada a Products via `IProductsClient` en `Services:ProductsApi:BaseUrl` (http://localhost:5001): 404 ORD-004 si el producto no existe, 422 ORD-005 con nombre/disponible/solicitado en el mensaje si no hay stock. El Total y el PrecioUnitario se calculan con el precio de Products, no con lo que mande el cliente
     - Health checks 5.4: `/health` (ambas sondas), `/health/ready` (tablas `orders` y `order_items`), `/health/live` (proceso). JSON `{ status }`
-    - Swagger: XML comments, `[ProducesResponseType]`, ejemplos con `IExamplesProvider` + `[SwaggerRequestExample]`/`[SwaggerResponseExample]` (`Swashbuckle.AspNetCore.Filters`)
-    - Serilog: consola + JSON con Service=Orders.API. Request log con middleware propio (`Request iniciado/finalizado` + DuracionMs)
+    - Swagger: XML comments, `[ProducesResponseType]`, ejemplos con `IExamplesProvider` + `[SwaggerRequestExample]`/`[SwaggerResponseExample]` (`Swashbuckle.AspNetCore.Filters`), el pattern de Notifications y no el OperationFilter de Products/Cart
+    - Serilog: consola + JSON con Service=Orders.API. Request log con middleware propio (`Request iniciado/finalizado` + DuracionMs), calcado de Notifications
     - Correlation ID inbound y outbound: header `X-Correlation-Id`, campo `correlationId` en errores, propiedad en logs. `CorrelationIdHandler` lo copia en el GET a Products
+    - Sin tests E2E, decisión de esta pasada
 - **Notifications.API**
     - Endpoints 4.5: POST /api/notifications/send (201), GET /api/notifications/{userId} (404 NTF-003 si el usuario no tiene notificaciones)
     - Persistencia en SQLite con Dapper (`Microsoft.Data.Sqlite`). Al iniciar, `DatabaseInitializer` crea la tabla `notifications` si no existe. Archivo `notifications.db` (`ConnectionStrings:DefaultConnection`). El envio se simula: se guarda con Estado `Enviada` y FechaEnvio UTC
     - `ErrorCodes` (NTF-002, NTF-003, NTF-004) + excepciones de dominio (`NotFound`, `Validation`, `BusinessRule`, `Global`) con sus `IExceptionHandler`s
     - Health checks 5.4: `/health` (ambas sondas), `/health/ready` (tabla `notifications`), `/health/live` (proceso). JSON `{ status }`
-    - Swagger: XML comments, `[ProducesResponseType]`, ejemplos con `IExamplesProvider` + `[SwaggerRequestExample]`/`[SwaggerResponseExample]`.
+    - Swagger: XML comments, `[ProducesResponseType]`, ejemplos con `IExamplesProvider` + `[SwaggerRequestExample]`/`[SwaggerResponseExample]`. Orders copia este pattern
     - Serilog: consola + JSON con Service=Notifications.API. Request log con middleware propio (`Request iniciado/finalizado` + DuracionMs)
-    - Correlation ID inbound: header `X-Correlation-Id`, campo `correlationId` en errores, propiedad en logs
+    - Correlation ID inbound (TODO outbound, no llama a nadie): header `X-Correlation-Id`, campo `correlationId` en errores, propiedad en logs
+    - Sin tests E2E, decisión de esta pasada
 
 ## Swagger / OpenAPI
 

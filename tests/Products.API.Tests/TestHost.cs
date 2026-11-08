@@ -16,6 +16,14 @@ internal sealed class AlwaysActiveOrdersChecker : IActiveOrdersChecker
     public bool HasActiveOrders(Guid productId) => true;
 }
 
+// El NoOp de produccion se fue cuando el checker dejo de ser un stub:
+// los tests de persistencia no quieren que DELETE sea PRD-004, asi que
+// el "no hay ordenes" ahora es un fake del test, no una clase del API.
+internal sealed class NeverActiveOrdersChecker : IActiveOrdersChecker
+{
+    public bool HasActiveOrders(Guid productId) => false;
+}
+
 internal static class TestHost
 {
     /*

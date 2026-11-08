@@ -52,7 +52,14 @@ builder.Services.Configure<Microsoft.AspNetCore.Mvc.ApiBehaviorOptions>(options 
 // Services
 // BTW remember that a Singleton means that there will be a single instance in all of the code of this
 // thus, everybody who asks for IProductService or ProductService will get the same exact object
-builder.Services.AddSingleton<Products.API.Services.IActiveOrdersChecker, Products.API.Services.NoOpActiveOrdersChecker>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddTransient<Products.API.Services.CorrelationIdHandler>();
+// Inter-API call: el checker de PRD-004 ahora si pregunta a Orders (antes era NoOp).
+builder.Services.AddHttpClient<Products.API.Services.IActiveOrdersChecker, Products.API.Services.ActiveOrdersClient>(client =>
+{
+    var baseUrl = builder.Configuration["Orders:BaseUrl"] ?? "http://localhost:5003";
+    client.BaseAddress = new Uri(baseUrl);
+}).AddHttpMessageHandler<Products.API.Services.CorrelationIdHandler>();
 builder.Services.AddSingleton<Products.API.Services.IProductService>(sp =>
 {
     var connectionString = sp.GetRequiredService<IConfiguration>().GetConnectionString("DefaultConnection")
