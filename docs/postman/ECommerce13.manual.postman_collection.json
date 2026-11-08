@@ -1,8 +1,8 @@
 {
   "info": {
     "_postman_id": "c0fe4513-08ed-5ef7-8725-4fff034dee9f",
-    "name": "ECommerce13 - Manual - Products apagado",
-    "description": "Se corre aparte y a mano: primero apagar Products.API (Ctrl+C) y dejar Cart.API levantado.",
+    "name": "ECommerce13 - Manual",
+    "description": "Se corre aparte y a mano, por carpeta: cada carpeta pide apagar un servicio distinto y no se pueden correr juntas.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "event": [
@@ -54,6 +54,10 @@
     {
       "key": "runId",
       "value": ""
+    },
+    {
+      "key": "productIdPrd005",
+      "value": ""
     }
   ],
   "item": [
@@ -87,6 +91,74 @@
                 "exec": [
                   "pm.test('status 500', () => pm.response.to.have.status(500));",
                   "pm.test('errorCode CRT-005', () => pm.expect(pm.response.json().errorCode).to.eql('CRT-005'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Manual - Orders apagado",
+      "id": "dfc187b8-8406-45e0-ac90-bdaeb2a1dc06",
+      "item": [
+        {
+          "name": "Crear producto para PRD-005",
+          "id": "61d49c75-0f55-4dd1-b039-c79c1e4eae7f",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{productsUrl}}/api/products",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Soporte PRD-005 {{runId}}\",\n  \"descripcion\": \"Se borra con Orders apagado\",\n  \"precio\": 15.0,\n  \"stock\": 3,\n  \"categoria\": \"Otros\"\n}"
+            },
+            "description": "El alta no consulta Orders. Hace falta un producto real: si el id no existe, el DELETE responde PRD-001 antes de preguntarle a Orders."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('runId', Date.now().toString());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('productIdPrd005', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Eliminar producto con Orders apagado → 500 PRD-005",
+          "id": "b26103f4-efe7-4c76-ba08-7e7ef590ed9b",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{productsUrl}}/api/products/{{productIdPrd005}}",
+            "description": "Products no puede consultar GET /api/orders y responde PRD-005 sin exponer el stack trace. El error completo queda en el log de Products. El producto no se borra."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 500', () => pm.response.to.have.status(500));",
+                  "pm.test('errorCode PRD-005', () => pm.expect(pm.response.json().errorCode).to.eql('PRD-005'));"
                 ]
               }
             }

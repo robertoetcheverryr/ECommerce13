@@ -1,20 +1,21 @@
 # Colección de Postman
 
-Demo de Products.API, Users.API, Cart.API y Notifications.API: casos felices, todos los códigos de error de la sección 4 que hoy se pueden provocar, el Correlation ID y los errores del framework (404/405/415).
+Demo de Products.API, Users.API, Cart.API y Notifications.API: casos felices, todos los códigos de error de la sección 4 que hoy se pueden provocar, el Correlation ID y los errores del framework (404/405/415). Orders.API todavía no tiene carpeta propia; Products lo usa para mostrar PRD-004 (y PRD-005 en la colección manual).
 
 | Archivo | Contenido |
 |---------|-----------|
 | `ECommerce13.postman_collection.json` | Colección principal (v2.1). Se corre entera y en orden. |
-| `ECommerce13.manual.postman_collection.json` | CRT-005 con Products apagado. Se corre aparte y a mano. |
+| `ECommerce13.manual.postman_collection.json` | CRT-005 con Products apagado y PRD-005 con Orders apagado. Se corre aparte y a mano, por carpeta. |
 | `ECommerce13.local.postman_environment.json` | Environment `ECommerce13 local` con las URLs y el `correlationId` por defecto. |
 
 ## Antes de correrla
 
-Levantar los cuatro servicios, Products antes que Cart (ver "Ejecutar un microservicio" en el [README principal](../../README.md)):
+Levantar Products, Users, Orders, Cart y Notifications. Products antes que Cart y Orders (ver "Ejecutar un microservicio" en el [README principal](../../README.md)):
 
 ```powershell
 dotnet run --project src/Products.API
 dotnet run --project src/Users.API
+dotnet run --project src/Orders.API
 dotnet run --project src/Cart.API
 dotnet run --project src/Notifications.API
 ```
@@ -33,22 +34,20 @@ Desde la raíz del repo, con Node.js instalado:
 npx newman run docs/postman/ECommerce13.postman_collection.json -e docs/postman/ECommerce13.local.postman_environment.json
 ```
 
-Se puede correr varias veces seguidas sobre la misma base: cada corrida usa un `runId` nuevo en los nombres de producto y en los emails, y la carpeta de limpieza borra lo que creó (los usuarios y las notificaciones quedan, porque Users.API y Notifications.API no tienen endpoint de baja).
+Se puede correr varias veces seguidas sobre la misma base: cada corrida usa un `runId` nuevo en los nombres de producto y en los emails, y la carpeta de limpieza borra lo que creó (los usuarios y las notificaciones quedan, porque Users.API y Notifications.API no tienen endpoint de baja). La orden que se crea para PRD-004 se cancela en la limpieza para poder borrar el producto C.
 
 ## Carpetas
 
 | Carpeta | Qué muestra |
 |---------|-------------|
-| 0 Health | `/health`, `/health/ready` y `/health/live` de los cuatro servicios. |
-| 1 Products | Alta, filtros por `categoria` y `nombre`, consulta, modificación. PRD-001, PRD-002, PRD-003. |
+| 0 Health | `/health`, `/health/ready` y `/health/live` de Products, Users, Orders, Cart y Notifications. |
+| 1 Products | Alta, filtros por `categoria` y `nombre`, consulta, modificación. PRD-001, PRD-002, PRD-003 y PRD-004 (crea el producto C, una orden Pendiente en Orders y intenta borrarlo). |
 | 2 Users | Registro y login. USR-001, USR-002 y el bloqueo: 3 × 401 USR-003 y después 403 USR-004 (también con la contraseña correcta). |
 | 3 Cart | Agregar, actualizar, quitar y vaciar. CRT-001, CRT-002, CRT-003 (en `POST` la cantidad se suma a la que ya había), CRT-004. |
 | 4 Correlation ID | El id enviado vuelve en el header y en el body de los errores; sin header se genera un GUID; Cart lo reenvía a Products. |
 | 5 Errores del framework | Ruta inexistente (404), método no permitido (405) y `Content-Type` no soportado (415), con `errorCode` vacío. |
 | 6 Notifications | Envío Email y SMS, listado del usuario. NTF-003 (usuario sin notificaciones), NTF-002 (tipo no reconocido y mensaje faltante). |
-| 7 Limpieza | Vacía el carrito y borra los productos creados. |
-
-PRD-004 no aparece: no hay órdenes todavía, así que borrar un producto siempre responde 204.
+| 7 Limpieza | Vacía el carrito, cancela la orden de PRD-004 y borra los productos creados (C, A y B). |
 
 NTF-001 no aparece: Notifications.API todavía no valida el `UsuarioId` contra Users.API (pendiente), así que hoy un `UsuarioId` inexistente igual responde 201. NTF-004 tampoco aparece porque no se puede provocar desde afuera (lo cubre `GlobalExceptionTests`).
 
@@ -69,16 +68,30 @@ Select-String -Path src/Products.API/logs/*.json -Pattern "demo-defensa"
 
 El request **4 Correlation ID → Cart lo propaga a Products** manda `demo-cart-<runId>`. Ese valor aparece en `src/Cart.API/logs/carts-AAAAMMDD.json` y en `src/Products.API/logs/products-AAAAMMDD.json`.
 
-## CRT-005 (manual)
+## CRT-005 y PRD-005 (manual)
+
+Las dos carpetas de `ECommerce13.manual.postman_collection.json` piden apagar un servicio distinto: no se corren juntas.
+
+### CRT-005 (Products apagado)
 
 1. Dejar Cart.API levantado y apagar Products.API (Ctrl+C en su terminal).
-2. Correr **ECommerce13 - Manual - Products apagado** → **Agregar al carrito con Products apagado**.
+2. Correr **ECommerce13 - Manual** → **Manual - Products apagado** → **Agregar al carrito con Products apagado**.
 3. Respuesta esperada: `500` con `errorCode` `CRT-005` y `errorMessage` "Error interno al procesar el carrito.". El error completo queda en el log de Cart.
 
-Con Newman:
-
 ```powershell
-npx newman run docs/postman/ECommerce13.manual.postman_collection.json -e docs/postman/ECommerce13.local.postman_environment.json
+npx newman run docs/postman/ECommerce13.manual.postman_collection.json -e docs/postman/ECommerce13.local.postman_environment.json --folder "Manual - Products apagado"
 ```
 
 Después volver a levantar Products.API.
+
+### PRD-005 (Orders apagado)
+
+1. Dejar Products.API levantado y apagar Orders.API (Ctrl+C en su terminal).
+2. Correr **ECommerce13 - Manual** → **Manual - Orders apagado**: primero crea un producto (el alta no consulta Orders) y después intenta borrarlo.
+3. Respuesta esperada: `500` con `errorCode` `PRD-005` y `errorMessage` "Error interno al procesar el producto.". El error completo queda en el log de Products. El producto no se borra.
+
+```powershell
+npx newman run docs/postman/ECommerce13.manual.postman_collection.json -e docs/postman/ECommerce13.local.postman_environment.json --folder "Manual - Orders apagado"
+```
+
+Después volver a levantar Orders.API.

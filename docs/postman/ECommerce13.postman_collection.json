@@ -78,6 +78,14 @@
     {
       "key": "notificationId",
       "value": ""
+    },
+    {
+      "key": "productIdPrd004",
+      "value": ""
+    },
+    {
+      "key": "orderIdPrd004",
+      "value": ""
     }
   ],
   "item": [
@@ -197,6 +205,69 @@
             "method": "GET",
             "header": [],
             "url": "{{usersUrl}}/health/live"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Healthy', () => pm.expect(pm.response.json().status).to.eql('Healthy'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Orders /health",
+          "id": "cfd7ca6a-be1a-4546-8a97-66a6f0d878ca",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{ordersUrl}}/health"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Healthy', () => pm.expect(pm.response.json().status).to.eql('Healthy'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Orders /health/ready",
+          "id": "e1c63678-b357-49c6-b473-29ee0fcfd681",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{ordersUrl}}/health/ready"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Healthy', () => pm.expect(pm.response.json().status).to.eql('Healthy'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Orders /health/live",
+          "id": "9882311e-0444-44d3-bd85-37eb72e9cc21",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{ordersUrl}}/health/live"
           },
           "event": [
             {
@@ -680,6 +751,93 @@
                 "exec": [
                   "pm.test('status 400', () => pm.response.to.have.status(400));",
                   "pm.test('errorCode PRD-002', () => pm.expect(pm.response.json().errorCode).to.eql('PRD-002'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear producto C (para PRD-004)",
+          "id": "d6d5eb31-8c8b-464d-8d95-8ae21a7ea4dd",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{productsUrl}}/api/products",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Soporte PRD-004 {{runId}}\",\n  \"descripcion\": \"Producto con una orden Pendiente, para mostrar PRD-004\",\n  \"precio\": 25.0,\n  \"stock\": 5,\n  \"categoria\": \"Otros\"\n}"
+            },
+            "description": "Nombre y categoría distintos de A y B para no romper el filtro por nombre `demo {{runId}}` ni el de categoría Electrónica."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('productIdPrd004', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear orden Pendiente con producto C",
+          "id": "cf8439ac-2e3a-4b3e-b69e-f06061d4c90d",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{ordersUrl}}/api/orders",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": \"11111111-2222-3333-4444-555555555555\",\n  \"items\": [\n    {\n      \"productoId\": \"{{productIdPrd004}}\",\n      \"cantidad\": 1\n    }\n  ]\n}"
+            },
+            "description": "Orders todavía no valida el UsuarioId (ORD-003 pendiente), así que cualquier Guid no vacío sirve. La orden queda Pendiente y bloquea el DELETE del producto C (PRD-004)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "const o = pm.response.json();",
+                  "pm.test('estado Pendiente', () => pm.expect(o.estado).to.eql('Pendiente'));",
+                  "pm.test('incluye el producto C', () => pm.expect(o.items[0].productoId).to.eql(pm.collectionVariables.get('productIdPrd004')));",
+                  "pm.collectionVariables.set('orderIdPrd004', o.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Eliminar producto C con orden activa → 409 PRD-004",
+          "id": "deed0809-8e71-4138-8e24-9d406ec171dd",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{productsUrl}}/api/products/{{productIdPrd004}}",
+            "description": "Products consulta GET /api/orders y encuentra una orden Pendiente que referencia al producto."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 409', () => pm.response.to.have.status(409));",
+                  "pm.test('errorCode PRD-004', () => pm.expect(pm.response.json().errorCode).to.eql('PRD-004'));"
                 ]
               }
             }
@@ -1733,6 +1891,57 @@
             "header": [],
             "url": "{{cartUrl}}/api/cart/{{userId}}",
             "description": "La carpeta Correlation ID dejó un item en el carrito."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cancelar orden del producto C",
+          "id": "2bc56f81-8676-4aaf-9b7a-fa9d26254d3f",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{ordersUrl}}/api/orders/{{orderIdPrd004}}/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": \"Cancelada\"\n}"
+            },
+            "description": "Pendiente → Cancelada. Con la orden ya no activa, el DELETE del producto C responde 204."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('estado Cancelada', () => pm.expect(pm.response.json().estado).to.eql('Cancelada'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Eliminar producto C",
+          "id": "1efe7030-151f-401a-a55b-7cc436f25e04",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{productsUrl}}/api/products/{{productIdPrd004}}"
           },
           "event": [
             {

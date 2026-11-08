@@ -298,7 +298,7 @@ Logs: Serilog escribe en consola y en un archivo JSON por día, relativo a la ca
 - Cart.API → `src/Cart.API/logs/carts-AAAAMMDD.json`
 - Notifications.API → `src/Notifications.API/logs/notifications-api-AAAAMMDD.json`
 
-Para la demo hay una colección de Postman con los casos felices y los errores de Products, Users, Cart y Notifications (Orders todavía no está en la colección): ver [`docs/postman/`](docs/postman/README.md).
+Para la demo hay una colección de Postman con los casos felices y los errores de Products, Users, Cart y Notifications. Orders todavía no tiene carpeta propia; Products lo usa para mostrar PRD-004: ver [`docs/postman/`](docs/postman/README.md).
 
 ### 6. Swagger UI
 
