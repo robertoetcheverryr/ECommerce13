@@ -209,6 +209,8 @@ ECommerce13/
 │   ├── Users.API.Tests/
 │   ├── Cart.API.Tests/
 │   └── Notifications.API.Tests/
+├── scripts/
+│   └── qa/
 ├── docs/
 └── README.md
 ```
@@ -321,6 +323,10 @@ Y de seguir dentro de lo posible una metodologia TDD.
 ```powershell
 dotnet test
 ```
+
+## QA
+
+El workflow `API QA` levanta las cinco APIs con bases de datos descartables y ejecuta la colección principal de Postman con Newman (obligatorio) y Schemathesis contra el OpenAPI de cada API (informativo por ahora). Ver [QA automatizado de APIs](docs/qa/README.md).
 
 ## Estado actual
 

@@ -1,0 +1,180 @@
+name: API QA (Newman + Schemathesis)
+
+# Learning PR: API tests against the real running services.
+# Newman is mandatory. Schemathesis is ADVISORY for now (see docs/qa/README.md).
+on:
+  pull_request:
+    branches: [ master, main ]
+  workflow_dispatch:
+    inputs:
+      schemathesis_max_time:
+        description: 'Schemathesis time budget per API, in seconds (max 600)'
+        required: false
+        default: '90'
+      schemathesis_blocking:
+        description: 'Fail the job when Schemathesis finds failures'
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: api-qa-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: '1'
+  DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+  # launchSettings ports (5001..5005): the runner is fresh, nothing else uses them.
+  QA_PORT_BASE: '5000'
+
+jobs:
+  newman:
+    name: Newman (main Postman collection)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      - name: Install Newman (pinned in scripts/qa/package-lock.json)
+        run: npm ci --no-fund --no-audit --prefix scripts/qa
+
+      - name: Build
+        run: dotnet build ECommerce13.sln --configuration Release
+
+      - name: Start the five APIs with fresh databases
+        run: bash scripts/qa/stack.sh start "$RUNNER_TEMP/stack-newman"
+
+      - name: Newman
+        run: bash scripts/qa/run-newman.sh "$RUNNER_TEMP/reports/newman"
+
+      - name: Stop the APIs
+        if: always()
+        run: |
+          bash scripts/qa/stack.sh stop "$RUNNER_TEMP/stack-newman"
+          mkdir -p "$RUNNER_TEMP/reports/newman/console"
+          for f in "$RUNNER_TEMP"/stack-newman/*/console.log; do
+            [ -f "$f" ] || continue
+            name="$(basename "$(dirname "$f")")"
+            tail -n 500 "$f" > "$RUNNER_TEMP/reports/newman/console/$name.log"
+          done
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: newman-reports
+          path: ${{ runner.temp }}/reports/newman
+          if-no-files-found: warn
+          retention-days: 7
+
+  schemathesis:
+    name: Schemathesis ${{ matrix.api }} (advisory)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [ Products, Users, Orders, Cart, Notifications ]
+    env:
+      ST_MAX_TIME: ${{ github.event.inputs.schemathesis_max_time || '90' }}
+      SCHEMATHESIS_BLOCKING: ${{ github.event.inputs.schemathesis_blocking || 'false' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Validate budget
+        run: |
+          case "$ST_MAX_TIME" in
+            ''|*[!0-9]*) echo "::error::schemathesis_max_time must be an integer"; exit 1 ;;
+          esac
+          if [ "$ST_MAX_TIME" -lt 10 ] || [ "$ST_MAX_TIME" -gt 600 ]; then
+            echo "::error::schemathesis_max_time must be between 10 and 600"; exit 1
+          fi
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+
+      - name: Install Schemathesis (pinned in scripts/qa/requirements.txt)
+        run: |
+          python -m pip install --disable-pip-version-check -r scripts/qa/requirements.txt
+          st --version
+
+      - name: qa-verdict.py tests
+        run: python -m unittest discover -s scripts/qa -p "test_*.py" -v
+
+      - name: Build
+        run: dotnet build ECommerce13.sln --configuration Release
+
+      # One stack per API: each matrix entry runs on a fresh runner with fresh databases.
+      - name: Start the five APIs with fresh databases
+        run: bash scripts/qa/stack.sh start "$RUNNER_TEMP/stack-fuzz"
+
+      - name: Check the ${{ matrix.api }} OpenAPI
+        run: |
+          case "${{ matrix.api }}" in
+            Products) port=$((QA_PORT_BASE + 1)) ;; Users) port=$((QA_PORT_BASE + 2)) ;;
+            Orders) port=$((QA_PORT_BASE + 3)) ;; Cart) port=$((QA_PORT_BASE + 4)) ;;
+            Notifications) port=$((QA_PORT_BASE + 5)) ;;
+          esac
+          curl -fsS --max-time 10 "http://127.0.0.1:$port/swagger/v1/swagger.json" \
+            | python -c 'import json,sys; d=json.load(sys.stdin); print(d["openapi"], len(d["paths"]), "paths")'
+
+      # The only continue-on-error step: findings stay marked on this step and in the
+      # report, and the next step decides whether they block.
+      - name: Schemathesis
+        id: fuzz
+        continue-on-error: true
+        run: bash scripts/qa/run-schemathesis.sh "${{ matrix.api }}" "$RUNNER_TEMP/reports/schemathesis"
+
+      - name: Schemathesis verdict
+        if: ${{ !cancelled() && steps.fuzz.outcome != 'skipped' }}
+        run: python scripts/qa/qa-verdict.py "${{ matrix.api }}" "$RUNNER_TEMP/reports/schemathesis"
+
+      - name: Check the APIs are still alive
+        if: ${{ !cancelled() && steps.fuzz.outcome != 'skipped' }}
+        run: |
+          for port in $(seq $((QA_PORT_BASE + 1)) $((QA_PORT_BASE + 5))); do
+            curl -fsS --max-time 5 "http://127.0.0.1:$port/health/ready" > /dev/null \
+              || { echo "::error::the API on port $port does not answer /health/ready after Schemathesis"; exit 1; }
+          done
+
+      - name: Stop the APIs
+        if: always()
+        run: |
+          bash scripts/qa/stack.sh stop "$RUNNER_TEMP/stack-fuzz"
+          mkdir -p "$RUNNER_TEMP/reports/schemathesis/console"
+          for f in "$RUNNER_TEMP"/stack-fuzz/*/console.log; do
+            [ -f "$f" ] || continue
+            name="$(basename "$(dirname "$f")")"
+            tail -n 500 "$f" > "$RUNNER_TEMP/reports/schemathesis/console/$name.log"
+          done
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: schemathesis-${{ matrix.api }}
+          path: ${{ runner.temp }}/reports/schemathesis
+          if-no-files-found: warn
+          retention-days: 7

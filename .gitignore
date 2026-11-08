@@ -30,3 +30,11 @@ Thumbs.db
 # Secrets
 appsettings.*.local.json
 *.env
+
+# API QA (scripts/qa, see docs/qa/README.md)
+scripts/qa/node_modules/
+scripts/qa/__pycache__/
+qa-artifacts/
+.hypothesis/
+.schemathesis/
+schemathesis-report/

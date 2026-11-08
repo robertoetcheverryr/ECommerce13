@@ -1,0 +1,9 @@
+{
+  "name": "ecommerce13-qa",
+  "private": true,
+  "description": "Automated API QA tooling (Newman) for CI. See docs/qa/README.md.",
+  "license": "MIT",
+  "dependencies": {
+    "newman": "6.2.3"
+  }
+}

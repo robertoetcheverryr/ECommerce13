@@ -34,6 +34,8 @@ Desde la raíz del repo, con Node.js instalado:
 npx newman run docs/postman/ECommerce13.postman_collection.json -e docs/postman/ECommerce13.local.postman_environment.json
 ```
 
+In CI, the `API QA` workflow runs this same main collection with Newman against the five APIs started with fresh databases, and fails if any assertion fails. The manual collection is not run in CI. See [Automated API QA](../qa/README.md), which also explains how to run it on other ports (`scripts/qa/run-newman.sh` overrides the environment URLs).
+
 Se puede correr varias veces seguidas sobre la misma base: cada corrida usa un `runId` nuevo en los nombres de producto y en los emails, y la carpeta de limpieza borra lo que creó (los usuarios, las notificaciones y las órdenes canceladas quedan, porque esas APIs no tienen endpoint de baja). La orden de Orders se cancela al terminar su carpeta para liberar B; la de PRD-004 se cancela en la limpieza antes de borrar C. No se crean productos adicionales para Orders.
 
 ## Carpetas
