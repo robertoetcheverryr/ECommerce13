@@ -360,6 +360,7 @@ dotnet test
     - Endpoints 4.3: GET /api/orders (`?usuarioId=` opcional), GET /api/orders/{id}, POST, PUT /api/orders/{id}/status
     - Persistencia en SQLite con Dapper (`Microsoft.Data.Sqlite`). Al iniciar, `DatabaseInitializer` crea `orders` y `order_items` si no existen. Archivo `orders.db` (`ConnectionStrings:DefaultConnection`). Guids, totales y fechas se guardan como TEXT y Dapper no materializa Guid desde una columna texto: las queries leen en clases Row con campos `string` y mapean a mano con `Guid.Parse` / `decimal.Parse`, igual que Products
     - `ErrorCodes` (ORD-001 a ORD-007) + `OrderException` que ya trae el status code. Un único `OrdersExceptionHandler` los escribe (el pattern de un handler por tipo de excepción de Products/Users/Cart no estaba en el codigo original de la rama y no lo cambiamos)
+    - `ErrorHandling:IncludeExceptionDetails`: `false` en `appsettings.json`, `true` en Development. Para errores inesperados, `OrdersExceptionHandler` usa `exception.Message` en `detail` si el flag está activo; `errorMessage` conserva el texto del catálogo (ORD-007). Los errores de dominio no cambian.
     - ORD-006 maquina de estados: `HashSet` con las 5 transiciones validas del doc. Mismo estado o estado inexistente es 409 parejo. PUT con estado vacio es 400 ORD-002
     - ORD-003 pendiente: falta definir el endpoint interno de Users para validar UsuarioId, hay un comentario en `CreateAsync` marcando donde va
     - 404 de ruta inexistente, 405 y 415: `UseStatusCodePages` + `StatusCodeErrorWriter` devuelven el mismo `ErrorResponse` con `correlationId`. La sección 4 no tiene código para estos casos, así que `errorCode` va vacío.
@@ -386,6 +387,7 @@ dotnet test
     - Endpoints 4.5: POST /api/notifications/send (201), GET /api/notifications/{userId} (404 NTF-003 si el usuario no tiene notificaciones)
     - Persistencia en SQLite con Dapper (`Microsoft.Data.Sqlite`). Al iniciar, `DatabaseInitializer` crea la tabla `notifications` si no existe. Archivo `notifications.db` (`ConnectionStrings:DefaultConnection`). El envio se simula: se guarda con Estado `Enviada` y FechaEnvio UTC
     - `ErrorCodes` (NTF-002, NTF-003, NTF-004) + excepciones de dominio (`NotFound`, `Validation`, `BusinessRule`, `Global`) con sus `IExceptionHandler`s
+    - `ErrorHandling:IncludeExceptionDetails`: `false` en `appsettings.json`, `true` en Development. Para errores inesperados, `GlobalExceptionHandler` usa `exception.Message` en `detail` si el flag está activo; `errorMessage` conserva el texto del catálogo (NTF-004). Los errores de dominio no cambian.
     - NTF-001 pendiente: como ORD-003 en Orders, falta el endpoint de Users para validar que el `UsuarioId` exista; el comentario en `NotificationService.SendNotification` marca donde va. Hoy un userId inexistente se guarda y responde 201
     - 404 de ruta inexistente, 405 y 415: `UseStatusCodePages` + `StatusCodeErrorWriter` devuelven el mismo `ErrorResponse` con `correlationId`. La sección 4 no tiene código para estos casos, así que `errorCode` va vacío.
     - Health checks 5.4: `/health` (ambas sondas), `/health/ready` (tabla `notifications`), `/health/live` (proceso). JSON `{ status }`
@@ -407,6 +409,8 @@ https://github.com/domaindrivendev/Swashbuckle.AspNetCore/blob/master/docs/migra
 ## Capturas de Swagger
 
 Las capturas de Swagger UI con las respuestas de error (`errorCode` y `errorMessage`) están en [`docs/capturas/`](docs/capturas/). Orders incluye una vista general y ORD-001, ORD-002, ORD-004, ORD-005, ORD-006 y ORD-007 (Products apagado); ORD-003 sigue pendiente.
+
+`orders-07-post-500-ORD-007.png` muestra el cuerpo con `detail` igual a `errorMessage` (flag `ErrorHandling:IncludeExceptionDetails` en `false`, como en Production). En una demo en Development, `detail` puede mostrar el mensaje de la excepción; el status, `errorCode` y `errorMessage` no cambian. NTF-004 no tiene captura.
 
 ## Logging
 

@@ -109,7 +109,7 @@ Después volver a levantar Orders.API.
 
 1. Dejar Orders.API levantado y apagar Products.API (Ctrl+C en su terminal).
 2. Correr **ECommerce13 - Manual** → **Manual - Orders con Products apagado** → **Crear orden con Products apagado**.
-3. Respuesta esperada: `500` con `errorCode` `ORD-007` y `errorMessage` "Error interno al procesar la orden.". Falla la consulta a Products antes de persistir; no queda una orden que limpiar. El error completo queda en `src/Orders.API/logs/orders-api-AAAAMMDD.json`.
+3. Respuesta esperada: `500` con `errorCode` `ORD-007` y `errorMessage` "Error interno al procesar la orden.". Con `ErrorHandling:IncludeExceptionDetails=false`, `detail` repite ese texto; en Development (flag `true`) muestra `exception.Message`. Falla la consulta a Products antes de persistir; no queda una orden que limpiar. El error completo queda en `src/Orders.API/logs/orders-api-AAAAMMDD.json`.
 
 ```powershell
 npx newman run docs/postman/ECommerce13.manual.postman_collection.json -e docs/postman/ECommerce13.local.postman_environment.json --folder "Manual - Orders con Products apagado"

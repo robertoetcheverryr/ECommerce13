@@ -89,7 +89,7 @@ if (app.Environment.IsDevelopment())
 }
 
 // Spec 5.3 + 5.5: Endpoint and CorrelationId on every log of the request.
-// Outbound header propagation still TODO (no HttpClient calls in Users yet).
+// Users has no outbound HTTP calls, so no CorrelationIdHandler is registered.
 app.Use(async (context, next) =>
 {
     var correlationId = Users.API.CorrelationId.Resolve(context.Request);

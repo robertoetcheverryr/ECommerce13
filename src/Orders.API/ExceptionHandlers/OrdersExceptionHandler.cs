@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.Extensions.Options;
 using Orders.API.DTOs;
 using Orders.API.Exceptions;
 
@@ -10,14 +11,19 @@ namespace Orders.API.ExceptionHandlers;
 public class OrdersExceptionHandler : IExceptionHandler
 {
     private readonly ILogger<OrdersExceptionHandler> _logger;
+    private readonly ErrorHandlingOptions _options;
 
     /// <summary>
     /// Inicializa el manejador global de excepciones.
     /// </summary>
     /// <param name="logger">Servicio de registro de eventos.</param>
-    public OrdersExceptionHandler(ILogger<OrdersExceptionHandler> logger)
+    /// <param name="options">Define si detail lleva exception.Message para errores inesperados.</param>
+    public OrdersExceptionHandler(
+        ILogger<OrdersExceptionHandler> logger,
+        IOptions<ErrorHandlingOptions> options)
     {
         _logger = logger;
+        _options = options.Value;
     }
 
     /// <summary>
@@ -35,12 +41,14 @@ public class OrdersExceptionHandler : IExceptionHandler
         string errorCode;
         string errorMessage;
         int statusCode;
+        string detail;
 
         if (exception is OrderException orderException)
         {
             errorCode = orderException.ErrorCode;
             errorMessage = orderException.Message;
             statusCode = orderException.StatusCode;
+            detail = errorMessage;
 
             _logger.LogWarning(
                 "Error {ErrorCode}: {ErrorMessage}",
@@ -52,6 +60,9 @@ public class OrdersExceptionHandler : IExceptionHandler
             errorCode = ErrorCodes.ORD_007;
             errorMessage = ErrorCodes.ORD_007_Message;
             statusCode = StatusCodes.Status500InternalServerError;
+            detail = _options.IncludeExceptionDetails
+                ? exception.Message
+                : errorMessage;
 
             _logger.LogError(
                 exception,
@@ -77,7 +88,7 @@ public class OrdersExceptionHandler : IExceptionHandler
                     _ => "Internal Server Error"
                 },
                 Status = statusCode,
-                Detail = errorMessage,
+                Detail = detail,
                 Instance = context.Request.Path,
                 ErrorCode = errorCode,
                 ErrorMessage = errorMessage,

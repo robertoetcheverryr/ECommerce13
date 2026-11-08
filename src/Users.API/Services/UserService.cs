@@ -96,8 +96,7 @@ public class UserService : IUserService
         // Check the lock before the password so a blocked account does not confirm it.
         // USR-004 is the TP pair Activo == false and IntentosFallidos >= 3.
         // Activo == false with a lower counter is the manual lock (USR-005).
-        // Note, should have another field for lock reason to allow extensibility
-        // But the blackbox testing means we cannot do it without breaking the SQLite DB.
+        // Lock reason is derived from Activo and IntentosFallidos, without extra schema fields.
         if (user.Activo == false && user.IntentosFallidos >= MaxConsecutiveFailedLogins)
             throw Locked(ErrorCodes.USR_004, ErrorCodes.USR_004_Message, ErrorCodes.USR_004_Detail);
 
