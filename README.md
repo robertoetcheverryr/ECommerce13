@@ -234,20 +234,8 @@ dotnet test
     - Tests E2E (xUnit + WebApplicationFactory + FluentAssertions). `UsersApiFactory` apunta a un sqlite temporal, no a `users.db` en la carpeta de output
     - Serilog: consola + JSON, request log, Warning/Error con errorCode, Endpoint y CorrelationId en cada evento del request
     - Correlation ID inbound: header `X-Correlation-Id`, campo `correlationId` en errores, propiedad en logs. Users no llama a nadie, no hay outbound
-- **Cart.API**
-    - Endpoints 4.3: GET /api/cart/{userId}, POST /api/cart/{userId}/items, PUT /api/cart/{userId}/items/{productId}, DELETE item, DELETE carrito
-    - Persistencia en SQLite con Dapper (`Microsoft.Data.Sqlite`). Al iniciar, `DatabaseInitializer` crea `carts` y `cart_items` si no existen. `UsuarioId` es la PK: el Apéndice A no da un Id al carrito. `cart_items` guarda ProductoId y Cantidad; `UsuarioId` ahí es solo la clave del dueño. Archivo `carts.db` (`ConnectionStrings:DefaultConnection`)
-    - POST crea el carrito si no existe y suma la cantidad si el producto ya estaba. PUT reemplaza la cantidad. Stock se valida contra ese total
-    - Stock vía `IProductCatalog` / `ProductCatalogClient`: GET Products `/api/products/{id}` en `Products:BaseUrl` (http://localhost:5001). CRT-002 es un 404 de Products. CRT-003 es cantidad mayor al stock
-    - Los tests de Cart no levantan Products. Reemplazan `IProductCatalog`. 
-    - 404 de ruta inexistente, 405 y 415: `UseStatusCodePages` + `StatusCodeErrorWriter` devuelven el mismo `ErrorResponse` con `correlationId`. La sección 4 no tiene código para estos casos, así que `errorCode` va vacío. `SuppressMapClientErrors` evita que `[ApiController]` arme su propio ProblemDetails en el 415
-    - Health checks 5.4: `/health` (ambas sondas), `/health/ready` (tablas `carts` y `cart_items`), `/health/live` (proceso). JSON `{ status }`
-    - Swagger: XML comments, `[ProducesResponseType]`, `CartSwaggerExamplesFilter`. Donde un status tiene más de un caso van ejemplos nombrados, sin `example` suelto: 400 de POST y PUT (`crt-004`, `body-invalido`), 404 de POST (`crt-002`, `userid-no-guid`), de PUT (`crt-001`, `crt-002`) y de DELETE item (`crt-001`, `productid-no-guid`)
-    - Tests E2E (xUnit + WebApplicationFactory + FluentAssertions). `CartApiFactory` apunta a un sqlite temporal, no a `carts.db` en la carpeta de output
-    - Serilog: consola + JSON, request log, Warning/Error con errorCode, Endpoint y CorrelationId en cada evento del request
-    - Correlation ID inbound y outbound: header `X-Correlation-Id`, campo `correlationId` en errores, propiedad en logs. `CorrelationIdHandler` lo copia en la llamada a Products
 - **Orders.API**
-    - Endpoints 4.4: GET /api/orders (`?usuarioId=` opcional), GET /api/orders/{id}, POST, PUT /api/orders/{id}/status
+    - Endpoints 4.3: GET /api/orders (`?usuarioId=` opcional), GET /api/orders/{id}, POST, PUT /api/orders/{id}/status
     - Persistencia en SQLite con Dapper (`Microsoft.Data.Sqlite`). Al iniciar, `DatabaseInitializer` crea `orders` y `order_items` si no existen. Archivo `orders.db` (`ConnectionStrings:DefaultConnection`). Guids, totales y fechas se guardan como TEXT y Dapper no materializa Guid desde una columna texto: las queries leen en clases Row con campos `string` y mapean a mano con `Guid.Parse` / `decimal.Parse`, igual que Products
     - `ErrorCodes` (ORD-001 a ORD-007) + `OrderException` que ya trae el status code. Un único `OrdersExceptionHandler` los escribe (el pattern de un handler por tipo de excepción de Products/Users/Cart no estaba en el codigo original de la rama y no lo cambiamos)
     - ORD-006 maquina de estados: `HashSet` con las 5 transiciones validas del doc. Mismo estado o estado inexistente es 409 parejo. PUT con estado vacio es 400 ORD-002
@@ -260,6 +248,18 @@ dotnet test
     - Serilog: consola + JSON con Service=Orders.API. Request log con middleware propio (`Request iniciado/finalizado` + DuracionMs), calcado de Notifications
     - Correlation ID inbound y outbound: header `X-Correlation-Id`, campo `correlationId` en errores, propiedad en logs. `CorrelationIdHandler` lo copia en el GET a Products
     - Sin tests E2E, decisión de esta pasada
+- **Cart.API**
+    - Endpoints 4.4: GET /api/cart/{userId}, POST /api/cart/{userId}/items, PUT /api/cart/{userId}/items/{productId}, DELETE item, DELETE carrito
+    - Persistencia en SQLite con Dapper (`Microsoft.Data.Sqlite`). Al iniciar, `DatabaseInitializer` crea `carts` y `cart_items` si no existen. `UsuarioId` es la PK: el Apéndice A no da un Id al carrito. `cart_items` guarda ProductoId y Cantidad; `UsuarioId` ahí es solo la clave del dueño. Archivo `carts.db` (`ConnectionStrings:DefaultConnection`)
+    - POST crea el carrito si no existe y suma la cantidad si el producto ya estaba. PUT reemplaza la cantidad. Stock se valida contra ese total
+    - Stock vía `IProductCatalog` / `ProductCatalogClient`: GET Products `/api/products/{id}` en `Products:BaseUrl` (http://localhost:5001). CRT-002 es un 404 de Products. CRT-003 es cantidad mayor al stock
+    - Los tests de Cart no levantan Products. Reemplazan `IProductCatalog`. 
+    - 404 de ruta inexistente, 405 y 415: `UseStatusCodePages` + `StatusCodeErrorWriter` devuelven el mismo `ErrorResponse` con `correlationId`. La sección 4 no tiene código para estos casos, así que `errorCode` va vacío. `SuppressMapClientErrors` evita que `[ApiController]` arme su propio ProblemDetails en el 415
+    - Health checks 5.4: `/health` (ambas sondas), `/health/ready` (tablas `carts` y `cart_items`), `/health/live` (proceso). JSON `{ status }`
+    - Swagger: XML comments, `[ProducesResponseType]`, `CartSwaggerExamplesFilter`. Donde un status tiene más de un caso van ejemplos nombrados, sin `example` suelto: 400 de POST y PUT (`crt-004`, `body-invalido`), 404 de POST (`crt-002`, `userid-no-guid`), de PUT (`crt-001`, `crt-002`) y de DELETE item (`crt-001`, `productid-no-guid`)
+    - Tests E2E (xUnit + WebApplicationFactory + FluentAssertions). `CartApiFactory` apunta a un sqlite temporal, no a `carts.db` en la carpeta de output
+    - Serilog: consola + JSON, request log, Warning/Error con errorCode, Endpoint y CorrelationId en cada evento del request
+    - Correlation ID inbound y outbound: header `X-Correlation-Id`, campo `correlationId` en errores, propiedad en logs. `CorrelationIdHandler` lo copia en la llamada a Products
 - **Notifications.API**
     - Endpoints 4.5: POST /api/notifications/send (201), GET /api/notifications/{userId} (404 NTF-003 si el usuario no tiene notificaciones)
     - Persistencia en SQLite con Dapper (`Microsoft.Data.Sqlite`). Al iniciar, `DatabaseInitializer` crea la tabla `notifications` si no existe. Archivo `notifications.db` (`ConnectionStrings:DefaultConnection`). El envio se simula: se guarda con Estado `Enviada` y FechaEnvio UTC
@@ -324,6 +324,16 @@ Un directorio que no existe no tira abajo el host: el startup atrapa el error y 
 No hay realmente razon para Degraded en este projecto, por lo chico.
 
 Probar: `GET http://localhost:5001/health` y `GET http://localhost:5002/health`, más `/health/ready` y `/health/live` en cada uno.
+
+## Desvíos justificados del TP
+
+Decisiones donde la implementación se aparta de una lectura literal de la guía, cada una con su nota en el código:
+
+- **ORD-003 y NTF-001 no se disparan.** La guía pide 404 si el `UsuarioId` no existe en Users, pero no define el endpoint interno de Users para consultarlo, y leer la base de otro microservicio rompe el silo. El comentario en `OrdersService.CreateAsync` y en `NotificationService.SendNotification` marca exactamente dónde va la llamada cuando el endpoint exista.
+- **`errorCode` vacío en los 404 de ruta inexistente, 405 y 415.** La sección 3 del TP exige el contrato en todo 4xx, pero la sección 4 no define ningún código de catálogo para errores del framework; tomar uno prestado diría otra cosa. Escriben estos casos `StatusCodeErrorWriter` en las cinco APIs.
+- **`cantidad <= 0` y `usuarioId` vacío responden ORD-002.** El Apéndice A pide `Cantidad` "mayor a 0" y el catálogo de Orders no tiene un código propio tipo CRT-004, así que el valor inválido cae en "datos inválidos". El Guid.Empty además no es un usuario a buscar en Users: es un dato inválido, por eso es ORD-002 y no ORD-003.
+- **El PUT de estado devuelve la orden completa, no el body de ejemplo de la guía.** El ejemplo muestra `fechaActualizacion`, un campo que el Apéndice A define solo para el carrito, no para la orden: el ejemplo contradice al propio UML.
+- **Los `errorMessage` usan las formas cortas de la tabla.** Los textos largos que ilustra la guía están marcados "sugerido".
 
 ## Tecnologías previstas
 
