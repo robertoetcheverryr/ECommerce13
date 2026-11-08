@@ -148,6 +148,11 @@ public class OrdersService : IOrdersService
             FechaCreacion = DateTime.UtcNow
         };
 
+        // Repeated ProductoId lines are the same product. Fold them so ORD-005
+        // checks the total requested against stock (like Cart POST accumulation).
+        // The catalog has no "duplicate item" code; merging avoids two rows of
+        // the same product and keeps the stock check honest.
+        var mergedItems = new List<CreateOrderItemRequest>();
         foreach (var item in request.Items)
         {
             // Cart rejects this with CRT-004; the Orders catalog has no quantity
@@ -159,6 +164,32 @@ public class OrdersService : IOrdersService
                     ErrorCodes.ORD_002_Message,
                     StatusCodes.Status400BadRequest);
 
+            CreateOrderItemRequest? existing = null;
+            foreach (var seen in mergedItems)
+            {
+                if (seen.ProductoId == item.ProductoId)
+                {
+                    existing = seen;
+                    break;
+                }
+            }
+
+            if (existing is null)
+            {
+                mergedItems.Add(new CreateOrderItemRequest
+                {
+                    ProductoId = item.ProductoId,
+                    Cantidad = item.Cantidad
+                });
+            }
+            else
+            {
+                existing.Cantidad += item.Cantidad;
+            }
+        }
+
+        foreach (var item in mergedItems)
+        {
             var product = await _productsClient.GetByIdAsync(
                 item.ProductoId,
                 cancellationToken);
