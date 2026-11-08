@@ -423,7 +423,8 @@ public class ProductsEndpointsTests : IClassFixture<ProductsApiFactory>
     [Fact]
     public async Task Delete_WhenProductHasActiveOrders_ShouldReturnConflict_WithPrd004()
     {
-        // Temporal workaround while Orders is built, inject a mocked checker that returns true
+        // Keeping the fake on purpose, return 409 no matter the product.
+        // The real HTTP test is elsewhere.
         var client = _factory.CreateClientWithActiveOrders();
 
         var createRequest = new
