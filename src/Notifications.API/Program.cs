@@ -5,6 +5,7 @@ using Notifications.API.Services;
 using Serilog;
 using Serilog.Context;
 using Serilog.Formatting.Json;
+using Serilog.Sinks.SystemConsole.Themes;
 using System.Diagnostics;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -17,7 +18,9 @@ var builder = WebApplication.CreateBuilder(args);
 Log.Logger = new LoggerConfiguration()
     .Enrich.FromLogContext()
     .Enrich.WithProperty("Service", "Notifications.API")
-    .WriteTo.Console()
+    .WriteTo.Console(
+        theme: AnsiConsoleTheme.Code,
+        outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Service} {Endpoint} {CorrelationId} {Message:lj}{NewLine}{Exception}")
     .WriteTo.File(
         new JsonFormatter(),
         "logs/notifications-api-.json",

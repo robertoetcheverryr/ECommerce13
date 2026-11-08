@@ -124,7 +124,7 @@ No llama a otros servicios.
 **Orders.API (5003)** - Creación y gestión de órdenes sobre `orders.db`.
 `GET` lista (filtro opcional `usuarioId`), `GET` por id, `POST` y `PUT` del estado.
 Antes de crear consulta a Products.API por cada producto y el stock; el Total y el PrecioUnitario salen del precio de Products.
-Si el producto no existe responde ORD-004; si no hay stock, ORD-005.
+Si el producto no existe responde ORD-004; si no hay stock, ORD-005. Si el mismo `productoId` viene en más de una línea, se juntan las cantidades: ORD-005 se valida contra la suma y la orden guarda una sola fila por producto.
 Todavía no llama a Users.API para validar el `UsuarioId` (ORD-003 pendiente).
 
 **Cart.API (5004)** - Carrito por usuario sobre `carts.db`.
@@ -364,10 +364,10 @@ dotnet test
     - ORD-003 pendiente: falta definir el endpoint interno de Users para validar UsuarioId, hay un comentario en `CreateAsync` marcando donde va
     - 404 de ruta inexistente, 405 y 415: `UseStatusCodePages` + `StatusCodeErrorWriter` devuelven el mismo `ErrorResponse` con `correlationId`. La sección 4 no tiene código para estos casos, así que `errorCode` va vacío.
     - Validación de POST en dos capas, el patrón de Cart: los DTOs exigen `usuarioId`, `items`, `productoId` y `cantidad` con `[JsonRequired]` (si falta un campo en un Guid no nullable toma Guid.Empty), y `CreateAsync` rechaza además valores inválidos: `usuarioId` Guid.Empty explícito, `cantidad` <= 0 e items vacíos, todos 400 ORD-002
-    - Llamada a Products via `IProductsClient` en `Services:ProductsApi:BaseUrl` (http://localhost:5001): 404 ORD-004 si el producto no existe, 422 ORD-005 con nombre/disponible/solicitado en el mensaje si no hay stock. El Total y el PrecioUnitario se calculan con el precio de Products, no con lo que mande el cliente
+    - Llamada a Products via `IProductsClient` en `Services:ProductsApi:BaseUrl` (http://localhost:5001): 404 ORD-004 si el producto no existe, 422 ORD-005 con nombre/disponible/solicitado en el mensaje si no hay stock. Las líneas con el mismo `productoId` se juntan antes de validar, así que el stock se compara contra la cantidad total y queda una sola fila por producto. El Total y el PrecioUnitario se calculan con el precio de Products, no con lo que mande el cliente
     - Health checks 5.4: `/health` (ambas sondas), `/health/ready` (tablas `orders` y `order_items`), `/health/live` (proceso). JSON `{ status }`
     - Swagger: XML comments, `[ProducesResponseType]`, ejemplos con `IExamplesProvider` + `[SwaggerRequestExample]`/`[SwaggerResponseExample]` (`Swashbuckle.AspNetCore.Filters`), el pattern de Notifications y no el OperationFilter de Products/Cart
-    - Serilog: consola + JSON con Service=Orders.API. Request log con middleware propio (`Request iniciado/finalizado` + DuracionMs), calcado de Notifications
+    - Serilog: consola + JSON con Service=Orders.API. La consola usa el mismo template que Products, Users y Cart (Service, Endpoint y CorrelationId en cada línea). Request log con middleware propio (`Request iniciado/finalizado` + DuracionMs), calcado de Notifications
     - Correlation ID inbound y outbound: header `X-Correlation-Id`, campo `correlationId` en errores, propiedad en logs. `CorrelationIdHandler` lo copia en el GET a Products
     - Sin tests E2E, decisión de esta pasada
 - **Cart.API**
@@ -390,7 +390,7 @@ dotnet test
     - 404 de ruta inexistente, 405 y 415: `UseStatusCodePages` + `StatusCodeErrorWriter` devuelven el mismo `ErrorResponse` con `correlationId`. La sección 4 no tiene código para estos casos, así que `errorCode` va vacío.
     - Health checks 5.4: `/health` (ambas sondas), `/health/ready` (tabla `notifications`), `/health/live` (proceso). JSON `{ status }`
     - Swagger: XML comments, `[ProducesResponseType]`, ejemplos con `IExamplesProvider` + `[SwaggerRequestExample]`/`[SwaggerResponseExample]`. Orders copia este pattern
-    - Serilog: consola + JSON con Service=Notifications.API. Request log con middleware propio (`Request iniciado/finalizado` + DuracionMs)
+    - Serilog: consola + JSON con Service=Notifications.API. La consola usa el mismo template que Products, Users y Cart (Service, Endpoint y CorrelationId en cada línea). Request log con middleware propio (`Request iniciado/finalizado` + DuracionMs)
     - Correlation ID inbound: header `X-Correlation-Id`, campo `correlationId` en errores, propiedad en logs. Notifications no llama a nadie, no hay outbound
     - Tests E2E (xUnit + WebApplicationFactory + FluentAssertions): los errores de contrato NTF-003/NTF-004 con su `correlationId` en header y body, y el manejo del header inbound (lo genera si falta, lo trimmea si viene con espacios)
 
@@ -420,6 +420,8 @@ El TP pide estos usos de log:
 - **Excepción no contemplada** - `LogError`
 - **Todo evento logeado debe incluir el endpoint que lo genero**
 - **Correlation ID** en cada evento del request
+
+Las 5 APIs escriben en consola con el mismo template: `[{Timestamp:HH:mm:ss} {Level:u3}] {Service} {Endpoint} {CorrelationId} {Message:lj}{NewLine}{Exception}`.
 
 ## Correlation ID
 
