@@ -17,7 +17,7 @@ public class ProductServicePersistenceTests
         {
             new DatabaseInitializer(connectionString).Initialize();
 
-            var writer = new ProductService(new NoOpActiveOrdersChecker(), connectionString);
+            var writer = new ProductService(new NeverActiveOrdersChecker(), connectionString);
             var created = writer.Create(new CreateProductRequest
             {
                 Nombre = "Notebook Dell XPS 15",
@@ -27,7 +27,7 @@ public class ProductServicePersistenceTests
                 Categoria = "Electrónica"
             });
 
-            var reader = new ProductService(new NoOpActiveOrdersChecker(), connectionString);
+            var reader = new ProductService(new NeverActiveOrdersChecker(), connectionString);
             var loaded = reader.GetById(created.Id);
 
             loaded.Id.Should().Be(created.Id);
@@ -66,8 +66,8 @@ public class ProductServicePersistenceTests
             // Two creates racing for the same name+category. With the check and
             // the INSERT inside a BEGIN IMMEDIATE transaction, the second one
             // waits for the first commit and then sees the row -> PRD-003.
-            var first = Task.Run(() => new ProductService(new NoOpActiveOrdersChecker(), connectionString).Create(request));
-            var second = Task.Run(() => new ProductService(new NoOpActiveOrdersChecker(), connectionString).Create(request));
+            var first = Task.Run(() => new ProductService(new NeverActiveOrdersChecker(), connectionString).Create(request));
+            var second = Task.Run(() => new ProductService(new NeverActiveOrdersChecker(), connectionString).Create(request));
 
             var succeeded = 0;
             var conflicts = 0;
