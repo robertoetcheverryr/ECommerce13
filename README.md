@@ -339,7 +339,7 @@ La cobertura es informativa: una cobertura baja no hace fallar el workflow.
 
 ## QA
 
-El workflow `API QA` levanta las cinco APIs con bases de datos descartables y ejecuta la colección principal de Postman con Newman (obligatorio) y Schemathesis contra el OpenAPI de cada API (informativo por ahora). Ver [QA automatizado de APIs](docs/qa/README.md).
+El workflow `API QA` levanta las cinco APIs con bases de datos descartables y ejecuta la colección principal de Postman con Newman (obligatorio) y Schemathesis contra el OpenAPI de cada API (obligatorio). Ver [QA automatizado de APIs](docs/qa/README.md).
 
 Además, Dependabot abre PRs semanales para actualizar dependencias (NuGet, GitHub Actions, npm y pip), cada PR pasa por una revisión de dependencias vulnerables, y el workflow `Code Quality` informa la complejidad ciclomática del código de las APIs (informativo por ahora).
 

@@ -5,7 +5,7 @@ Added as a learning change: it tests the five APIs **actually running** (Develop
 | Tool | Pinned version | What it does | In CI |
 |------|----------------|--------------|-------|
 | [Newman](https://github.com/postmanlabs/newman) | 6.2.3 (`scripts/qa/package.json` + `package-lock.json`) | Runs the main Postman collection (`docs/postman/ECommerce13.postman_collection.json`): the demo flows across services, with all their assertions. | **Mandatory**: any failed assertion fails the job. |
-| [Schemathesis](https://schemathesis.readthedocs.io/) | 4.33.1 (`scripts/qa/requirements.txt`) | Reads each API's OpenAPI (`/swagger/v1/swagger.json`) and generates valid and invalid requests (nulls, numeric extremes, odd strings, extra or missing fields), looking for 500s, undocumented status codes and responses that break the contract. | **Advisory** for now (see below). |
+| [Schemathesis](https://schemathesis.readthedocs.io/) | 4.33.1 (`scripts/qa/requirements.txt`) | Reads each API's OpenAPI (`/swagger/v1/swagger.json`) and generates valid and invalid requests (nulls, numeric extremes, odd strings, extra or missing fields), looking for 500s, undocumented status codes and responses that break the contract. | **Mandatory**: any API finding fails the job (see below). A manual run can uncheck `schemathesis_blocking` to keep findings advisory. |
 
 ## Architecture
 
@@ -49,21 +49,19 @@ Runs on every pull request to `master`/`main` and manually from **Actions → AP
 
 Each matrix job runs on a fresh runner, so **Newman and each Schemathesis API get their own stack and their own databases**: the junk products, locked users and orders left by fuzzing one API do not contaminate Newman or the others. All five APIs are always started, even when only one is tested, because Products calls Orders on delete and Cart/Orders call Products.
 
-### Why Schemathesis is advisory
+### Schemathesis is mandatory
 
-The first run already finds real failures (see below). Until they are triaged and fixed in other PRs, the job **does not block the PR, but it does not go silently green either**:
+The first run already finds real failures (see below). This PR turns blocking on **on purpose (TDD)**: API findings fail the job so those checks go red before the APIs are fixed. A later, separate PR fixes the findings so later PRs can merge only when every check is green.
 
 - The `Schemathesis` step never fails on its own and does not use `continue-on-error`: `run-schemathesis.sh` records Schemathesis' exit code in `exit-code` and the step logs it. That way findings do not show up as a failed step or as a `Process completed with exit code 1` annotation (the first CI run had one per API).
-- The `Schemathesis verdict` step (`qa-verdict.py`) reads the exit code (`exit-code`) and `schemathesis.json`. Only two cases do not fail the job:
+- The `Schemathesis verdict` step (`qa-verdict.py`) reads the exit code (`exit-code`) and `schemathesis.json`:
   - `0` with at least one tested operation, no failures and no errors: all checks passed.
-  - `1` with at least one tested operation, at least one recorded failure and no errors: API failures. It adds a **warning** visible on the PR with the number of unique failures and writes the table into the job summary. The job does not fail.
+  - `1` with at least one tested operation, at least one recorded failure and no errors: API failures. With blocking on (the default on pull requests, and on a manual run unless `schemathesis_blocking` is unchecked) it adds an **error** visible on the PR with the number of unique failures, writes the table into the job summary, and **fails the job**. If a manual run unchecks `schemathesis_blocking` (or `SCHEMATHESIS_BLOCKING` is not `true`), that same case stays **advisory**: a warning, and the job does not fail.
 - Everything else is an **infrastructure or run error** and fails the job: an `exit-code` that is missing or not an integer, `2` or any other code, a report that is missing, not JSON or not in the expected shape, a report `exit_code` that differs from the real one, zero tested operations or zero generated cases, recorded errors (`errors`, `operations.errored` or `test_cases.errored`, **even when there are also failures**), `1` with no failures in the report, or `0` with failures.
 - If any API stopped answering `/health/ready` after fuzzing, the job fails.
 - Installing tools, building and starting the stack are normal steps: if they fail, the job fails.
 
-There is no baseline and nothing is excluded: no operations, checks, nulls or limits are filtered. To make it mandatory, change the `SCHEMATHESIS_BLOCKING` default to `'true'` in the workflow (or pick `schemathesis_blocking` when running it manually): then any failure fails the job.
-
-Plan: this PR merges with Schemathesis still advisory, because the current findings would otherwise block it. After it merges, `SCHEMATHESIS_BLOCKING` can be switched to `'true'`; a later, separate PR fixes the findings so that the unit tests and the whole QA suite (fuzzing, complexity, coverage, dependencies) pass with blocking gates.
+There is no baseline and nothing is excluded: no operations, checks, nulls or limits are filtered. To treat findings as advisory again on a one-off run, uncheck `schemathesis_blocking` when starting the workflow from Actions.
 
 ### Budget and reports
 

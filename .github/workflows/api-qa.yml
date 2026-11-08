@@ -1,7 +1,8 @@
 name: API QA (Newman + Schemathesis)
 
 # Learning PR: API tests against the real running services.
-# Newman is mandatory. Schemathesis is ADVISORY for now (see docs/qa/README.md).
+# Newman and Schemathesis are both mandatory (see docs/qa/README.md).
+# A manual run can set schemathesis_blocking to false to keep findings advisory.
 on:
   pull_request:
     branches: [ master, main ]
@@ -15,7 +16,7 @@ on:
         description: 'Fail the job when Schemathesis finds failures'
         type: boolean
         required: false
-        default: false
+        default: true
 
 permissions:
   contents: read
@@ -82,7 +83,7 @@ jobs:
           retention-days: 7
 
   schemathesis:
-    name: Schemathesis ${{ matrix.api }} (advisory)
+    name: Schemathesis ${{ matrix.api }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -91,7 +92,7 @@ jobs:
         api: [ Products, Users, Orders, Cart, Notifications ]
     env:
       ST_MAX_TIME: ${{ github.event.inputs.schemathesis_max_time || '90' }}
-      SCHEMATHESIS_BLOCKING: ${{ github.event.inputs.schemathesis_blocking || 'false' }}
+      SCHEMATHESIS_BLOCKING: ${{ github.event.inputs.schemathesis_blocking || 'true' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -141,9 +142,9 @@ jobs:
             | python -c 'import json,sys; d=json.load(sys.stdin); print(d["openapi"], len(d["paths"]), "paths")'
 
       # This step never fails on its own: run-schemathesis.sh records Schemathesis'
-      # exit code in exit-code, and the verdict step decides (0 = clean, 1 = findings,
-      # advisory unless SCHEMATHESIS_BLOCKING, anything else = failure). No
-      # continue-on-error, so findings do not show up as a failed step.
+      # exit code in exit-code, and the verdict step decides (0 = clean, 1 = findings
+      # that fail the job unless SCHEMATHESIS_BLOCKING is false, anything else =
+      # failure). No continue-on-error, so findings do not show up as a failed step.
       - name: Schemathesis
         id: fuzz
         run: |
