@@ -2433,7 +2433,7 @@
     {
       "name": "6 Notifications",
       "id": "6ffb3073-17dc-5499-8230-a3b2c6046323",
-      "description": "Notifications.API todavía no valida el UsuarioId contra Users.API (NTF-001 pendiente), así que no hay request para ese código.",
+      "description": "Envío simulado Email, SMS y Push, persistencia y validaciones NTF-002, usuario sin notificaciones NTF-003, correlación generada y errores del framework. NTF-001 sigue pendiente (no hay consulta de usuario por id en Users.API); NTF-004 requiere una falla interna y se cubre en los tests de la API, no en esta demo HTTP.",
       "item": [
         {
           "name": "Usuario sin notificaciones → 404 NTF-003",
@@ -2451,7 +2451,8 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('status 404', () => pm.response.to.have.status(404));",
-                  "pm.test('errorCode NTF-003', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-003'));"
+                  "pm.test('errorCode NTF-003', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-003'));",
+                  "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"No se encontraron notificaciones para el usuario.\"));"
                 ]
               }
             }
@@ -2482,10 +2483,13 @@
                 "exec": [
                   "pm.test('status 201', () => pm.response.to.have.status(201));",
                   "const n = pm.response.json();",
+                  "const sent = JSON.parse(pm.variables.replaceIn(pm.request.body.raw));",
+                  "pm.test('id GUID', () => pm.expect(n.id).to.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i));",
                   "pm.test('usuarioId', () => pm.expect(n.usuarioId).to.eql(pm.collectionVariables.get('userId')));",
                   "pm.test('tipo Email', () => pm.expect(n.tipo).to.eql('Email'));",
+                  "pm.test('mensaje sin cambios', () => pm.expect(n.mensaje).to.eql(sent.mensaje));",
                   "pm.test('estado Enviada', () => pm.expect(n.estado).to.eql('Enviada'));",
-                  "pm.test('fechaEnvio asignada', () => pm.expect(n.fechaEnvio).to.be.a('string').and.not.empty);",
+                  "pm.test('fechaEnvio UTC válida', () => { pm.expect(n.fechaEnvio).to.match(/Z$/); pm.expect(Number.isNaN(Date.parse(n.fechaEnvio))).to.eql(false); });",
                   "pm.collectionVariables.set('notificationId', n.id);"
                 ]
               }
@@ -2516,7 +2520,53 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('status 201', () => pm.response.to.have.status(201));",
-                  "pm.test('tipo SMS', () => pm.expect(pm.response.json().tipo).to.eql('SMS'));"
+                  "const n = pm.response.json();",
+                  "const sent = JSON.parse(pm.variables.replaceIn(pm.request.body.raw));",
+                  "pm.test('id GUID', () => pm.expect(n.id).to.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i));",
+                  "pm.test('usuarioId', () => pm.expect(n.usuarioId).to.eql(pm.collectionVariables.get('userId')));",
+                  "pm.test('tipo SMS', () => pm.expect(n.tipo).to.eql('SMS'));",
+                  "pm.test('mensaje sin cambios', () => pm.expect(n.mensaje).to.eql(sent.mensaje));",
+                  "pm.test('estado Enviada', () => pm.expect(n.estado).to.eql('Enviada'));",
+                  "pm.test('fechaEnvio UTC válida', () => { pm.expect(n.fechaEnvio).to.match(/Z$/); pm.expect(Number.isNaN(Date.parse(n.fechaEnvio))).to.eql(false); });",
+                  "pm.collectionVariables.set('notificationSmsId', n.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Enviar notificación Push con mensaje de 500 caracteres",
+          "id": "a726eb2e-76f6-55f3-af74-dcd61453dd15",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{notificationsUrl}}/api/notifications/send",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": \"{{userId}}\",\n  \"mensaje\": \"PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP\",\n  \"tipo\": \"Push\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "const n = pm.response.json();",
+                  "const sent = JSON.parse(pm.variables.replaceIn(pm.request.body.raw));",
+                  "pm.test('id GUID', () => pm.expect(n.id).to.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i));",
+                  "pm.test('usuarioId', () => pm.expect(n.usuarioId).to.eql(pm.collectionVariables.get('userId')));",
+                  "pm.test('tipo Push', () => pm.expect(n.tipo).to.eql('Push'));",
+                  "pm.test('mensaje sin cambios', () => pm.expect(n.mensaje).to.eql(sent.mensaje));",
+                  "pm.test('estado Enviada', () => pm.expect(n.estado).to.eql('Enviada'));",
+                  "pm.test('fechaEnvio UTC válida', () => { pm.expect(n.fechaEnvio).to.match(/Z$/); pm.expect(Number.isNaN(Date.parse(n.fechaEnvio))).to.eql(false); });",
+                  "pm.collectionVariables.set('notificationPushId', n.id);"
                 ]
               }
             }
@@ -2538,9 +2588,13 @@
                 "exec": [
                   "pm.test('status 200', () => pm.response.to.have.status(200));",
                   "const list = pm.response.json();",
-                  "pm.test('dos notificaciones', () => pm.expect(list.length).to.eql(2));",
-                  "pm.test('incluye la notificación Email', () => pm.expect(list.map(n => n.id)).to.include(pm.collectionVariables.get('notificationId')));",
-                  "pm.test('todas del usuario', () => list.forEach(n => pm.expect(n.usuarioId).to.eql(pm.collectionVariables.get('userId'))));"
+                  "pm.test('tres notificaciones', () => pm.expect(list.length).to.eql(3));",
+                  "pm.test('incluye Email, SMS y Push', () => {",
+                  "    const ids = list.map(n => n.id);",
+                  "    ['notificationId', 'notificationSmsId', 'notificationPushId'].forEach(k => pm.expect(ids).to.include(pm.collectionVariables.get(k)));",
+                  "    pm.expect(list.map(n => n.tipo)).to.have.members(['Email', 'SMS', 'Push']);",
+                  "});",
+                  "pm.test('todas del usuario y enviadas', () => list.forEach(n => { pm.expect(n.usuarioId).to.eql(pm.collectionVariables.get('userId')); pm.expect(n.estado).to.eql('Enviada'); }));"
                 ]
               }
             }
@@ -2570,7 +2624,8 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('status 400', () => pm.response.to.have.status(400));",
-                  "pm.test('errorCode NTF-002', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-002'));"
+                  "pm.test('errorCode NTF-002', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-002'));",
+                  "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El tipo debe ser Email, Push o SMS.\"));"
                 ]
               }
             }
@@ -2600,7 +2655,413 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('status 400', () => pm.response.to.have.status(400));",
-                  "pm.test('errorCode NTF-002', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-002'));"
+                  "pm.test('errorCode NTF-002', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-002'));",
+                  "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El mensaje es obligatorio.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mensaje en blanco → 400 NTF-002",
+          "id": "3109ff3e-e8dc-55c1-b8ea-c8667163b82a",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{notificationsUrl}}/api/notifications/send",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": \"{{userId}}\",\n  \"mensaje\": \"   \",\n  \"tipo\": \"Push\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('errorCode NTF-002', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-002'));",
+                  "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El mensaje es obligatorio.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mensaje de 501 caracteres → 400 NTF-002",
+          "id": "c479096b-9dca-5821-9bf5-af2fb10f6ea3",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{notificationsUrl}}/api/notifications/send",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": \"{{userId}}\",\n  \"mensaje\": \"PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP\",\n  \"tipo\": \"Push\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('errorCode NTF-002', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-002'));",
+                  "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El mensaje no puede superar los 500 caracteres.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Enviar sin tipo → 400 NTF-002",
+          "id": "893b46fd-81b7-5db7-9f45-f165177ff944",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{notificationsUrl}}/api/notifications/send",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": \"{{userId}}\",\n  \"mensaje\": \"Mensaje de prueba.\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('errorCode NTF-002', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-002'));",
+                  "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El tipo es obligatorio.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Enviar sin UsuarioId → 400 NTF-002",
+          "id": "f4674419-6740-5818-8c76-bf2063f815da",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{notificationsUrl}}/api/notifications/send",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mensaje\": \"Mensaje de prueba.\",\n  \"tipo\": \"Push\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('errorCode NTF-002', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-002'));",
+                  "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El UsuarioId no tiene un formato válido.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "UsuarioId GUID vacío → 400 NTF-002",
+          "id": "188ebe09-6568-5918-91dd-f3694dedcfab",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{notificationsUrl}}/api/notifications/send",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": \"00000000-0000-0000-0000-000000000000\",\n  \"mensaje\": \"Mensaje de prueba.\",\n  \"tipo\": \"Push\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('errorCode NTF-002', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-002'));",
+                  "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El UsuarioId no tiene un formato válido.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "UsuarioId no GUID → 400 NTF-002",
+          "id": "c4aa83cf-13a9-513e-ab72-2598ae3a9564",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{notificationsUrl}}/api/notifications/send",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": \"no-es-guid\",\n  \"mensaje\": \"Mensaje de prueba.\",\n  \"tipo\": \"Push\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('errorCode NTF-002', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-002'));",
+                  "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El campo 'usuarioId' tiene un formato inválido.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "JSON mal formado → 400 NTF-002",
+          "id": "b12c838c-fa4b-56ea-a724-c6083d5d4bda",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{notificationsUrl}}/api/notifications/send",
+            "body": {
+              "mode": "raw",
+              "raw": "{"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('errorCode NTF-002', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-002'));",
+                  "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El cuerpo de la solicitud no es un JSON válido.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sin body → 400 NTF-002",
+          "id": "e7ded364-cb40-5272-a86e-8d1e20e97c46",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{notificationsUrl}}/api/notifications/send",
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('errorCode NTF-002', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-002'));",
+                  "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El cuerpo de la solicitud es obligatorio.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "userId no GUID → 404 sin código",
+          "id": "13810072-cdc2-5009-9c95-8478083666a3",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{notificationsUrl}}/api/notifications/no-es-guid"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
+                  "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"La ruta solicitada no existe.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Ruta inexistente de Notifications → 404 sin código",
+          "id": "1e0ceabf-4460-5d45-8355-2d58a9ffcd26",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{notificationsUrl}}/api/notifications/ruta/inexistente"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
+                  "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"La ruta solicitada no existe.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Método no permitido de Notifications → 405 sin código",
+          "id": "2f9e8c37-a080-51ca-ba5c-2f08f0d65999",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{notificationsUrl}}/api/notifications/{{userId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 405', () => pm.response.to.have.status(405));",
+                  "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
+                  "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Método no permitido.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Content-Type no soportado de Notifications → 415 sin código",
+          "id": "4a14008a-78f5-5699-8050-0e1445ecff3f",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{notificationsUrl}}/api/notifications/send",
+            "body": {
+              "mode": "raw",
+              "raw": "texto"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 415', () => pm.response.to.have.status(415));",
+                  "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
+                  "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El body debe enviarse como application/json.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sin header genera un GUID en Notifications → 404 NTF-003",
+          "id": "13b79135-a7a8-5ad0-8930-0b68d2e73adb",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{notificationsUrl}}/api/notifications/{{$guid}}"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.request.headers.remove('X-Correlation-Id');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('errorCode NTF-003', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-003'));",
+                  "pm.test('errorMessage exacto', () => pm.expect(pm.response.json().errorMessage).to.eql(\"No se encontraron notificaciones para el usuario.\"));",
+                  "pm.test('genera un GUID', () => pm.expect(pm.response.headers.get('X-Correlation-Id')).to.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Las validaciones fallidas no agregan notificaciones",
+          "id": "4942f40e-dfb1-54b0-91b4-25eb82a2852e",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{notificationsUrl}}/api/notifications/{{userId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const list = pm.response.json();",
+                  "pm.test('tres notificaciones', () => pm.expect(list.length).to.eql(3));",
+                  "pm.test('incluye Email, SMS y Push', () => {",
+                  "    const ids = list.map(n => n.id);",
+                  "    ['notificationId', 'notificationSmsId', 'notificationPushId'].forEach(k => pm.expect(ids).to.include(pm.collectionVariables.get(k)));",
+                  "    pm.expect(list.map(n => n.tipo)).to.have.members(['Email', 'SMS', 'Push']);",
+                  "});",
+                  "pm.test('todas del usuario y enviadas', () => list.forEach(n => { pm.expect(n.usuarioId).to.eql(pm.collectionVariables.get('userId')); pm.expect(n.estado).to.eql('Enviada'); }));"
                 ]
               }
             }

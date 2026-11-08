@@ -46,20 +46,22 @@ Se puede correr varias veces seguidas sobre la misma base: cada corrida usa un `
 | 3 Cart | 29 requests: agregar (crea y acumula), actualizar (reemplaza), quitar y vaciar. CRT-001 también en PUT/DELETE sin carrito y al operar sobre un item ya quitado; CRT-002 en POST/PUT; CRT-003 en POST (total acumulado) y PUT (cantidad nueva), sin modificar el carrito al fallar; CRT-004 con cero y negativo. Campos faltantes, ids inválidos, GUID de correlación generado y 404/405/415 propios de Cart. |
 | 4 Correlation ID | El id enviado vuelve en el header y en el body de los errores; sin header se genera un GUID; Cart lo reenvía a Products. |
 | 5 Errores del framework | Ruta inexistente (404), método no permitido (405) y `Content-Type` no soportado (415), con `errorCode` vacío. |
-| 6 Notifications | Envío Email y SMS, listado del usuario. NTF-003 (usuario sin notificaciones), NTF-002 (tipo no reconocido y mensaje faltante). |
+| 6 Notifications | 21 requests: envío Email, SMS y Push (mensaje de 500 caracteres), listado y verificación de que los errores no agregan notificaciones. NTF-003 (usuario sin notificaciones); NTF-002 por tipo no reconocido o faltante, mensaje faltante/en blanco/de 501 caracteres, `UsuarioId` faltante/vacío/no GUID, JSON mal formado y body ausente. GUID de correlación generado y 404/405/415 propios de Notifications. |
 | 7 Limpieza | Vacía el carrito, cancela la orden de PRD-004 y borra los productos creados (C, A y B). |
 
-NTF-001 no aparece: Notifications.API todavía no valida el `UsuarioId` contra Users.API (pendiente), así que hoy un `UsuarioId` inexistente igual responde 201. NTF-004 tampoco aparece porque no se puede provocar desde afuera (lo cubre `GlobalExceptionTests`).
+NTF-001 no aparece: Notifications.API todavía no valida el `UsuarioId` contra Users.API (pendiente), así que hoy un `UsuarioId` inexistente igual responde 201. NTF-004 (500) requiere una falla interna del servicio o de persistencia: no se fuerza en la demo HTTP ni se rompe la base para mostrarlo. Lo cubre `GlobalExceptionTests` inyectando un servicio que lanza una excepción; `CorrelationIdHeaderTests` también verifica que el header vuelve en ese error. Las capturas de Notifications muestran los dos códigos que hoy se pueden provocar con sus endpoints públicos (NTF-002 y NTF-003).
 
 USR-005 está implementado: el login devuelve 403 si `Activo == false` e `IntentosFallidos < 3`. No se incluye en la demo HTTP porque Users no tiene un endpoint de bloqueo manual; lo cubren `UsersEndpointsTests` y `UserServicePersistenceTests` con `UserService.MarkManuallyBlocked`. USR-006 (500) necesita una falla interna de servicio o persistencia; lo cubre `UnhandledExceptionTests`, sin romper la base de la demo. Las capturas de Users muestran los cuatro códigos que se pueden provocar con sus endpoints públicos (USR-001 a USR-004).
 
 En Cart, un body sin `cantidad` devuelve 400 con `errorCode` vacío (no CRT-004: ese código es para un valor menor o igual a cero). El POST con `userId` no GUID y el DELETE de item con `productId` no GUID devuelven 404 con `errorCode` vacío; no se les asigna un código de otro caso del catálogo. El PUT sobre un producto que existe en Products pero ya no está en el carrito devuelve CRT-001.
 
+En Notifications, el `UsuarioId` faltante o GUID vacío devuelve 400 NTF-002 (no NTF-001). Un `userId` no GUID en el GET no coincide con la ruta y devuelve 404 con `errorCode` vacío (no NTF-003). Los envíos exitosos verifican el id, destinatario, mensaje, tipo, estado `Enviada` y fecha UTC; el listado recupera los tres ids creados y sigue teniendo solo esas tres notificaciones después de las validaciones fallidas.
+
 Los requests del carrito y de notificaciones usan el `userId` que devuelve el registro de la carpeta 2, así que las carpetas se corren en orden.
 
 ## Tests
 
-Cada request verifica el status y el `errorCode` esperados. Los errores de las carpetas Users y Cart, y el CRT-005 manual, también verifican el `errorMessage` exacto. A nivel colección se verifica además que:
+Cada request verifica el status y el `errorCode` esperados. Los errores de las carpetas Users, Cart y Notifications, y el CRT-005 manual, también verifican el `errorMessage` exacto. A nivel colección se verifica además que:
 
 - la respuesta trae el header `X-Correlation-Id` y es igual al enviado;
 - toda respuesta 4xx/5xx tiene `errorCode`, un `errorMessage` no vacío y un `correlationId` igual al header.

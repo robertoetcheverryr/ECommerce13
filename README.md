@@ -133,9 +133,9 @@ Antes de guardar consulta a Products.API por el producto y el stock.
 Si Products no responde, devuelve CRT-005 y deja el carrito como estaba.
 
 **Notifications.API (5005)** - Registro y envío simulado de notificaciones sobre `notifications.db`.
-`POST /api/notifications/send` guarda la notificación con `Estado` "Enviada" y `FechaEnvio` en UTC. `Tipo` tiene que ser Email, Push o SMS.
+`POST /api/notifications/send` guarda la notificación con `Estado` "Enviada" y `FechaEnvio` en UTC. `Tipo` tiene que ser Email, Push o SMS; el mensaje es obligatorio y admite hasta 500 caracteres. Un `UsuarioId` faltante, GUID vacío o mal formado devuelve 400 NTF-002.
 `GET /api/notifications/{userId}` lista las notificaciones del usuario; si no tiene ninguna responde NTF-003.
-Todavía no llama a Users.API para validar el `UsuarioId` (NTF-001 pendiente).
+Todavía no llama a Users.API para validar el `UsuarioId` (NTF-001 pendiente). NTF-004 requiere una falla interna de servicio o persistencia: se cubre con los tests de la API, sin forzarla en la demo HTTP.
 
 ## Códigos de error
 
