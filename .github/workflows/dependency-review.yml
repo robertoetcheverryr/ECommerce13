@@ -26,3 +26,11 @@ jobs:
 
       - name: Dependency review
         uses: actions/dependency-review-action@v5.0.0
+        with:
+          # Newman 6.2.3 pulls @faker-js/faker@5.5.3 via postman-collection. GHSA-qxc2-j82w-r537
+          # (helpers.fake RCE) has no compatible patch: forcing faker ^10.5.0 crashes Newman
+          # (faker.address.city). postman-collection never calls helpers.fake. Upstream
+          # postmanlabs/postman-collection#1390 (2024-12-05) and PR #1393 (2025-01-11) are still
+          # unmerged; latest postman-collection 5.3.1 still pins faker 5.5.3. Allow only this
+          # advisory and remove it once Newman ships a patched faker. See docs/qa/README.md.
+          allow-ghsas: GHSA-qxc2-j82w-r537
