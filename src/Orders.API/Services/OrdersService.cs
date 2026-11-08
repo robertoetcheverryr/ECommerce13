@@ -118,6 +118,16 @@ public class OrdersService : IOrdersService
         CreateOrderRequest request,
         CancellationToken cancellationToken = default)
     {
+        // The DTO's [JsonRequired] forces usuarioId to be present, but an explicit
+        // 00000000-... still binds; without this guard the order persists with it and
+        // silently poisons the PRD-004 active-orders checks on Products (same
+        // two-layer doctrine Cart uses for productoId, see AddCartItemRequest).
+        if (request.UsuarioId == Guid.Empty)
+            throw new OrderException(
+                ErrorCodes.ORD_002,
+                ErrorCodes.ORD_002_Message,
+                StatusCodes.Status400BadRequest);
+
         if (request.Items is null || request.Items.Count == 0)
             throw new OrderException(
                 ErrorCodes.ORD_002,
