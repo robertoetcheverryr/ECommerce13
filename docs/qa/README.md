@@ -10,13 +10,18 @@ Added as a learning change: it tests the five APIs **actually running** (Develop
 ## Architecture
 
 ```
-.github/workflows/api-qa.yml      new workflow (tests.yml is unchanged)
+.github/workflows/api-qa.yml      API QA workflow (Newman + Schemathesis)
+.github/workflows/code-quality.yml  advisory cyclomatic complexity (lizard)
+.github/workflows/dependency-review.yml  dependency review on pull requests
+.github/dependabot.yml            weekly dependency update PRs
 scripts/qa/stack.sh               starts/stops the 5 APIs with disposable SQLite databases
 scripts/qa/run-newman.sh          runs the main Postman collection
 scripts/qa/run-schemathesis.sh    runs Schemathesis against one API
 scripts/qa/qa-verdict.py          interprets the Schemathesis result and writes the job summary
 scripts/qa/test_qa_verdict.py     unit tests (unittest, standard library only) for qa-verdict.py
 scripts/qa/run-local.sh           the same as the workflow, on a local machine
+scripts/qa/complexity-report.py   summarizes the lizard CSV report for the Code Quality job
+scripts/qa/test_complexity_report.py  unit tests for complexity-report.py
 ```
 
 `stack.sh start <dir>` runs the `.dll` files from the Release build (`dotnet build -c Release`), in the order Products, Users, Orders, Cart, Notifications, with:
@@ -43,7 +48,7 @@ Each matrix job runs on a fresh runner, so **Newman and each Schemathesis API ge
 
 The first run already finds real failures (see below). Until they are triaged and fixed in other PRs, the job **does not block the PR, but it does not go silently green either**:
 
-- The `Schemathesis` step is the **only** one with `continue-on-error: true`. If it finds failures, the step is marked as failed in the job log.
+- The `Schemathesis` step never fails on its own and does not use `continue-on-error`: `run-schemathesis.sh` records Schemathesis' exit code in `exit-code` and the step logs it. That way findings do not show up as a failed step or as a `Process completed with exit code 1` annotation (the first CI run had one per API).
 - The `Schemathesis verdict` step (`qa-verdict.py`) reads the exit code (`exit-code`) and `schemathesis.json`. Only two cases do not fail the job:
   - `0` with at least one tested operation, no failures and no errors: all checks passed.
   - `1` with at least one tested operation, at least one recorded failure and no errors: API failures. It adds a **warning** visible on the PR with the number of unique failures and writes the table into the job summary. The job does not fail.
@@ -53,11 +58,26 @@ The first run already finds real failures (see below). Until they are triaged an
 
 There is no baseline and nothing is excluded: no operations, checks, nulls or limits are filtered. To make it mandatory, change the `SCHEMATHESIS_BLOCKING` default to `'true'` in the workflow (or pick `schemathesis_blocking` when running it manually): then any failure fails the job.
 
+Plan: this PR merges with Schemathesis still advisory, because the current findings would otherwise block it. After it merges, `SCHEMATHESIS_BLOCKING` can be switched to `'true'`; a later, separate PR fixes the findings so that the unit tests and the whole QA suite (fuzzing, complexity, dependencies) pass with blocking gates.
+
 ### Budget and reports
 
 - Schemathesis: phases `examples`, `coverage`, `fuzzing` and `stateful`, `--seed 13`, `--max-examples 30`, `--max-time 90` per API (a manual run can ask for 10 to 600 seconds), one worker, 10 s timeout per request. With `--max-time` it keeps fuzzing until the time is spent, so the number of cases depends on runner speed: the seed makes runs similar, not identical.
 - Estimated duration of each job: a few minutes of install and build, plus the Schemathesis budget. The Newman collection itself takes about 3 seconds.
 - Artifacts (**7 days** retention): `newman-reports` (`newman-cli.txt`, `newman-junit.xml`) and `schemathesis-<API>` (`schemathesis-cli.txt` with the `curl` commands to reproduce each failure, `schemathesis.json`, `schemathesis-junit.xml`, `html/index.html`). Only the last 500 console lines of each API are uploaded. Databases, Serilog logs (tens of MB after fuzzing) and build output are **never** uploaded.
+
+## Dependency and code hygiene
+
+| Piece | File | What it does | Blocking? |
+|-------|------|--------------|-----------|
+| Dependabot version updates | `.github/dependabot.yml` | Weekly update PRs (at most 5 open per ecosystem) for `nuget` (`/`, the solution and its projects), `github-actions` (`/`, the workflows), `npm` (`/scripts/qa`, Newman) and `pip` (`/scripts/qa`, Schemathesis and lizard). | No, it opens PRs. |
+| Dependency review | `.github/workflows/dependency-review.yml` | On every pull request, `actions/dependency-review-action` (pinned to `v5.0.0`) checks the dependencies the PR adds or changes against the GitHub Advisory Database. | Yes, for vulnerable dependencies **introduced by the PR**. |
+| Action majors in `Tests` | `.github/workflows/tests.yml` | `actions/checkout@v7` and `actions/setup-dotnet@v6`, which run on Node 24 and remove the Node 20 deprecation warning. Runner, triggers and test commands are unchanged. | Same as before. |
+| Cyclomatic complexity | `.github/workflows/code-quality.yml` | Runs [lizard](https://github.com/terryyin/lizard) 1.25.1 (`scripts/qa/requirements-quality.txt`) on the C# of the five API projects (`bin/` and `obj/` excluded, tests not included) and writes the job summary with `scripts/qa/complexity-report.py`: functions analyzed, average and max CCN, how many exceed CCN 15 and the 15 most complex functions. The CSV report is uploaded as `complexity-report` (7 days). | No, **advisory**. Only an unusable report (tool error, no functions parsed) fails the job. |
+
+Known vulnerability already on `master`: `SQLitePCLRaw.lib.e_sqlite3` 2.1.11 (`NU1903`, [GHSA-2m69-gcr7-jv3q](https://github.com/advisories/GHSA-2m69-gcr7-jv3q)), a transitive dependency of Products, Users, Cart and their tests. Dependency review does not flag it here because this PR does not change those packages; Dependabot alerts and security updates are where it surfaces. It is not upgraded in this PR.
+
+lizard measures functions and methods. Top-level statements in `Program.cs` are not counted as a function.
 
 ## Running locally
 
@@ -75,10 +95,19 @@ ST=/tmp/ec13-qa-venv/bin/st bash scripts/qa/run-local.sh
 ST=/tmp/ec13-qa-venv/bin/st bash scripts/qa/run-local.sh newman Orders
 ```
 
-The `qa-verdict.py` tests do not need the APIs:
+The `qa-verdict.py` and `complexity-report.py` tests do not need the APIs:
 
 ```bash
 python3 -m unittest discover -s scripts/qa -p "test_*.py" -v
+```
+
+Complexity report, as in the Code Quality job:
+
+```bash
+/tmp/ec13-qa-venv/bin/pip install -r scripts/qa/requirements-quality.txt
+/tmp/ec13-qa-venv/bin/lizard -l csharp --csv -C 15 -i -1 -x "*/bin/*" -x "*/obj/*" \
+  src/Products.API src/Users.API src/Orders.API src/Cart.API src/Notifications.API > /tmp/lizard.csv
+python3 scripts/qa/complexity-report.py /tmp/lizard.csv --threshold 15
 ```
 
 Reports go to `qa-artifacts/` and Schemathesis leaves caches in `.schemathesis/` and `.hypothesis/` (all three are git-ignored); databases and logs go to a temporary directory that is deleted at the end. If ports 5001..5005 are busy (for example, with the APIs running for the demo), use another range: `QA_PORT_BASE=6100` uses 6101..6105. `ST_MAX_TIME=30` shortens the Schemathesis budget.
@@ -94,6 +123,8 @@ Reports go to `qa-artifacts/` and Schemathesis leaves caches in `.schemathesis/`
 - The APIs have no authentication; none is invented.
 
 ## Failures observed in the first run
+
+First CI run of this workflow (`API QA` run 42515226742 on PR #19): Newman passed (121 requests, 512 assertions, 0 failures), and Schemathesis reported 33 unique findings across the five APIs (Products 9, Users 7, Orders 9, Cart 4, Notifications 4) with no infrastructure errors. The only real server error is the Orders 500 below.
 
 Local smoke run with `run-local.sh` on `master` at `17336cc`, with a budget **reduced to 15 s per API** (`ST_MAX_TIME=15`, seed 13; CI uses 90 s and may find more). Each target on its own fresh stack and databases. **Newman: 121 requests, 512 assertions, 0 failures.** Schemathesis (this is not a green QA run; no run recorded infrastructure errors):
 

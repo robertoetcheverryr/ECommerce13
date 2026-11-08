@@ -140,12 +140,15 @@ jobs:
           curl -fsS --max-time 10 "http://127.0.0.1:$port/swagger/v1/swagger.json" \
             | python -c 'import json,sys; d=json.load(sys.stdin); print(d["openapi"], len(d["paths"]), "paths")'
 
-      # The only continue-on-error step: findings stay marked on this step and in the
-      # report, and the next step decides whether they block.
+      # This step never fails on its own: run-schemathesis.sh records Schemathesis'
+      # exit code in exit-code, and the verdict step decides (0 = clean, 1 = findings,
+      # advisory unless SCHEMATHESIS_BLOCKING, anything else = failure). No
+      # continue-on-error, so findings do not show up as a failed step.
       - name: Schemathesis
         id: fuzz
-        continue-on-error: true
-        run: bash scripts/qa/run-schemathesis.sh "${{ matrix.api }}" "$RUNNER_TEMP/reports/schemathesis"
+        run: |
+          bash scripts/qa/run-schemathesis.sh "${{ matrix.api }}" "$RUNNER_TEMP/reports/schemathesis" \
+            || echo "Schemathesis exited with $? (recorded in exit-code; the verdict step decides)"
 
       - name: Schemathesis verdict
         if: ${{ !cancelled() && steps.fuzz.outcome != 'skipped' }}

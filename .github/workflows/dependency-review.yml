@@ -1,0 +1,28 @@
+name: Dependency Review
+
+# Reviews the dependency changes introduced by a pull request against the GitHub
+# Advisory Database. It only looks at the diff, so vulnerabilities that already
+# exist on the base branch (for example NU1903 / GHSA-2m69-gcr7-jv3q) do not fail
+# a PR that does not touch those packages; Dependabot alerts cover those.
+on:
+  pull_request:
+    branches: [ master, main ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dependency-review-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dependency-review:
+    name: Dependency review
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Dependency review
+        uses: actions/dependency-review-action@v5.0.0

@@ -1,0 +1,2 @@
+# lizard for the advisory cyclomatic complexity job (see docs/qa/README.md). Pinned version.
+lizard==1.25.1

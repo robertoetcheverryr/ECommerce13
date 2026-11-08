@@ -1,0 +1,63 @@
+name: Code Quality
+
+# Source-level quality metrics. ADVISORY for now: findings are reported in the job
+# summary and never fail the job. Only tool or setup errors (install failure, no C#
+# functions parsed, unreadable report) fail it. See docs/qa/README.md.
+on:
+  pull_request:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: code-quality-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Conventional warning threshold: functions with CCN above this value are reported.
+  CCN_THRESHOLD: '15'
+
+jobs:
+  complexity:
+    name: Cyclomatic complexity (advisory)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+
+      - name: Install lizard (pinned in scripts/qa/requirements-quality.txt)
+        run: |
+          python -m pip install --disable-pip-version-check -r scripts/qa/requirements-quality.txt
+          lizard --version
+
+      - name: complexity-report.py tests
+        run: python -m unittest scripts/qa/test_complexity_report.py -v
+
+      # The five API projects only; tests and build output are excluded.
+      - name: Measure complexity
+        run: |
+          mkdir -p "$RUNNER_TEMP/reports/complexity"
+          lizard -l csharp --csv -C "$CCN_THRESHOLD" -i -1 \
+            -x "*/bin/*" -x "*/obj/*" \
+            src/Products.API src/Users.API src/Orders.API src/Cart.API src/Notifications.API \
+            > "$RUNNER_TEMP/reports/complexity/lizard.csv"
+
+      - name: Complexity summary
+        run: python scripts/qa/complexity-report.py "$RUNNER_TEMP/reports/complexity/lizard.csv" --threshold "$CCN_THRESHOLD"
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: complexity-report
+          path: ${{ runner.temp }}/reports/complexity
+          if-no-files-found: warn
+          retention-days: 7

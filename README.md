@@ -328,6 +328,8 @@ dotnet test
 
 El workflow `API QA` levanta las cinco APIs con bases de datos descartables y ejecuta la colección principal de Postman con Newman (obligatorio) y Schemathesis contra el OpenAPI de cada API (informativo por ahora). Ver [QA automatizado de APIs](docs/qa/README.md).
 
+Además, Dependabot abre PRs semanales para actualizar dependencias (NuGet, GitHub Actions, npm y pip), cada PR pasa por una revisión de dependencias vulnerables, y el workflow `Code Quality` informa la complejidad ciclomática del código de las APIs (informativo por ahora).
+
 ## Estado actual
 
 - Estructura de la solución + 5 microservicios + tests + CI (GitHub Actions)
