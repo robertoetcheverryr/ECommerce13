@@ -1,8 +1,13 @@
 name: Code Quality
 
-# Source-level quality metrics. ADVISORY for now: findings are reported in the job
-# summary and never fail the job. Only tool or setup errors (install failure, no C#
-# functions parsed, unreadable report) fail it. See docs/qa/README.md.
+# Source-level quality checks. See docs/qa/README.md.
+# - complexity: ADVISORY. Findings are reported in the job summary and never fail the
+#   job; only tool or setup errors (install failure, no C# functions parsed, unreadable
+#   report) fail it.
+# - sbom: generates the CycloneDX SBOM artifact. Fails only if the tool fails or the
+#   SBOM has no components.
+# - lint: STRICT. actionlint, shellcheck and yamllint findings fail the job, because a
+#   lint error in our own workflows or scripts is a real problem.
 on:
   pull_request:
     branches: [ master, main ]
@@ -18,6 +23,12 @@ concurrency:
 env:
   # Conventional warning threshold: functions with CCN above this value are reported.
   CCN_THRESHOLD: '15'
+  # Pinned tool versions (sha256 values from the official release assets).
+  CYCLONEDX_VERSION: '6.3.1'
+  ACTIONLINT_VERSION: '1.7.12'
+  ACTIONLINT_SHA256: '8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8'
+  SHELLCHECK_VERSION: '0.11.0'
+  SHELLCHECK_SHA256: '8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198'
 
 jobs:
   complexity:
@@ -61,3 +72,96 @@ jobs:
           path: ${{ runner.temp }}/reports/complexity
           if-no-files-found: warn
           retention-days: 7
+
+  sbom:
+    name: SBOM (CycloneDX)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install CycloneDX for .NET
+        run: dotnet tool install CycloneDX --version "$CYCLONEDX_VERSION" --tool-path "$RUNNER_TEMP/tools"
+
+      # Production dependencies of the five APIs (test projects excluded). No project
+      # file is changed: the tool restores the solution and reads the resolved graph.
+      - name: Generate SBOM
+        run: |
+          mkdir -p "$RUNNER_TEMP/sbom"
+          "$RUNNER_TEMP/tools/dotnet-CycloneDX" ECommerce13.sln --exclude-test-projects \
+            --output-format Json --output "$RUNNER_TEMP/sbom" --filename ecommerce13.cdx.json --set-name ECommerce13
+
+      - name: SBOM summary
+        run: |
+          sbom="$RUNNER_TEMP/sbom/ecommerce13.cdx.json"
+          count=$(jq '.components | length' "$sbom")
+          spec=$(jq -r '.specVersion' "$sbom")
+          if [ "$count" -eq 0 ]; then
+            echo "::error::The SBOM has no components"
+            exit 1
+          fi
+          {
+            echo "## SBOM (CycloneDX $spec)"
+            echo ""
+            echo "- Components: $count (NuGet packages of the five APIs, direct and transitive; test projects excluded)"
+            echo "- Artifact: \`sbom-cyclonedx\` (\`ecommerce13.cdx.json\`, 7 days)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v7
+        with:
+          name: sbom-cyclonedx
+          path: ${{ runner.temp }}/sbom/ecommerce13.cdx.json
+          if-no-files-found: error
+          retention-days: 7
+
+  lint:
+    name: Workflow and script lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+
+      # Official release binaries, verified against the pinned sha256 values.
+      - name: Install actionlint, shellcheck and yamllint
+        run: |
+          bin="$RUNNER_TEMP/lint-bin"
+          mkdir -p "$bin"
+          cd "$RUNNER_TEMP"
+          curl -fsSLO "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          echo "${ACTIONLINT_SHA256}  actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" | sha256sum -c -
+          tar -xzf "actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" -C "$bin" actionlint
+          curl -fsSLO "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz"
+          echo "${SHELLCHECK_SHA256}  shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz" | sha256sum -c -
+          tar -xJf "shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz" -C "$bin" --strip-components=1 "shellcheck-v${SHELLCHECK_VERSION}/shellcheck"
+          echo "$bin" >> "$GITHUB_PATH"
+          python -m pip install --disable-pip-version-check -r "$GITHUB_WORKSPACE/scripts/qa/requirements-quality.txt"
+
+      - name: Linter versions
+        run: |
+          actionlint -version
+          shellcheck --version
+          yamllint --version
+
+      # actionlint also runs shellcheck on every `run:` block of the workflows.
+      - name: actionlint
+        run: actionlint
+
+      - name: shellcheck
+        run: shellcheck scripts/qa/*.sh
+
+      # Rules in .yamllint.yml; --strict makes warnings fail too.
+      - name: yamllint
+        run: yamllint --strict .github .yamllint.yml

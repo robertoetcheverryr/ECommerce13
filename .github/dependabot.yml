@@ -25,7 +25,7 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 5
 
-  # Schemathesis and lizard, pinned in scripts/qa/requirements*.txt.
+  # Schemathesis, lizard and yamllint, pinned in scripts/qa/requirements*.txt.
   - package-ecosystem: "pip"
     directory: "/scripts/qa"
     schedule:

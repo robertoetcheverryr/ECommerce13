@@ -1,0 +1,14 @@
+# yamllint rules for the workflow lint job (.github/workflows/code-quality.yml).
+extends: default
+
+rules:
+  # GitHub Actions uses `on:` as a key; only values are checked for truthy words.
+  truthy:
+    check-keys: false
+  # The workflows use flow lists like `[ master, main ]`.
+  brackets:
+    min-spaces-inside: 0
+    max-spaces-inside: 1
+  document-start: disable
+  line-length:
+    max: 160

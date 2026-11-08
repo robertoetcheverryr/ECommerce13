@@ -11,7 +11,9 @@ Added as a learning change: it tests the five APIs **actually running** (Develop
 
 ```
 .github/workflows/api-qa.yml      API QA workflow (Newman + Schemathesis)
-.github/workflows/code-quality.yml  advisory cyclomatic complexity (lizard)
+.github/workflows/code-quality.yml  advisory cyclomatic complexity (lizard), SBOM, workflow/script lint
+.github/workflows/tests.yml       xUnit tests plus per-API code coverage (Coverlet + ReportGenerator)
+.github/workflows/scorecard.yml   OpenSSF Scorecard (published results, Security tab)
 .github/workflows/dependency-review.yml  dependency review on pull requests
 .github/dependabot.yml            weekly dependency update PRs
 scripts/qa/stack.sh               starts/stops the 5 APIs with disposable SQLite databases
@@ -22,6 +24,9 @@ scripts/qa/test_qa_verdict.py     unit tests (unittest, standard library only) f
 scripts/qa/run-local.sh           the same as the workflow, on a local machine
 scripts/qa/complexity-report.py   summarizes the lizard CSV report for the Code Quality job
 scripts/qa/test_complexity_report.py  unit tests for complexity-report.py
+scripts/qa/coverage-summary.py    per-API coverage table for the Tests job summary
+scripts/qa/test_coverage_summary.py   unit tests for coverage-summary.py
+.yamllint.yml                     yamllint rules for the workflow lint job
 ```
 
 `stack.sh start <dir>` runs the `.dll` files from the Release build (`dotnet build -c Release`), in the order Products, Users, Orders, Cart, Notifications, with:
@@ -58,7 +63,7 @@ The first run already finds real failures (see below). Until they are triaged an
 
 There is no baseline and nothing is excluded: no operations, checks, nulls or limits are filtered. To make it mandatory, change the `SCHEMATHESIS_BLOCKING` default to `'true'` in the workflow (or pick `schemathesis_blocking` when running it manually): then any failure fails the job.
 
-Plan: this PR merges with Schemathesis still advisory, because the current findings would otherwise block it. After it merges, `SCHEMATHESIS_BLOCKING` can be switched to `'true'`; a later, separate PR fixes the findings so that the unit tests and the whole QA suite (fuzzing, complexity, dependencies) pass with blocking gates.
+Plan: this PR merges with Schemathesis still advisory, because the current findings would otherwise block it. After it merges, `SCHEMATHESIS_BLOCKING` can be switched to `'true'`; a later, separate PR fixes the findings so that the unit tests and the whole QA suite (fuzzing, complexity, coverage, dependencies) pass with blocking gates.
 
 ### Budget and reports
 
@@ -73,11 +78,66 @@ Plan: this PR merges with Schemathesis still advisory, because the current findi
 | Dependabot version updates | `.github/dependabot.yml` | Weekly update PRs (at most 5 open per ecosystem) for `nuget` (`/`, the solution and its projects), `github-actions` (`/`, the workflows), `npm` (`/scripts/qa`, Newman) and `pip` (`/scripts/qa`, Schemathesis and lizard). | No, it opens PRs. |
 | Dependency review | `.github/workflows/dependency-review.yml` | On every pull request, `actions/dependency-review-action` (pinned to `v5.0.0`) checks the dependencies the PR adds or changes against the GitHub Advisory Database. | Yes, for vulnerable dependencies **introduced by the PR**. |
 | Action majors in `Tests` | `.github/workflows/tests.yml` | `actions/checkout@v7` and `actions/setup-dotnet@v6`, which run on Node 24 and remove the Node 20 deprecation warning. Runner, triggers and test commands are unchanged. | Same as before. |
-| Cyclomatic complexity | `.github/workflows/code-quality.yml` | Runs [lizard](https://github.com/terryyin/lizard) 1.25.1 (`scripts/qa/requirements-quality.txt`) on the C# of the five API projects (`bin/` and `obj/` excluded, tests not included) and writes the job summary with `scripts/qa/complexity-report.py`: functions analyzed, average and max CCN, how many exceed CCN 15 and the 15 most complex functions. The CSV report is uploaded as `complexity-report` (7 days). | No, **advisory**. Only an unusable report (tool error, no functions parsed) fails the job. |
+| Cyclomatic complexity | `.github/workflows/code-quality.yml` (`complexity`) | Runs [lizard](https://github.com/terryyin/lizard) 1.25.1 (`scripts/qa/requirements-quality.txt`) on the C# of the five API projects (`bin/` and `obj/` excluded, tests not included) and writes the job summary with `scripts/qa/complexity-report.py`: functions analyzed, average and max CCN, how many exceed CCN 15 and the 15 most complex functions. The CSV report is uploaded as `complexity-report` (7 days). | No, **advisory**. Only an unusable report (tool error, no functions parsed) fails the job. |
 
 Known vulnerability already on `master`: `SQLitePCLRaw.lib.e_sqlite3` 2.1.11 (`NU1903`, [GHSA-2m69-gcr7-jv3q](https://github.com/advisories/GHSA-2m69-gcr7-jv3q)), a transitive dependency of Products, Users, Cart and their tests. Dependency review does not flag it here because this PR does not change those packages; Dependabot alerts and security updates are where it surfaces. It is not upgraded in this PR.
 
 lizard measures functions and methods. Top-level statements in `Program.cs` are not counted as a function.
+
+Public-repo secret scanning (and push protection) is provided by GitHub itself; no workflow is needed for it.
+
+## Code coverage per API
+
+The `Tests` workflow (`.github/workflows/tests.yml`, `windows-latest`, so every step runs in `pwsh`) keeps its restore and Release build, and the test step now also passes `--collect "XPlat Code Coverage"`. `coverlet.collector` 6.0.4 was **already** referenced by the four test projects (Products, Users, Cart, Notifications); no package reference or C# changed.
+
+1. `dotnet test` writes one `coverage.cobertura.xml` per test project. A failing test still fails this step, as before.
+2. ReportGenerator (`dotnet-reportgenerator-globaltool` 5.5.12, installed with `--tool-path`) merges them into an HTML report, a GitHub markdown summary and a merged Cobertura file.
+3. `scripts/qa/coverage-summary.py` writes a per-API table (line and branch coverage of each API assembly) into the job summary, followed by the ReportGenerator summary. **Orders.API has no test project**, so it is listed as "no test project, coverage not measured"; no percentage is made up for it. Percentages are truncated to one decimal, like ReportGenerator, so both tables agree.
+4. The `coverage-report` artifact (7 days) holds the HTML report (`index.html`) and the raw Cobertura files.
+
+Coverage is **advisory**: there is no threshold and low coverage never fails the job. Only tool errors fail it (ReportGenerator finds no coverage files, an unreadable report, or an API that has a test project but is missing from the report). No step uses `continue-on-error`.
+
+Local run on this branch (`dotnet test --configuration Release --collect "XPlat Code Coverage"` with the .NET 10 SDK on Linux, then ReportGenerator 5.5.12): 218 tests passed (Products 75, Users 55, Cart 82, Notifications 6).
+
+| API | Line coverage | Branch coverage |
+|-----|--------------:|----------------:|
+| Products.API | 95.9% | 71.2% |
+| Users.API | 93.6% | 70.7% |
+| Orders.API | not measured (no test project) | n/a |
+| Cart.API | 66.8% | 32.5% |
+| Notifications.API | 35.3% | 3.1% |
+
+CI publishes the current numbers on every run; the root `README.md` copies this local snapshot.
+
+## SBOM
+
+The `sbom` job of `Code Quality` installs [CycloneDX for .NET](https://github.com/CycloneDX/cyclonedx-dotnet) 6.3.1 as a .NET tool and runs it on `ECommerce13.sln` with `--exclude-test-projects`. It writes a CycloneDX 1.7 JSON SBOM of the NuGet packages (direct and transitive) the five APIs resolve, without changing any project file. The job summary shows the component count, and the SBOM is uploaded as the `sbom-cyclonedx` artifact (`ecommerce13.cdx.json`, 7 days). It fails only if the tool fails or the SBOM has no components; it does not evaluate vulnerabilities (Dependabot and dependency review cover that). The local run produced 37 components.
+
+The "Tecnologías usadas" list in the root `README.md` was checked against the `.csproj` files and this SBOM.
+
+## Workflow and script lint
+
+The `lint` job of `Code Quality` is **strict**: these files are ours and are expected to be clean, so any finding fails the job.
+
+| Linter | Version | How it is installed | What it checks |
+|--------|---------|---------------------|----------------|
+| [actionlint](https://github.com/rhysd/actionlint) | 1.7.12 | Official release binary, sha256 verified | Every workflow in `.github/workflows` (syntax, expressions, action inputs). It also runs shellcheck on each `run:` block. |
+| [shellcheck](https://github.com/koalaman/shellcheck) | 0.11.0 | Official release binary, sha256 verified | `scripts/qa/*.sh` |
+| [yamllint](https://github.com/adrienverge/yamllint) | 1.38.0 | `scripts/qa/requirements-quality.txt` (pip, Dependabot keeps it updated) | `.github` and `.yamllint.yml`, with `--strict`. Rules in `.yamllint.yml`: default set, `on:` keys allowed, `[ a, b ]` flow lists allowed, no `---` required, lines up to 160 characters. |
+
+The job only needs the network to download those three tools.
+
+## OpenSSF Scorecard
+
+`.github/workflows/scorecard.yml` follows the official [`ossf/scorecard-action`](https://github.com/ossf/scorecard-action) template for public repos (v2.5.0):
+
+- Triggers: weekly (Mondays 07:30 UTC), push to `master`, and `branch_protection_rule`. There is no `pull_request` trigger: with `publish_results: true` the OpenSSF API only accepts results from the default branch.
+- `publish_results: true`: results are published to the OpenSSF API (api.scorecard.dev, needed for a Scorecard badge), uploaded to the Security tab (code scanning) and kept as the `scorecard-sarif` artifact (7 days).
+- Permissions: `read-all` at workflow level; only the job gets `security-events: write` and `id-token: write`. The OpenSSF API rejects published results from workflows with top-level `env`/`defaults`, workflow-level write permissions or unapproved actions, so this workflow stays minimal.
+- Its actions are pinned by commit SHA with a version comment (Scorecard's Pinned-Dependencies check rewards that; Dependabot updates SHA pins too).
+- A low score **does not fail** the job: the action has no score threshold. It only fails if the analysis, the publication or the upload fails. It never runs on pull requests, so it is not a PR check.
+
+Some checks depend on repository settings rather than code, for example Branch-Protection and Code-Review (branch protection rules and required reviews on `master`). They may look weak until those settings are enabled. No score is quoted here; see the Security tab or the Scorecard API after the first run on `master`.
 
 ## Running locally
 
@@ -95,7 +155,7 @@ ST=/tmp/ec13-qa-venv/bin/st bash scripts/qa/run-local.sh
 ST=/tmp/ec13-qa-venv/bin/st bash scripts/qa/run-local.sh newman Orders
 ```
 
-The `qa-verdict.py` and `complexity-report.py` tests do not need the APIs:
+The `qa-verdict.py`, `complexity-report.py` and `coverage-summary.py` tests do not need the APIs:
 
 ```bash
 python3 -m unittest discover -s scripts/qa -p "test_*.py" -v
@@ -108,6 +168,15 @@ Complexity report, as in the Code Quality job:
 /tmp/ec13-qa-venv/bin/lizard -l csharp --csv -C 15 -i -1 -x "*/bin/*" -x "*/obj/*" \
   src/Products.API src/Users.API src/Orders.API src/Cart.API src/Notifications.API > /tmp/lizard.csv
 python3 scripts/qa/complexity-report.py /tmp/lizard.csv --threshold 15
+```
+
+Coverage per API, as in the Tests job:
+
+```bash
+dotnet test ECommerce13.sln -c Release --collect "XPlat Code Coverage" --results-directory /tmp/ec13-cov
+dotnet tool install dotnet-reportgenerator-globaltool --version 5.5.12 --tool-path /tmp/ec13-tools
+/tmp/ec13-tools/reportgenerator "-reports:/tmp/ec13-cov/**/coverage.cobertura.xml" "-targetdir:/tmp/ec13-cov/report" "-reporttypes:Html;MarkdownSummaryGithub;Cobertura"
+python3 scripts/qa/coverage-summary.py /tmp/ec13-cov/report/Cobertura.xml
 ```
 
 Reports go to `qa-artifacts/` and Schemathesis leaves caches in `.schemathesis/` and `.hypothesis/` (all three are git-ignored); databases and logs go to a temporary directory that is deleted at the end. If ports 5001..5005 are busy (for example, with the APIs running for the demo), use another range: `QA_PORT_BASE=6100` uses 6101..6105. `ST_MAX_TIME=30` shortens the Schemathesis budget.

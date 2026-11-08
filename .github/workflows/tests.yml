@@ -1,4 +1,4 @@
-﻿name: Tests
+name: Tests
 
 on:
   push:
@@ -28,5 +28,44 @@ jobs:
       - name: Build
         run: dotnet build --no-restore --configuration Release
 
-      - name: Test
-        run: dotnet test --no-build --configuration Release --verbosity normal
+      # Coverlet (coverlet.collector, already referenced by every test project) writes one
+      # coverage.cobertura.xml per test project. A failing test still fails this step.
+      - name: Test (with code coverage)
+        run: >-
+          dotnet test --no-build --configuration Release --verbosity normal
+          --collect "XPlat Code Coverage" --results-directory "$env:RUNNER_TEMP/coverage/raw"
+
+      # Coverage is ADVISORY: nothing below compares it with a threshold, so low coverage
+      # (or Orders.API, which has no test project) never fails the job. Only tool errors do.
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+
+      - name: Install ReportGenerator
+        run: dotnet tool install dotnet-reportgenerator-globaltool --version 5.5.12 --tool-path "$env:RUNNER_TEMP/tools"
+
+      - name: Coverage report
+        run: |
+          $report = "$env:RUNNER_TEMP/coverage/report"
+          $arguments = @(
+            "-reports:$env:RUNNER_TEMP/coverage/raw/**/coverage.cobertura.xml",
+            "-targetdir:$report",
+            "-reporttypes:Html;MarkdownSummaryGithub;Cobertura",
+            "-title:ECommerce13"
+          )
+          & "$env:RUNNER_TEMP/tools/reportgenerator" @arguments
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/qa/coverage-summary.py "$report/Cobertura.xml" --details "$report/SummaryGithub.md" --tests-dir tests
+          exit $LASTEXITCODE
+
+      - name: Upload coverage report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-report
+          path: |
+            ${{ runner.temp }}/coverage/report
+            ${{ runner.temp }}/coverage/raw/**/coverage.cobertura.xml
+          if-no-files-found: warn
+          retention-days: 7
