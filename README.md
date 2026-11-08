@@ -3,7 +3,7 @@
 ![.NET](https://img.shields.io/badge/.NET-10.0-purple)
 ![Build](https://github.com/robertoetcheverryr/ECommerce13/actions/workflows/tests.yml/badge.svg) 
 ![License](https://img.shields.io/badge/license-MIT-blue)
-![Status](https://img.shields.io/badge/status-in%20progress-yellow)
+![Status](https://img.shields.io/badge/status-completed-brightgreen)
 
 **Trabajo Práctico**  
 Materia: Arquitectura y Diseño de Software  
