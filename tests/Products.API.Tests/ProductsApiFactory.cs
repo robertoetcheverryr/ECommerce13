@@ -28,6 +28,15 @@ public sealed class ProductsApiFactory : WebApplicationFactory<Program>
         builder.ConfigureServices(services =>
         {
             services.AddSingleton<IHostedService>(_ => new TempSqliteCleanup(dbPath));
+
+            // El checker real (ActiveOrdersClient) llama a Orders en 5003 y en los
+            // tests no hay Orders levantado. Por defecto, como antes hacia el NoOp,
+            // "no hay ordenes activas"; los tests de PRD-004 lo pisan con
+            // AlwaysActiveOrdersChecker.
+            var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(Products.API.Services.IActiveOrdersChecker));
+            if (descriptor is not null)
+                services.Remove(descriptor);
+            services.AddSingleton<Products.API.Services.IActiveOrdersChecker, NeverActiveOrdersChecker>();
         });
     }
 

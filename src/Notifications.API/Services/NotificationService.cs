@@ -31,6 +31,11 @@ public class NotificationService : INotificationService
     /// <returns>Notificación registrada.</returns>
     public Notification SendNotification(SendNotificationRequest request)
     {
+        // NTF-001: falta validar que el UsuarioId exista en Users API.
+        // Queda pendiente hasta que el profesor defina si hacemos un
+        // endpoint o como lo resolvemos.
+        // Cuando exista, acá se debe consultar y tirar NTF-001 (404)
+        // si el usuario no existe.
         var notification = new Notification
         {
             Id = Guid.NewGuid(),

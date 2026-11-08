@@ -10,21 +10,21 @@ public class SendNotificationRequest
     /// <summary>
     /// Identificador del usuario destinatario.
     /// </summary>
-    [Required]
+    [Required(ErrorMessage = "El UsuarioId es obligatorio.")]
     [ValidGuid]
     public Guid UsuarioId { get; set; }
 
     /// <summary>
     /// Mensaje que se enviará al usuario.
     /// </summary>
-    [Required]
-    [MaxLength(500)]
+    [Required(ErrorMessage = "El mensaje es obligatorio.")]
+    [MaxLength(500, ErrorMessage = "El mensaje no puede superar los 500 caracteres.")]
     public string Mensaje { get; set; } = string.Empty;
 
     /// <summary>
     /// Tipo de notificación: Email, Push o SMS.
     /// </summary>
-    [Required]
+    [Required(ErrorMessage = "El tipo es obligatorio.")]
     [RegularExpression(
         "^(Email|Push|SMS)$",
         ErrorMessage = "El tipo debe ser Email, Push o SMS.")]
@@ -36,6 +36,14 @@ public class SendNotificationRequest
 /// </summary>
 public class ValidGuidAttribute : ValidationAttribute
 {
+    /// <summary>
+    /// Define el mensaje de error en español que muestra la validación.
+    /// </summary>
+    public ValidGuidAttribute()
+        : base("El UsuarioId no tiene un formato válido.")
+    {
+    }
+
     /// <summary>
     /// Comprueba si el valor recibido es un GUID válido y no vacío.
     /// </summary>
