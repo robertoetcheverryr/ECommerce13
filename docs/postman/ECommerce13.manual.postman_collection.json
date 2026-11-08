@@ -166,6 +166,44 @@
           ]
         }
       ]
+    },
+    {
+      "name": "Manual - Orders con Products apagado",
+      "id": "4b932b15-3a92-5361-891a-022e64167323",
+      "item": [
+        {
+          "name": "Crear orden con Products apagado → 500 ORD-007",
+          "id": "e33df7a1-3318-5f63-ad60-937aa0580b94",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{ordersUrl}}/api/orders",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": \"11111111-2222-3333-4444-555555555555\",\n  \"items\": [\n    {\n      \"productoId\": \"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\n      \"cantidad\": 1\n    }\n  ]\n}"
+            },
+            "description": "Dejar Orders levantado y apagar Products. No se persiste ninguna orden: falla la consulta HTTP del producto. Puede usarse el mismo apagado que para CRT-005; no correr con PRD-005, que necesita Products levantado."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 500', () => pm.response.to.have.status(500));",
+                  "pm.test('errorCode ORD-007', () => pm.expect(pm.response.json().errorCode).to.eql('ORD-007'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Error interno al procesar la orden.\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
     }
   ]
 }

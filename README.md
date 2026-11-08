@@ -298,7 +298,7 @@ Logs: Serilog escribe en consola y en un archivo JSON por día, relativo a la ca
 - Cart.API → `src/Cart.API/logs/carts-AAAAMMDD.json`
 - Notifications.API → `src/Notifications.API/logs/notifications-api-AAAAMMDD.json`
 
-Para la demo hay una colección de Postman con los casos felices y los errores de Products, Users, Cart y Notifications. Orders todavía no tiene carpeta propia; Products lo usa para mostrar PRD-004: ver [`docs/postman/`](docs/postman/README.md).
+Para la demo hay una colección de Postman con los casos felices y los errores de Products, Users, Cart, Notifications y Orders. Orders tiene carpeta propia (ORD-003 pendiente y ORD-007 manual con Products apagado): ver [`docs/postman/`](docs/postman/README.md).
 
 ### 6. Swagger UI
 
@@ -406,7 +406,7 @@ https://github.com/domaindrivendev/Swashbuckle.AspNetCore/blob/master/docs/migra
 
 ## Capturas de Swagger
 
-Las capturas de Swagger UI con las respuestas de error (`errorCode` y `errorMessage`) están en [`docs/capturas/`](docs/capturas/). Todavía no hay capturas de Orders.API.
+Las capturas de Swagger UI con las respuestas de error (`errorCode` y `errorMessage`) están en [`docs/capturas/`](docs/capturas/). Orders incluye una vista general y ORD-001, ORD-002, ORD-004, ORD-005, ORD-006 y ORD-007 (Products apagado); ORD-003 sigue pendiente.
 
 ## Logging
 

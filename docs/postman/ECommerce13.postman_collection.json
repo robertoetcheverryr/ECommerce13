@@ -1,8 +1,8 @@
 {
   "info": {
     "_postman_id": "8d52ee1b-3e4f-5893-863d-81356054b1e0",
-    "name": "ECommerce13 - Demo Products, Users, Cart y Notifications",
-    "description": "Demo en vivo de Products.API (5001), Users.API (5002), Cart.API (5004) y Notifications.API (5005). Correr las carpetas en orden: cada una deja creado lo que necesita la siguiente. Ver docs/postman/README.md.",
+    "name": "ECommerce13 - Demo Products, Users, Cart, Notifications y Orders",
+    "description": "Demo en vivo de Products.API (5001), Users.API (5002), Orders.API (5003), Cart.API (5004) y Notifications.API (5005). Correr las carpetas en orden: cada una deja creado lo que necesita la siguiente. Ver docs/postman/README.md.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "event": [
@@ -85,6 +85,10 @@
     },
     {
       "key": "orderIdPrd004",
+      "value": ""
+    },
+    {
+      "key": "orderId",
       "value": ""
     }
   ],
@@ -3070,7 +3074,298 @@
       ]
     },
     {
-      "name": "7 Limpieza",
+      "name": "7 Orders",
+      "id": "88e91f7e-335d-5d23-b06f-9caaedc6ff5c",
+      "item": [
+        {
+          "name": "Crear orden Pendiente (producto B × 2)",
+          "id": "1999660d-8ebe-5c5c-b240-b0347793170d",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{ordersUrl}}/api/orders",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": \"{{userId}}\",\n  \"items\": [\n    {\n      \"productoId\": \"{{productId2}}\",\n      \"cantidad\": 2\n    }\n  ]\n}"
+            },
+            "description": "Reutiliza el producto B (precio 80.5, stock 10) y el usuario registrado. La última petición de esta carpeta cancela la orden para permitir la limpieza de B."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "const o = pm.response.json();",
+                  "pm.test('orden con precios de Products y total calculado', () => {",
+                  "    pm.expect(o.id).to.be.a('string').and.not.empty;",
+                  "    pm.expect(o.usuarioId).to.eql(pm.collectionVariables.get('userId'));",
+                  "    pm.expect(o.estado).to.eql('Pendiente');",
+                  "    pm.expect(o.items).to.have.lengthOf(1);",
+                  "    pm.expect(o.items[0]).to.include({ productoId: pm.collectionVariables.get('productId2'), cantidad: 2, precioUnitario: 80.5 });",
+                  "    pm.expect(o.total).to.eql(161);",
+                  "});",
+                  "pm.test('header Location', () => pm.expect(pm.response.headers.get('Location')).to.include(o.id));",
+                  "pm.collectionVariables.set('orderId', o.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Obtener orden creada",
+          "id": "782b4928-a218-5388-afef-3ce7cfaec5a5",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{ordersUrl}}/api/orders/{{orderId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('devuelve la orden creada', () => pm.expect(pm.response.json()).to.include({ id: pm.collectionVariables.get('orderId'), estado: 'Pendiente', total: 161 }));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Listar órdenes",
+          "id": "70f6b56f-cddd-544b-bcbc-303e6d423c07",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{ordersUrl}}/api/orders"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('incluye la orden creada', () => pm.expect(pm.response.json().map(o => o.id)).to.include(pm.collectionVariables.get('orderId')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Filtrar órdenes por usuario",
+          "id": "3315e35e-5dfd-5cfe-ad4e-7445e9beb2c3",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{ordersUrl}}/api/orders?usuarioId={{userId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const orders = pm.response.json();",
+                  "pm.test('solo el usuario indicado e incluye su orden', () => {",
+                  "    pm.expect(orders.map(o => o.id)).to.include(pm.collectionVariables.get('orderId'));",
+                  "    orders.forEach(o => pm.expect(o.usuarioId).to.eql(pm.collectionVariables.get('userId')));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Orden inexistente → 404 ORD-001",
+          "id": "7e4610e8-63cf-5a7a-98c5-2407ca5c1b23",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{ordersUrl}}/api/orders/3fa85f64-5717-4562-b3fc-2c963f66afa6"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('errorCode ORD-001', () => pm.expect(pm.response.json().errorCode).to.eql('ORD-001'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Orden no encontrada.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear orden sin items → 400 ORD-002",
+          "id": "e3d07bba-2031-57a9-b343-fb78b9ab1c26",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{ordersUrl}}/api/orders",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": \"{{userId}}\",\n  \"items\": []\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('errorCode ORD-002', () => pm.expect(pm.response.json().errorCode).to.eql('ORD-002'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Los datos de la orden son inválidos.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Producto inexistente → 404 ORD-004",
+          "id": "c5de7034-0546-5502-aebb-f4defc586d73",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{ordersUrl}}/api/orders",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": \"{{userId}}\",\n  \"items\": [\n    {\n      \"productoId\": \"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\n      \"cantidad\": 1\n    }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('errorCode ORD-004', () => pm.expect(pm.response.json().errorCode).to.eql('ORD-004'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Producto no encontrado.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cantidad mayor al stock → 422 ORD-005",
+          "id": "754ec43a-f2ee-54d3-801a-bc8935985ef0",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{ordersUrl}}/api/orders",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": \"{{userId}}\",\n  \"items\": [\n    {\n      \"productoId\": \"{{productId2}}\",\n      \"cantidad\": 11\n    }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 422', () => pm.response.to.have.status(422));",
+                  "pm.test('errorCode ORD-005', () => pm.expect(pm.response.json().errorCode).to.eql('ORD-005'));",
+                  "pm.test('errorMessage con nombre, stock y cantidad', () => pm.expect(pm.response.json().errorMessage).to.match(/^Stock insuficiente para 'Lámpara Demo [0-9]+'\\. Disponible: 10, solicitado: 11\\.$/));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Pendiente → Entregada → 409 ORD-006",
+          "id": "04e50cf8-76ad-5c6f-8e73-8626cd494f89",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{ordersUrl}}/api/orders/{{orderId}}/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": \"Entregada\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 409', () => pm.response.to.have.status(409));",
+                  "pm.test('errorCode ORD-006', () => pm.expect(pm.response.json().errorCode).to.eql('ORD-006'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Una orden en estado 'Pendiente' no puede pasar a 'Entregada'.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cancelar orden (Pendiente → Cancelada)",
+          "id": "2d8c400d-e5bb-5af8-9624-9f52f016cb8a",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{ordersUrl}}/api/orders/{{orderId}}/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": \"Cancelada\"\n}"
+            },
+            "description": "No hay endpoint DELETE de órdenes. Se cancela para liberar el producto B, que la carpeta de limpieza elimina."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('orden cancelada', () => pm.expect(pm.response.json()).to.include({ id: pm.collectionVariables.get('orderId'), estado: 'Cancelada' }));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "8 Limpieza",
       "id": "66d6bb01-6841-5304-bc0b-62fb3fb4660b",
       "item": [
         {
