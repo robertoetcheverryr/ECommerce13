@@ -3,7 +3,6 @@ updates:
   # .NET packages of the five APIs and their test projects (ECommerce13.sln).
   - package-ecosystem: "nuget"
     directory: "/"
-    branch: master
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 0
@@ -11,7 +10,6 @@ updates:
   # Actions used by the workflows in .github/workflows.
   - package-ecosystem: "github-actions"
     directory: "/"
-    branch: master
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 0
@@ -19,7 +17,6 @@ updates:
   # Newman, pinned in scripts/qa/package.json and package-lock.json.
   - package-ecosystem: "npm"
     directory: "/scripts/qa"
-    branch: master
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 0
@@ -27,7 +24,6 @@ updates:
   # Schemathesis, lizard and yamllint, pinned in scripts/qa/requirements*.txt.
   - package-ecosystem: "pip"
     directory: "/scripts/qa"
-    branch: master
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 0
