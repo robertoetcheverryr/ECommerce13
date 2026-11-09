@@ -1,0 +1,35 @@
+name: Dependency Review
+
+# Reviews the dependency changes introduced by a pull request against the GitHub
+# Advisory Database. It only looks at the diff, so vulnerabilities that already
+# exist on the base branch (for example NU1903 / GHSA-2m69-gcr7-jv3q) do not fail
+# a PR that does not touch those packages; Dependabot alerts cover those.
+on:
+  pull_request:
+    branches: [ master, main ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dependency-review-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dependency-review:
+    name: Dependency review
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Dependency review
+        uses: actions/dependency-review-action@v5.0.0
+        with:
+          # Allow only Newman transitives that have no compatible patched release.
+          # @faker-js/faker@5.5.3: GHSA-qxc2-j82w-r537 (helpers.fake RCE); faker 10 breaks
+          # Newman (faker.address.city). csv-parse@4.16.3: GHSA-8cw4-87c7-c6xx; fix is 7.x.
+          # uuid@3.4.0 and uuid@8.3.2: GHSA-w5hq-g745-h8pq; fix is 11.x. Other reported
+          # Newman transitives are overridden in scripts/qa/package.json. See docs/qa/README.md.
+          allow-ghsas: GHSA-qxc2-j82w-r537, GHSA-8cw4-87c7-c6xx, GHSA-w5hq-g745-h8pq
