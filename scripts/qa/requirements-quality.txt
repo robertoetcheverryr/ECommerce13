@@ -1,0 +1,5 @@
+# Tools for the Code Quality workflow (see docs/qa/README.md). Pinned versions.
+# lizard: advisory cyclomatic complexity job.
+lizard==1.25.1
+# yamllint: workflow lint job.
+yamllint==1.38.0

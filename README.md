@@ -209,6 +209,8 @@ ECommerce13/
 │   ├── Users.API.Tests/
 │   ├── Cart.API.Tests/
 │   └── Notifications.API.Tests/
+├── scripts/
+│   └── qa/
 ├── docs/
 └── README.md
 ```
@@ -321,6 +323,27 @@ Y de seguir dentro de lo posible una metodologia TDD.
 ```powershell
 dotnet test
 ```
+
+Cobertura de código por API (Coverlet + ReportGenerator), medida localmente con `dotnet test --configuration Release --collect "XPlat Code Coverage"` sobre los 218 tests (Products 75, Users 55, Cart 82, Notifications 6). El workflow `Tests` vuelve a medirla en cada corrida y publica el reporte actualizado en el resumen del job y en el artefacto `coverage-report`; esta tabla es la foto de esa corrida local.
+En producción podria usarse codecov para sumar el badge de % total.
+
+| API | Cobertura de líneas | Cobertura de ramas |
+|-----|--------------------:|-------------------:|
+| Products.API | 95,9 % | 71,2 % |
+| Users.API | 93,6 % | 70,7 % |
+| Orders.API | sin medir: no tiene proyecto de tests | — |
+| Cart.API | 66,8 % | 32,5 % |
+| Notifications.API | 35,3 % | 3,1 % |
+
+La cobertura es informativa: una cobertura baja no hace fallar el workflow.
+
+## QA
+
+El workflow `API QA` levanta las cinco APIs con bases de datos descartables y ejecuta la colección principal de Postman con Newman (obligatorio) y Schemathesis contra el OpenAPI de cada API (obligatorio). Ver [QA automatizado de APIs](docs/qa/README.md).
+
+Además, Dependabot abre PRs semanales para actualizar dependencias (NuGet, GitHub Actions, npm y pip), cada PR pasa por una revisión de dependencias vulnerables, y el workflow `Code Quality` informa la complejidad ciclomática del código de las APIs (informativo por ahora).
+
+El workflow `Code Quality` también valida con linters los workflows y los scripts de QA (actionlint, shellcheck y yamllint) y publica un SBOM CycloneDX de las dependencias de las APIs como artefacto. El workflow `Scorecard` publica semanalmente el puntaje de OpenSSF Scorecard sobre las prácticas de seguridad del repo (informativo). La cobertura por API está en [Tests](#7-tests).
 
 ## Estado actual
 
@@ -461,12 +484,17 @@ Decisiones donde la implementación se aparta de una lectura literal de la guía
 - **El PUT de estado devuelve la orden completa, no el body de ejemplo de la guía.** El ejemplo muestra `fechaActualizacion`, un campo que el Apéndice A define solo para el carrito, no para la orden: el ejemplo contradice al propio UML.
 - **Los `errorMessage` usan las formas cortas de la tabla.** Los textos largos que ilustra la guía están marcados "sugerido".
 
-## Tecnologías previstas
+## Tecnologías usadas
+
+Verificadas contra los `.csproj` y el SBOM que publica el CI.
 
 - .NET 10
 - ASP.NET Core Web API
-- Swagger / OpenAPI (Swashbuckle)
+- Swagger / OpenAPI (Swashbuckle; `Swashbuckle.AspNetCore.Filters` para los ejemplos en Orders y Notifications)
 - Serilog
 - Health Checks
 - IExceptionHandler
 - SQLite (`Microsoft.Data.Sqlite`) y Dapper. Patrón de persistencia tomado del ejemplo de la cátedra: [toDoList-2026, branch `feature/completo`](https://github.com/cai-uba/toDoList-2026/tree/feature/completo)
+- Tests: xUnit, FluentAssertions, `WebApplicationFactory` (`Microsoft.AspNetCore.Mvc.Testing`) y Coverlet para la cobertura
+- QA de APIs: Newman (colección de Postman) y Schemathesis
+- CI: GitHub Actions

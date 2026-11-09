@@ -1,0 +1,2 @@
+# Schemathesis for the QA job (see docs/qa/README.md). Pinned version.
+schemathesis==4.33.1
