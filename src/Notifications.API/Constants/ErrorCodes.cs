@@ -6,6 +6,10 @@
 public static class ErrorCodes
 {
     /// <summary>
+    /// Código utilizado para usuario inexistente.
+    /// </summary>
+    public const string UserNotFound = "NTF-001";
+    /// <summary>
     /// Código utilizado para errores de validación.
     /// </summary>
     public const string ValidationError = "NTF-002";
