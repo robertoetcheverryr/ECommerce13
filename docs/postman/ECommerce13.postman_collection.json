@@ -3444,6 +3444,28 @@
           ]
         },
         {
+          "name": "Orden con id que no es Guid → 404 ORD-001",
+          "id": "c0ffee4a-9901-4d01-8e22-0badcafe9901",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{ordersUrl}}/api/orders/99"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('errorCode ORD-001', () => pm.expect(pm.response.json().errorCode).to.eql('ORD-001'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Orden no encontrada.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "Crear orden sin items → 400 ORD-002",
           "id": "e3d07bba-2031-57a9-b343-fb78b9ab1c26",
           "request": {
