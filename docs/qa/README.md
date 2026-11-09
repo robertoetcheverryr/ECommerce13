@@ -228,10 +228,55 @@ Local smoke run with `run-local.sh` on `master` at `17336cc`, with a budget **re
 | Notifications | 2,807 | 4 | ST202 ×2, ST201 ×1, ST103 ×1 |
 
 - **ST101 (500) in Orders (fixed):** the initial run returned 500 ORD-007 for `POST /api/orders` with `"items": [null, null]`. Null entries now answer 400 ORD-002 in `CreateAsync`, before the Products call or persistence; the Newman collection covers the regression (`Crear orden con ítem nulo → 400 ORD-002`).
-- **ST103, undocumented status code:** 415 with no body on the POST/PUT endpoints of every API, and 400 on `GET /api/orders` with an invalid `usuarioId` (the Swagger does not declare that 400).
+- **ST103, undocumented status code:** the framework's 415 on the POST/PUT endpoints of every API (the body already follows the error contract), and 400 on `GET /api/orders` with an invalid `usuarioId`. Both are decided tolerations, see below.
 - **ST201, invalid request accepted:** unknown body properties are ignored (Products PUT, Users login, Notifications send), and `GET /api/orders?usuarioId=` (empty) returns 200 `[]`.
 - **ST202, schema-valid request rejected:** the Swagger does not declare constraints the API does enforce (maximum length, formats, a price outside the `decimal` range, `estado: null`, `items: []`), so Schemathesis considers data valid that the API rejects with 400. These are mostly gaps in the contract documentation, not logic failures.
 
-Each failure includes the `curl` command to reproduce it in `schemathesis-cli.txt`. Fixes (code or Swagger) go in separate PRs, each with its own xUnit regression test.
+Each failure includes the `curl` command to reproduce it in `schemathesis-cli.txt`. Fixes (code or Swagger) go in separate PRs, each with its own regression test (xUnit or Newman).
+
+## Tolerated findings (found and decided, not ignored)
+
+A finding is silenced only by a written decision. The mechanism is the
+`SCHEMA_TOLERATE` variable of the QA verdict step (`scripts/qa/qa-verdict.py`,
+one decision per line, `METHOD /path/{template} status` or `* status`): a
+Schemathesis run turns green only when **every** failure group maps to junit
+cases whose every status code matches a listed decision; anything else keeps
+the run red. The decision lives at the gate - the tool's own reports are never
+rewritten, so `schemathesis.json` and the junit always show exactly what
+Schemathesis saw, and the tolerated groups are listed in the verdict output
+and in the job summary. If the tolerated behavior changes, the run goes red
+again by itself.
+
+### The framework answers 415 and Swagger does not declare it
+
+- **How it was found:** Schemathesis (ST103, plus ST202 on the same cases) on
+  the 2026-11-09 QA pass, on the nine POST/PUT endpoints of the five APIs, by
+  sending a `Content-Type` other than `application/json`.
+- **What actually happens:** the API answers 415 with a Spanish `ErrorResponse`
+  (`"El body debe enviarse como application/json."`) including `correlationId`.
+  The body follows section 3 of the TP since the status-code writer fix; only
+  the Swagger declaration is absent.
+- **Why it is not declared:** no "HTTP Status posibles" table of the TP lists
+  415 for any endpoint. Declaring it means nine attributes plus nine examples
+  spread over five controllers and five example providers which are not part
+  of the TP doc.
+- **Tolerance:** `* 415` (covers the stateful-test variants too).
+- **Revisit if:** the TP adds 415 to a table, the body stops following the
+  error contract, or a framework change moves who emits the 415.
+
+### `GET /api/orders` answers 400 for a malformed `usuarioId`
+
+- **How it was found:** the same Schemathesis run (ST103 on that endpoint).
+- **What actually happens:** query-model binding rejects a `usuarioId` that is
+  not a Guid and answers 400 with a Spanish body and `ORD-002`.
+- **Why it is not declared:** the TP table for that endpoint admits
+  `200, 500` only. A well-behaved 400 is more honest than a 500, but adding it
+  to Swagger documents a code the assignment's own table does not list. The
+  behavior stays pinned by Newman and explained here instead.
+- **Tolerance:** `GET /api/orders 400` (every 400 of that endpoint comes from
+  this same binding decision).
+- **Revisit if:** the course confirms a 400 there is correct (then it gets
+  declared) or prefers a malformed id to behave like empty (then the runtime
+  changes and this entry is deleted).
 
 API response texts (`errorMessage`, `detail`) are part of the API contract and stay in Spanish; this document does not translate them.
