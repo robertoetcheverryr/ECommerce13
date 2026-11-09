@@ -165,9 +165,15 @@ jobs:
           #                          defaults); the endpoint answers the
           #                          documented success code and the TP has
           #                          no error concept for "unknown property".
+          #   * 414                  a request line longer than Kestrel's
+          #                          8192-byte default is refused with an
+          #                          empty body before any app code runs;
+          #                          no endpoint can shape a Spanish error
+          #                          there and no TP table lists 414.
           # Everything not listed keeps the run red.
           SCHEMA_TOLERATE: |
             * 415
+            * 414
             GET /api/orders 200
             POST /api/Users/register 201
             POST /api/Users/login 200

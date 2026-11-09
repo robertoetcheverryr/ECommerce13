@@ -228,8 +228,8 @@ Local smoke run with `run-local.sh` on `master` at `17336cc`, with a budget **re
 | Notifications | 2,807 | 4 | ST202 ×2, ST201 ×1, ST103 ×1 |
 
 - **ST101 (500) in Orders (fixed):** the initial run returned 500 ORD-007 for `POST /api/orders` with `"items": [null, null]`. Null entries now answer 400 ORD-002 in `CreateAsync`, before the Products call or persistence; the Newman collection covers the regression (`Crear orden con ítem nulo → 400 ORD-002`).
-- **ST103, undocumented status code:** the framework's 415 on the POST/PUT endpoints of every API (the body already follows the error contract), and 400 on `GET /api/orders` with an invalid `usuarioId`. Both are decided tolerations, see below.
-- **ST201, invalid request accepted:** unknown body properties are ignored (Products PUT, Users login, Notifications send), and `GET /api/orders?usuarioId=` (empty) returns 200 `[]`.
+- **ST103, undocumented status code:** the framework's 415 on the POST/PUT endpoints of every API (the body already follows the error contract). It was also found as 400 on `GET /api/orders` with an invalid `usuarioId`, but that one was fixed to `200 []` (see `README.md`, Orders.API) instead of tolerated.
+- **ST201, invalid request accepted:** unknown body properties are ignored (Products PUT, Users login, Notifications send), and `GET /api/orders?usuarioId=` (empty) answered with every user's orders; empty was decided to mean "no filter" (see `README.md`, Orders.API).
 - **ST202, schema-valid request rejected:** the Swagger does not declare constraints the API does enforce (maximum length, formats, a price outside the `decimal` range, `estado: null`, `items: []`), so Schemathesis considers data valid that the API rejects with 400. These are mostly gaps in the contract documentation, not logic failures.
 
 Each failure includes the `curl` command to reproduce it in `schemathesis-cli.txt`. Fixes (code or Swagger) go in separate PRs, each with its own regression test (xUnit or Newman).
@@ -292,5 +292,27 @@ again by itself.
 - **Revisit if:** the TP specifies unknown-property handling, the course
   prefers strict DTOs, or a response-shape finding on one of these six
   endpoints needs to stay visible (then this tolerance narrows).
+
+### Query strings too long answer 414 with an empty body (ST103)
+
+- **How it was found:** live probes on the 2026-11-09 QA pass:
+  `GET /api/Products?$filter=<8000 chars>` answers `200` while
+  `<10000 chars>` answers `414`; the request line (method + URL + query)
+  exceeds Kestrel's `MaxRequestLineSize` default of 8192 bytes and the
+  request never reaches the application. Schemathesis drew it once in the
+  earlier seeds.
+- **What actually happens:** Kestrel itself answers `414` with an **empty
+  body** — no `ErrorResponse`, no Spanish text, no `correlationId`. No
+  endpoint code runs, so nothing inside the APIs can shape that response.
+- **Why it is not fixed:** no "HTTP Status posibles" table of the TP lists
+  414 for any endpoint; raising `MaxRequestLineSize` or declaring a `414`
+  with attributes and examples on every query endpoint would invent contract
+  the TP does not ask for, over a response no app code controls (and we are
+  in the last day, these are QA excercises for me only)
+- **Tolerance:** `* 414` for every endpoint (preventive: it only appears
+  when a seed generates a >8 KB request line).
+- **Revisit if:** the TP adds 414 to a table, or the expected behavior for
+  oversized requests becomes specified (then the tolerance narrows to a
+  declared status per endpoint).
 
 API response texts (`errorMessage`, `detail`) are part of the API contract and stay in Spanish; this document does not translate them.
