@@ -3207,6 +3207,27 @@
           ]
         },
         {
+          "name": "Filtrar por usuarioId inválido → 400 ORD-002",
+          "id": "ef2c0fdc-3c53-458a-a442-e38329923fe0",
+          "request": {
+            "method": "GET",
+            "url": "{{ordersUrl}}/api/orders?usuarioId=no-es-un-guid"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('errorCode ORD-002', () => pm.expect(pm.response.json().errorCode).to.eql('ORD-002'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El valor 'no-es-un-guid' no es un Guid válido.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "Orden inexistente → 404 ORD-001",
           "id": "7e4610e8-63cf-5a7a-98c5-2407ca5c1b23",
           "request": {
@@ -3285,6 +3306,37 @@
                   "pm.test('status 400', () => pm.response.to.have.status(400));",
                   "pm.test('errorCode ORD-002', () => pm.expect(pm.response.json().errorCode).to.eql('ORD-002'));",
                   "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Los datos de la orden son inválidos.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear orden con items null → 400 ORD-002",
+          "id": "60932f19-0e1f-4557-af0f-c4cc8abcb876",
+          "request": {
+            "method": "POST",
+            "url": "{{ordersUrl}}/api/orders",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": \"{{userId}}\",\n  \"items\": null\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('errorCode ORD-002', () => pm.expect(pm.response.json().errorCode).to.eql('ORD-002'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El campo 'items' es obligatorio.\"));"
                 ]
               }
             }
@@ -3378,6 +3430,37 @@
                   "pm.test('status 409', () => pm.response.to.have.status(409));",
                   "pm.test('errorCode ORD-006', () => pm.expect(pm.response.json().errorCode).to.eql('ORD-006'));",
                   "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Una orden en estado 'Pendiente' no puede pasar a 'Entregada'.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Actualizar estado con estado nulo → 400 ORD-002",
+          "id": "7bb37d32-d026-4151-8aa9-12cb4a00f871",
+          "request": {
+            "method": "PUT",
+            "url": "{{ordersUrl}}/api/orders/{{orderId}}/status",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": null\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('errorCode ORD-002', () => pm.expect(pm.response.json().errorCode).to.eql('ORD-002'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El campo 'estado' es obligatorio.\"));"
                 ]
               }
             }

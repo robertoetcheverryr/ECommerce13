@@ -34,6 +34,23 @@ internal static class ValidationMessages
         if (key.StartsWith("$.", StringComparison.Ordinal))
             return [$"El campo '{key[2..]}' tiene un formato inválido."];
 
+        // "usuarioId": a route/query value the value provider could not parse.
+        // The only such binding left in the solution is the Orders Guid filter,
+        // so naming the type in the message is exact, not a guess.
+        var badValue = Regex.Match(message, @"^The value '(.*)' is not valid\.?$");
+        if (badValue.Success)
+            return [$"El valor '{badValue.Groups[1].Value}' no es un Guid válido."];
+
+        // "Items"/"Estado": MVC's implicit required check on non-nullable reference
+        // types arrives in English with a PascalCase name; camelCase it so the field
+        // matches the JSON names the "$" branch above produces.
+        var fieldRequired = Regex.Match(message, @"^The (.+) field is required\.?$");
+        if (fieldRequired.Success)
+        {
+            var field = fieldRequired.Groups[1].Value;
+            return [$"El campo '{char.ToLowerInvariant(field[0])}{field[1..]}' es obligatorio."];
+        }
+
         // Any other key is a property validated by Data Annotations, already in Spanish
         return [message];
     }
