@@ -78,7 +78,14 @@ public class CartService : ICartService
             var cart = Read(connection, usuarioId) ?? new CartModel { UsuarioId = usuarioId };
 
             var existing = cart.Items.FirstOrDefault(item => item.ProductoId == productoId);
-            var requested = cantidad + (existing?.Cantidad ?? 0);
+            // Accumulation is judged in long so the sum itself cannot overflow
+            // before it is compared; past int.MaxValue the cart answers CRT-004
+            // and stays untouched (the write happens only after this guard).
+            var combinedQuantity = (long)cantidad + (existing?.Cantidad ?? 0);
+            if (combinedQuantity > int.MaxValue)
+                throw new ValidationException(ErrorCodes.CRT_004, ErrorCodes.CRT_004_Message);
+
+            var requested = (int)combinedQuantity;
             if (requested > product.Stock)
             {
                 throw new BusinessRuleException(

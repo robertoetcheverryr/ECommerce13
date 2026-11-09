@@ -3496,6 +3496,246 @@
               }
             }
           ]
+        },
+        {
+          "name": "Suma de líneas pasa int.MaxValue → 400 ORD-002",
+          "id": "a27b8d1d-cddf-4af2-a984-53f51cab6786",
+          "request": {
+            "method": "POST",
+            "url": "{{ordersUrl}}/api/orders",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": \"{{userId}}\",\n  \"items\": [\n    { \"productoId\": \"{{productId2}}\", \"cantidad\": 2147483647 },\n    { \"productoId\": \"{{productId2}}\", \"cantidad\": 1 }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('errorCode ORD-002', () => pm.expect(pm.response.json().errorCode).to.eql('ORD-002'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear producto int.MaxValue",
+          "id": "a8d1d2e8-0ef8-45bb-98ec-63cce9b3a92d",
+          "request": {
+            "method": "POST",
+            "url": "{{productsUrl}}/api/products",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nombre\": \"Limite producto int.MaxValue\", \"descripcion\": \"producto de borde para desbordes\", \"precio\": 1, \"stock\": 2147483647, \"categoria\": \"qa-limites\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('productIdLimitInt', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Suma exacta en int.MaxValue es válida → 201",
+          "id": "8f06c7df-d7e9-4b3f-a5a9-047ee8e44e0e",
+          "request": {
+            "method": "POST",
+            "url": "{{ordersUrl}}/api/orders",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": \"{{userId}}\",\n  \"items\": [\n    { \"productoId\": \"{{productIdLimitInt}}\", \"cantidad\": 2147483646 },\n    { \"productoId\": \"{{productIdLimitInt}}\", \"cantidad\": 1 }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('total es int.MaxValue', () => pm.expect(pm.response.json().total).to.eql(2147483647));",
+                  "pm.collectionVariables.set('orderIdLimitInt', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cancelar orden límite int",
+          "id": "beb25792-56ef-4bf1-a685-750f2b71798b",
+          "request": {
+            "method": "PUT",
+            "url": "{{ordersUrl}}/api/orders/{{orderIdLimitInt}}/status",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": \"Cancelada\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear producto decimal.MaxValue",
+          "id": "c677f9e9-8284-4496-b49d-98278e578a3c",
+          "request": {
+            "method": "POST",
+            "url": "{{productsUrl}}/api/products",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nombre\": \"Limite producto decimal.MaxValue\", \"descripcion\": \"producto de borde para desbordes\", \"precio\": \"79228162514264337593543950335\", \"stock\": 2147483647, \"categoria\": \"qa-limites\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('productIdDecimalMax', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "cantidad × precio pasa decimal.MaxValue → 400 ORD-002",
+          "id": "47c87081-b667-47ad-bf4e-a0a3d8134579",
+          "request": {
+            "method": "POST",
+            "url": "{{ordersUrl}}/api/orders",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": \"{{userId}}\",\n  \"items\": [\n    { \"productoId\": \"{{productIdDecimalMax}}\", \"cantidad\": 2 }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('errorCode ORD-002', () => pm.expect(pm.response.json().errorCode).to.eql('ORD-002'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Línea exacta en decimal.MaxValue es válida → 201",
+          "id": "075a921a-54df-4f70-90cb-3f6d3dfd926c",
+          "request": {
+            "method": "POST",
+            "url": "{{ordersUrl}}/api/orders",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": \"{{userId}}\",\n  \"items\": [\n    { \"productoId\": \"{{productIdDecimalMax}}\", \"cantidad\": 1 }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('total es decimal.MaxValue', () => pm.expect(pm.response.text()).to.include('79228162514264337593543950335'));",
+                  "pm.collectionVariables.set('orderIdDecimalMax', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cancelar orden límite decimal",
+          "id": "60156642-030e-4b8f-8c70-592308e2f57f",
+          "request": {
+            "method": "PUT",
+            "url": "{{ordersUrl}}/api/orders/{{orderIdDecimalMax}}/status",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": \"Cancelada\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
         }
       ]
     },

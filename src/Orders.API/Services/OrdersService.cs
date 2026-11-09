@@ -188,6 +188,15 @@ public class OrdersService : IOrdersService
             }
             else
             {
+                // Same ORD-002 family: repeated lines whose sum would wrap past
+                // int.MaxValue are rejected before the Products call. Written as a
+                // subtraction so the guard itself cannot overflow.
+                if (item.Cantidad > int.MaxValue - existing.Cantidad)
+                    throw new OrderException(
+                        ErrorCodes.ORD_002,
+                        ErrorCodes.ORD_002_Message,
+                        StatusCodes.Status400BadRequest);
+
                 existing.Cantidad += item.Cantidad;
             }
         }
@@ -219,8 +228,21 @@ public class OrdersService : IOrdersService
             });
         }
 
-        order.Total = order.Items.Sum(
-            item => item.Cantidad * item.PrecioUnitario);
+        // checked() arithmetic: a line amount (cantidad x precio) or a running total
+        // that cannot fit in decimal is rejected as ORD-002 before any write.
+        // Values landing exactly on the int/decimal limits stay valid.
+        try
+        {
+            foreach (var item in order.Items)
+                order.Total = checked(order.Total + item.Cantidad * item.PrecioUnitario);
+        }
+        catch (OverflowException)
+        {
+            throw new OrderException(
+                ErrorCodes.ORD_002,
+                ErrorCodes.ORD_002_Message,
+                StatusCodes.Status400BadRequest);
+        }
 
         using var connection = new SqliteConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
