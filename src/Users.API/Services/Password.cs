@@ -8,7 +8,7 @@ public static class Password
 {
     public static bool IsValid(string? value) => !string.IsNullOrWhiteSpace(value);
 
-    // Temporary stand-in until we decide the real hasher. Never store the raw password.
+    // The spec does not prescribe a hasher: store SHA-256 without salt, never the raw password.
     public static string Hash(string password)
     {
         var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(password));

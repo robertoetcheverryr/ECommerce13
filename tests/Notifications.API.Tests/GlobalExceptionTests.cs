@@ -15,7 +15,7 @@ public class GlobalExceptionTests
     [Fact]
     public async Task GetNotifications_WhenServiceFails_ReturnsNtf004()
     {
-        await using var factory = new WebApplicationFactory<Program>()
+        await using var factory = new NotificationsApiFactory()
             .WithWebHostBuilder(builder =>
             {
                 builder.ConfigureTestServices(services =>

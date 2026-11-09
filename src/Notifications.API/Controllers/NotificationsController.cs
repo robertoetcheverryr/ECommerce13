@@ -35,9 +35,11 @@ public class NotificationsController : ControllerBase
     [SwaggerRequestExample(typeof(SendNotificationRequest), typeof(SendNotificationRequestExample))]
     [SwaggerResponseExample(StatusCodes.Status201Created, typeof(NotificationResponseExample))]
     [SwaggerResponseExample(StatusCodes.Status400BadRequest, typeof(ValidationErrorExample))]
+    [SwaggerResponseExample(StatusCodes.Status404NotFound, typeof(UserNotFoundErrorExample))]
     [SwaggerResponseExample(StatusCodes.Status500InternalServerError, typeof(InternalServerErrorExample))]
     [ProducesResponseType(typeof(Notification), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(object), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(object), StatusCodes.Status500InternalServerError)]
     public IActionResult SendNotification([FromBody] SendNotificationRequest request)
     {

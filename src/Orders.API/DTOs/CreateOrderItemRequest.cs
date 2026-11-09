@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Serialization;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace Orders.API.DTOs;
 
@@ -20,9 +21,12 @@ public class CreateOrderItemRequest
 
     /// <summary>
     /// Cantidad de unidades solicitadas. Requerida a nivel de
-    /// deserialización ([JsonRequired]).
+    /// deserialización ([JsonRequired]). [Range(1, ...)] declara el
+    /// "mayor a 0" del Apéndice A del TP: 0 y negativos ya se respondían
+    /// ORD-002 en el service, pero el schema no lo indicaba.
     /// </summary>
     /// <example>2</example>
     [JsonRequired]
+    [Range(1, int.MaxValue, ErrorMessage = "La cantidad debe ser mayor a 0.")]
     public int Cantidad { get; set; }
 }

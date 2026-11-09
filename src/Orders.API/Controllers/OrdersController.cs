@@ -1,6 +1,7 @@
 ﻿
 using Microsoft.AspNetCore.Mvc;
 using Orders.API.DTOs;
+using Orders.API.Exceptions;
 using Orders.API.Models;
 using Orders.API.Services;
 using Orders.API.Swagger;
@@ -41,11 +42,24 @@ public class OrdersController : ControllerBase
     [ProducesResponseType(typeof(IEnumerable<Order>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> GetAll(
-        [FromQuery] Guid? usuarioId,
+        [FromQuery] string? usuarioId,
         CancellationToken cancellationToken)
     {
+        // El ejemplo del TP para un id imposible es "GET /api/products/99 →
+        // 404 (PRD-001)": lo trata como inexistente, no como request
+        // malformado. Un filtro no puede responder 404, pero es lo mismo:
+        // un valor que no es Guid no matchea con ninguna orden y se responde
+        // 200 con []. Vacío o ausente sigue siendo sin filtro.
+        Guid? filtro = null;
+        if (!string.IsNullOrWhiteSpace(usuarioId))
+        {
+            if (!Guid.TryParse(usuarioId, out var parsed))
+                return Ok(Enumerable.Empty<Order>());
+            filtro = parsed;
+        }
+
         var orders = await _ordersService.GetAllAsync(
-            usuarioId, cancellationToken);
+            filtro, cancellationToken);
 
         return Ok(orders);
     }
@@ -59,7 +73,7 @@ public class OrdersController : ControllerBase
     /// <response code="200">La orden se encontró correctamente.</response>
     /// <response code="404">La orden solicitada no existe.</response>
     /// <response code="500">Ocurrió un error inesperado.</response>
-    [HttpGet("{id:guid}")]
+    [HttpGet("{id}")]
     [SwaggerResponseExample(StatusCodes.Status200OK, typeof(OrderResponseExample))]
     [SwaggerResponseExample(StatusCodes.Status404NotFound, typeof(OrderNotFoundErrorExample))]
     [SwaggerResponseExample(StatusCodes.Status500InternalServerError, typeof(InternalServerErrorExample))]
@@ -67,11 +81,24 @@ public class OrdersController : ControllerBase
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> GetById(
-        Guid id,
+        // string? porque el valor de ruta SIEMPRE está (es un segmento de la
+        // ruta); como string no-nullable MVC lo validaba requerido y un id de
+        // puros espacios ("\r\r") moría 400 antes de la acción.
+        string? id,
         CancellationToken cancellationToken)
     {
+        // El ejemplo del TP "GET /api/products/99 → 404 (PRD-001)" trata un id
+        // que no puede existir como inexistente, no como request malformado;
+        // un id que no es Guid contesta el mismo 404 ORD-001 que una orden
+        // que no está, en vez del 404 genérico sin errorCode de la ruta.
+        if (!Guid.TryParse(id, out var orderId))
+            throw new OrderException(
+                ErrorCodes.ORD_001,
+                ErrorCodes.ORD_001_Message,
+                StatusCodes.Status404NotFound);
+
         var order = await _ordersService.GetByIdAsync(
-            id, cancellationToken);
+            orderId, cancellationToken);
 
         return Ok(order);
     }

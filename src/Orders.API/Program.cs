@@ -9,6 +9,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Serilog;
 using Serilog.Context;
 using Serilog.Formatting.Json;
+using Serilog.Sinks.SystemConsole.Themes;
 using Swashbuckle.AspNetCore.Filters;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -17,7 +18,9 @@ var builder = WebApplication.CreateBuilder(args);
 Log.Logger = new LoggerConfiguration()
     .Enrich.FromLogContext()
     .Enrich.WithProperty("Service", "Orders.API")
-    .WriteTo.Console()
+    .WriteTo.Console(
+        theme: AnsiConsoleTheme.Code,
+        outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Service} {Endpoint} {CorrelationId} {Message:lj}{NewLine}{Exception}")
     .WriteTo.File(
         new JsonFormatter(),
         "logs/orders-api-.json",
@@ -66,6 +69,10 @@ builder.Services.AddControllers()
         options.SuppressMapClientErrors = true;
     });
 
+// Spec 5.2: Development shows exception.Message in detail, Production keeps the generic text
+builder.Services.Configure<ErrorHandlingOptions>(
+    builder.Configuration.GetSection(ErrorHandlingOptions.SectionName));
+
 builder.Services.AddExceptionHandler<OrdersExceptionHandler>();
 builder.Services.AddProblemDetails();
 
@@ -93,6 +100,10 @@ builder.Services.AddSwaggerGen(options =>
 
     options.IncludeXmlComments(xmlPath);
     options.ExampleFilters();
+    // Sin esto, los campos no nullable de los DTOs (items, estado) salen como
+    // "nullable": true en el OpenAPI y Schemathesis manda nulls que el runtime
+    // ya rechaza (implicit required). Mismo ajuste que Products/Users/Cart.
+    options.SupportNonNullableReferenceTypes();
 });
 
 builder.Services.AddSwaggerExamplesFromAssemblyOf<Program>();

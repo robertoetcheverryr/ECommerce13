@@ -16,6 +16,14 @@ public class SendNotificationRequest
 
     /// <summary>
     /// Mensaje que se enviará al usuario.
+    /// El OpenAPI declara además "pattern": ".*\S.*" (ver
+    /// Swagger/NotificationsSchemaFilter): [Required] trata "solo espacios"
+    /// como ausente (IsNullOrWhiteSpace) pero el schema solo decía
+    /// minLength, y Schemathesis mandaba "\u000b" como dato válido que el
+    /// runtime rechazaba con NTF-002. Se declara por SchemaFilter y no por
+    /// [RegularExpression] porque MVC ancla la regex y salta la cadena vacía
+    /// (rompería "sin mensaje" → 201) y duplicaría el mensaje exacto que
+    /// compara Newman.
     /// </summary>
     [Required(ErrorMessage = "El mensaje es obligatorio.")]
     [MaxLength(500, ErrorMessage = "El mensaje no puede superar los 500 caracteres.")]
