@@ -29,7 +29,9 @@ public class UpdateProductRequest
     /// </summary>
     /// <example>1750.00</example>
     [JsonRequired]
-    [Range(0.01, double.MaxValue, ErrorMessage = "El precio debe ser mayor a 0.")]
+    // Mismo rango exacto que CreateProductRequest; el maximum del schema lo
+    // baja ProductsSchemaFilter al double más grande que entra en decimal.
+    [Range(typeof(decimal), "0.01", "79228162514264337593543950335", ErrorMessage = "El precio debe ser mayor a 0.")]
     public decimal Precio { get; set; }
 
     /// <summary>

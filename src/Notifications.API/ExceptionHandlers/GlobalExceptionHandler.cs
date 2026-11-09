@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.Extensions.Options;
 using Serilog;
 using Notifications.API.Constants;
 
@@ -9,6 +10,13 @@ namespace Notifications.API.ExceptionHandlers;
 /// </summary>
 public class GlobalExceptionHandler : IExceptionHandler
 {
+    private readonly ErrorHandlingOptions _options;
+
+    public GlobalExceptionHandler(IOptions<ErrorHandlingOptions> options)
+    {
+        _options = options.Value;
+    }
+
     /// <summary>
     /// Maneja una excepción inesperada.
     /// </summary>
@@ -29,7 +37,9 @@ public class GlobalExceptionHandler : IExceptionHandler
             type = "https://tools.ietf.org/html/rfc7231#section-6.6.1",
             title = "Internal Server Error",
             status = StatusCodes.Status500InternalServerError,
-            detail = "Error interno al procesar la notificación.",
+            detail = _options.IncludeExceptionDetails
+                ? exception.Message
+                : "Error interno al procesar la notificación.",
             instance = context.Request.Path.Value,
             errorCode = ErrorCodes.InternalServerError,
             errorMessage = "Error interno al procesar la notificación.",

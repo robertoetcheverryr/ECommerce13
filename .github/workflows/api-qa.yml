@@ -153,6 +153,33 @@ jobs:
 
       - name: Schemathesis verdict
         if: ${{ !cancelled() && steps.fuzz.outcome != 'skipped' }}
+        env:
+          # Decisions applied at the gate, one per line; the full rationale
+          # for each class lives in docs/qa/README.md "Tolerated findings".
+          #   * 415                  framework refuses non-JSON bodies with
+          #                          our Spanish error shape; no TP table
+          #                          lists 415, so the body is contract-correct
+          #                          and only the declaration is missing.
+          #   * the six successes    unknown body/query members are silently
+          #                          dropped (System.Text.Json + binder
+          #                          defaults); the endpoint answers the
+          #                          documented success code and the TP has
+          #                          no error concept for "unknown property".
+          #   * 414                  a request line longer than Kestrel's
+          #                          8192-byte default is refused with an
+          #                          empty body before any app code runs;
+          #                          no endpoint can shape a Spanish error
+          #                          there and no TP table lists 414.
+          # Everything not listed keeps the run red.
+          SCHEMA_TOLERATE: |
+            * 415
+            * 414
+            GET /api/orders 200
+            POST /api/Users/register 201
+            POST /api/Users/login 200
+            POST /api/Products 201
+            PUT /api/Products/{id} 200
+            POST /api/notifications/send 201
         run: python scripts/qa/qa-verdict.py "${{ matrix.api }}" "$RUNNER_TEMP/reports/schemathesis"
 
       - name: Check the APIs are still alive

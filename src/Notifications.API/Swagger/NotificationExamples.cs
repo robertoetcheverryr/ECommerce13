@@ -97,6 +97,27 @@ public class NotFoundErrorExample : IExamplesProvider<object>
 }
 
 /// <summary>
+/// Proporciona un ejemplo de error de usuario destinatario inexistente.
+/// </summary>
+public class UserNotFoundErrorExample : IExamplesProvider<object>
+{
+    /// <summary>
+    /// Obtiene el ejemplo correspondiente.
+    /// </summary>
+    public object GetExamples() => new
+    {
+        type = "https://tools.ietf.org/html/rfc7231#section-6.5.4",
+        title = "Not Found",
+        status = 404,
+        detail = "El recurso solicitado no fue encontrado.",
+        instance = "/api/notifications/send",
+        errorCode = "NTF-001",
+        errorMessage = "El usuario destinatario no fue encontrado.",
+        correlationId = "example-correlation-id"
+    };
+}
+
+/// <summary>
 /// Proporciona un ejemplo de error interno del servidor.
 /// </summary>
 public class InternalServerErrorExample : IExamplesProvider<object>

@@ -39,6 +39,7 @@ builder.Services.AddSwaggerGen(options =>
     // does not have the ? operator
     options.SupportNonNullableReferenceTypes();
     options.OperationFilter<Products.API.ProductsSwaggerExamplesFilter>();
+    options.SchemaFilter<Products.API.ProductsSchemaFilter>();
 });
 
 // Disable automatic 400 so we can return our custom error format (PRD-002)
@@ -105,7 +106,7 @@ if (app.Environment.IsDevelopment())
 }
 
 // Spec 5.3 + 5.5: Endpoint and CorrelationId on every log of the request.
-// Outbound header propagation still TODO (no HttpClient calls in Products yet).
+// CorrelationIdHandler propagates outbound X-Correlation-Id on ActiveOrdersClient calls to Orders.
 app.Use(async (context, next) =>
 {
     var correlationId = Products.API.CorrelationId.Resolve(context.Request);

@@ -7,6 +7,15 @@ Added as a learning change: it tests the five APIs **actually running** (Develop
 | [Newman](https://github.com/postmanlabs/newman) | 6.2.3 (`scripts/qa/package.json` + `package-lock.json`) | Runs the main Postman collection (`docs/postman/ECommerce13.postman_collection.json`): the demo flows across services, with all their assertions. | **Mandatory**: any failed assertion fails the job. |
 | [Schemathesis](https://schemathesis.readthedocs.io/) | 4.33.1 (`scripts/qa/requirements.txt`) | Reads each API's OpenAPI (`/swagger/v1/swagger.json`) and generates valid and invalid requests (nulls, numeric extremes, odd strings, extra or missing fields), looking for 500s, undocumented status codes and responses that break the contract. | **Mandatory**: any API finding fails the job (see below). A manual run can uncheck `schemathesis_blocking` to keep findings advisory. |
 
+## Why both xUnit and Newman (Postman)
+
+They are not two copies of the same checks: they test at different altitudes and they fail for different reasons.
+
+- **xUnit** (`tests/*.API.Tests`): in-process tests of services and controllers with fakes for the HTTP clients (`IProductsClient`, `IProductCatalog`). Deterministic and fast; they check the decision logic the wire rarely exercises like state transitions, `int`/`decimal` boundaries, guard order before persistence. Coverage is measured only here.
+- **Newman** (the main Postman collection): real HTTP against the five running APIs with real SQLite, chaining data across services. It checks what the wire adds (status codes, `ErrorResponse` bodies, correlation headers) and doubles as the live demonstration that the APIs work: Swagger *describes* the endpoints, the collection *proves* them.
+
+A larger project would not collapse these into one; it would keep both at the same altitudes and add layers around them (contract tests, load tests, UI E2E). The design goal here is that each assertion in the collection fails for a reason no in-process test can produce, and vice versa.
+
 ## Architecture
 
 ```
@@ -200,7 +209,7 @@ Reports go to `qa-artifacts/` and Schemathesis leaves caches in `.schemathesis/`
 
 - **Manual Postman collection** (`ECommerce13.manual.postman_collection.json`: CRT-005, ORD-007 and PRD-005). It needs Products or Orders to be stopped mid-run; it is not automated in this PR. It is still run by hand as described in `docs/postman/README.md`. That is why CI does **not** validate the whole Postman collection, only the main one.
 - **Documented deviations**, unchanged: ORD-003 and NTF-001 are still not implemented because Users.API has no endpoint to look up a user by id. Neither tool tests or fakes them.
-- **Business-rule errors the OpenAPI does not describe.** Schemathesis only knows what the Swagger says. If a business rule breaks but the response is a 2xx with values the schema allows (for example, a quantity sum that overflows an `int`), it does not detect it; that needs xUnit boundary tests.
+- **Business-rule errors the OpenAPI does not describe.** Schemathesis only knows what the Swagger says. If a business rule breaks but the response is a 2xx with values the schema allows (for example, a quantity sum that overflows an `int`), it does not detect it; that needs xUnit boundary tests. Quantity accumulation in Orders and Cart, line amount multiplication, and order-total overflow are now covered: Cart by `QuantityOverflowTests.cs`, Orders by Newman requests pinning the same `int`/`decimal` limits. Unrepresentable values answer 400 ORD-002 / CRT-004 without writes; the exact limits stay accepted.
 - **Data chained across APIs.** When fuzzing Orders or Cart there are no real products in Products, so almost everything ends in 404 (ORD-004 / CRT-002) and Schemathesis warns `missing_test_data`. Fuzzing rarely reaches the stock logic. Users, Cart and Notifications have no links between operations that Schemathesis can infer, so their `stateful` phase is skipped.
 - The APIs have no authentication; none is invented.
 
@@ -218,11 +227,92 @@ Local smoke run with `run-local.sh` on `master` at `17336cc`, with a budget **re
 | Cart | 3,457 | 4 | ST202 ×2, ST103 ×2 |
 | Notifications | 2,807 | 4 | ST202 ×2, ST201 ×1, ST103 ×1 |
 
-- **ST101 (500) in Orders:** `POST /api/orders` with `"items": [null, null]` returns 500 ORD-007 instead of 400 ORD-002.
-- **ST103, undocumented status code:** 415 with no body on the POST/PUT endpoints of every API, and 400 on `GET /api/orders` with an invalid `usuarioId` (the Swagger does not declare that 400).
-- **ST201, invalid request accepted:** unknown body properties are ignored (Products PUT, Users login, Notifications send), and `GET /api/orders?usuarioId=` (empty) returns 200 `[]`.
+- **ST101 (500) in Orders (fixed):** the initial run returned 500 ORD-007 for `POST /api/orders` with `"items": [null, null]`. Null entries now answer 400 ORD-002 in `CreateAsync`, before the Products call or persistence; the Newman collection covers the regression (`Crear orden con ítem nulo → 400 ORD-002`).
+- **ST103, undocumented status code:** the framework's 415 on the POST/PUT endpoints of every API (the body already follows the error contract). It was also found as 400 on `GET /api/orders` with an invalid `usuarioId`, but that one was fixed to `200 []` (see `README.md`, Orders.API) instead of tolerated.
+- **ST201, invalid request accepted:** unknown body properties are ignored (Products PUT, Users login, Notifications send), and `GET /api/orders?usuarioId=` (empty) answered with every user's orders; empty was decided to mean "no filter" (see `README.md`, Orders.API).
 - **ST202, schema-valid request rejected:** the Swagger does not declare constraints the API does enforce (maximum length, formats, a price outside the `decimal` range, `estado: null`, `items: []`), so Schemathesis considers data valid that the API rejects with 400. These are mostly gaps in the contract documentation, not logic failures.
 
-Each failure includes the `curl` command to reproduce it in `schemathesis-cli.txt`. Fixes (code or Swagger) go in separate PRs, each with its own xUnit regression test.
+Each failure includes the `curl` command to reproduce it in `schemathesis-cli.txt`. Fixes (code or Swagger) go in separate PRs, each with its own regression test (xUnit or Newman).
+
+## Tolerated findings (found and decided, not ignored)
+
+A finding is silenced only by a written decision. The mechanism is the
+`SCHEMA_TOLERATE` variable of the QA verdict step (`scripts/qa/qa-verdict.py`,
+one decision per line, `METHOD /path/{template} status` or `* status`): a
+Schemathesis run turns green only when **every** failure group maps to junit
+cases whose every status code matches a listed decision; anything else keeps
+the run red. The decision lives at the gate - the tool's own reports are never
+rewritten, so `schemathesis.json` and the junit always show exactly what
+Schemathesis saw, and the tolerated groups are listed in the verdict output
+and in the job summary. If the tolerated behavior changes, the run goes red
+again by itself.
+
+### The framework answers 415 and Swagger does not declare it
+
+- **How it was found:** Schemathesis (ST103, plus ST202 on the same cases) on
+  the 2026-11-09 QA pass, on the nine POST/PUT endpoints of the five APIs, by
+  sending a `Content-Type` other than `application/json`.
+- **What actually happens:** the API answers 415 with a Spanish `ErrorResponse`
+  (`"El body debe enviarse como application/json."`) including `correlationId`.
+  The body follows section 3 of the TP since the status-code writer fix; only
+  the Swagger declaration is absent.
+- **Why it is not declared:** no "HTTP Status posibles" table of the TP lists
+  415 for any endpoint. Declaring it means nine attributes plus nine examples
+  spread over five controllers and five example providers which are not part
+  of the TP doc.
+- **Tolerance:** `* 415` (covers the stateful-test variants too).
+- **Revisit if:** the TP adds 415 to a table, the body stops following the
+  error contract, or a framework change moves who emits the 415.
+
+### The APIs silently ignore unknown properties (ST201)
+
+- **How it was found:** Schemathesis (ST201) on the 2026-11-09 QA pass, on
+  `POST`/`PUT /api/Products`, `POST /api/Users/register`, `POST /api/Users/login`,
+  `POST /api/notifications/send` and `GET /api/orders`, by sending body members
+  and query parameters the schemas never mention.
+- **What actually happens:** the deserializer (System.Text.Json default) and the
+  query binder drop unknown members and the request completes as if they were
+  absent: `201`/`200`, contract-shaped bodies. Nothing validates them and
+  nothing complains.
+- **Why it is not fixed:** rejecting them means
+  `[JsonUnmappedMemberHandling(Disallow)]` on every request DTO plus a Spanish
+  translation for a `JsonException` that never reaches `ModelState`, a per-DTO
+  error-message surface the TP has no text for (no error code covers "unknown
+  property"), and a forward-compatibility contract between our own services: a
+  field one teammate ships before the peer updates turns working calls into
+  400s. Lenient-unknown is the framework default and the mainstream HTTP
+  behavior; the TP never mentions the case.
+- **Tolerance:** the success statuses of exactly those endpoints
+  (`GET /api/orders 200`, `POST /api/Users/register 201`,
+  `POST /api/Users/login 200`, `POST /api/Products 201`,
+  `PUT /api/Products/{id} 200`, `POST /api/notifications/send 201`).
+  Accepted trade-off: the gate grammar matches status codes, so a future
+  response-shape finding on those exact endpoints would be silenced too. That
+  is the price of a gate that stays useful instead of permanently red.
+- **Revisit if:** the TP specifies unknown-property handling, the course
+  prefers strict DTOs, or a response-shape finding on one of these six
+  endpoints needs to stay visible (then this tolerance narrows).
+
+### Query strings too long answer 414 with an empty body (ST103)
+
+- **How it was found:** live probes on the 2026-11-09 QA pass:
+  `GET /api/Products?$filter=<8000 chars>` answers `200` while
+  `<10000 chars>` answers `414`; the request line (method + URL + query)
+  exceeds Kestrel's `MaxRequestLineSize` default of 8192 bytes and the
+  request never reaches the application. Schemathesis drew it once in the
+  earlier seeds.
+- **What actually happens:** Kestrel itself answers `414` with an **empty
+  body** — no `ErrorResponse`, no Spanish text, no `correlationId`. No
+  endpoint code runs, so nothing inside the APIs can shape that response.
+- **Why it is not fixed:** no "HTTP Status posibles" table of the TP lists
+  414 for any endpoint; raising `MaxRequestLineSize` or declaring a `414`
+  with attributes and examples on every query endpoint would invent contract
+  the TP does not ask for, over a response no app code controls (and we are
+  in the last day, these are QA excercises for me only)
+- **Tolerance:** `* 414` for every endpoint (preventive: it only appears
+  when a seed generates a >8 KB request line).
+- **Revisit if:** the TP adds 414 to a table, or the expected behavior for
+  oversized requests becomes specified (then the tolerance narrows to a
+  declared status per endpoint).
 
 API response texts (`errorMessage`, `detail`) are part of the API contract and stay in Spanish; this document does not translate them.

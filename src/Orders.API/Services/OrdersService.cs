@@ -148,17 +148,61 @@ public class OrdersService : IOrdersService
             FechaCreacion = DateTime.UtcNow
         };
 
+        // Repeated ProductoId lines are the same product. Fold them so ORD-005
+        // checks the total requested against stock (like Cart POST accumulation).
+        // The catalog has no "duplicate item" code; merging avoids two rows of
+        // the same product and keeps the stock check honest.
+        var mergedItems = new List<CreateOrderItemRequest>();
         foreach (var item in request.Items)
         {
             // Cart rejects this with CRT-004; the Orders catalog has no quantity
             // code, so invalid values (0 or negative) answer as ORD-002. Checked
             // before the Products call: a bad quantity needs no catalog to reject.
-            if (item.Cantidad <= 0)
+            // A null element is JSON-legal for a List<T>, so the binding layer's
+            // null doctrine cannot cover it: [JsonRequired] only checks that the
+            // "items" field is present and DataAnnotations never run on elements.
+            // The service layer rejects it.
+            if (item is null || item.Cantidad <= 0)
                 throw new OrderException(
                     ErrorCodes.ORD_002,
                     ErrorCodes.ORD_002_Message,
                     StatusCodes.Status400BadRequest);
 
+            CreateOrderItemRequest? existing = null;
+            foreach (var seen in mergedItems)
+            {
+                if (seen.ProductoId == item.ProductoId)
+                {
+                    existing = seen;
+                    break;
+                }
+            }
+
+            if (existing is null)
+            {
+                mergedItems.Add(new CreateOrderItemRequest
+                {
+                    ProductoId = item.ProductoId,
+                    Cantidad = item.Cantidad
+                });
+            }
+            else
+            {
+                // Same ORD-002 family: repeated lines whose sum would wrap past
+                // int.MaxValue are rejected before the Products call. Written as a
+                // subtraction so the guard itself cannot overflow.
+                if (item.Cantidad > int.MaxValue - existing.Cantidad)
+                    throw new OrderException(
+                        ErrorCodes.ORD_002,
+                        ErrorCodes.ORD_002_Message,
+                        StatusCodes.Status400BadRequest);
+
+                existing.Cantidad += item.Cantidad;
+            }
+        }
+
+        foreach (var item in mergedItems)
+        {
             var product = await _productsClient.GetByIdAsync(
                 item.ProductoId,
                 cancellationToken);
@@ -184,8 +228,21 @@ public class OrdersService : IOrdersService
             });
         }
 
-        order.Total = order.Items.Sum(
-            item => item.Cantidad * item.PrecioUnitario);
+        // checked() arithmetic: a line amount (cantidad x precio) or a running total
+        // that cannot fit in decimal is rejected as ORD-002 before any write.
+        // Values landing exactly on the int/decimal limits stay valid.
+        try
+        {
+            foreach (var item in order.Items)
+                order.Total = checked(order.Total + item.Cantidad * item.PrecioUnitario);
+        }
+        catch (OverflowException)
+        {
+            throw new OrderException(
+                ErrorCodes.ORD_002,
+                ErrorCodes.ORD_002_Message,
+                StatusCodes.Status400BadRequest);
+        }
 
         using var connection = new SqliteConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);

@@ -169,5 +169,106 @@ class MainTests(unittest.TestCase):
         self.assertIn("::error::", out)
 
 
+def junit_with(cases):
+    """Build a `st --report junit` XML: cases is a list of (name, codes, body)."""
+    items = "".join(
+        f'<testcase classname="schemathesis" name="{name}" time="1.0">'
+        f'<failure type="failure" message="{codes}">{body}</failure></testcase>'
+        for name, codes, body in cases
+    )
+    return f'<testsuites><testsuite name="schemathesis">{items}</testsuite></testsuites>'
+
+
+BODY_415 = "ST103 Undocumented status code\n Received: 415\n [415] Unsupported Media Type:\n ok"
+BODY_400 = "ST202 Schema-valid request rejected\n Received: 400\n [400] Bad Request:\n ok"
+BODY_406 = "ST103 Undocumented status code\n Received: 406\n [406] Not Acceptable:\n ok"
+class ToleranceTests(unittest.TestCase):
+    """SCHEMA_TOLERATE decided exceptions applied at the gate (never rewriting reports)."""
+
+    def setUp(self):
+        self.decisions = qa_verdict.parse_tolerations("* 415\nGET /api/orders 400")
+        self.report_103 = report(
+            exit_code=1, test_cases={"generated": 10, "unique_failures": 1},
+            failures=[{"type": "UndefinedStatusCode", "code": "ST103",
+                       "title": "Undocumented status code", "count": 1}],
+        )
+
+    def test_parse_tolerations(self):
+        self.assertEqual(self.decisions, [("*", "415"), ("GET /api/orders", "400")])
+
+    def test_fully_decided_run_is_green(self):
+        junit = junit_with([("POST /api/orders", "ST103", BODY_415)])
+        result, code, reason, _ = qa_verdict.evaluate(
+            "1", self.report_103, junit_text=junit, tolerations=self.decisions)
+        self.assertEqual((result, code), (qa_verdict.OK, 0))
+        self.assertIn("decided exceptions", reason)
+
+    def test_compound_undecided_status_keeps_red(self):
+        junit = junit_with([("POST /api/orders", "ST103", BODY_415),
+                            ("PUT /api/orders/{id}", "ST103", BODY_406)])
+        result, code, _, _ = qa_verdict.evaluate(
+            "1", self.report_103, junit_text=junit, tolerations=self.decisions)
+        self.assertEqual((result, code), (qa_verdict.ADVISORY, 0))
+
+    def test_operation_scoped_decision(self):
+        report_400 = json.dumps({**json.loads(self.report_103),
+                                 "failures": [{"code": "ST103", "count": 1}]})
+        ok_junit = junit_with([("GET /api/orders", "ST103", BODY_400)])
+        bad_junit = junit_with([("POST /api/orders", "ST103", BODY_400)])
+        self.assertEqual(qa_verdict.evaluate("1", report_400, junit_text=ok_junit,
+                                             tolerations=self.decisions)[0], qa_verdict.OK)
+        self.assertEqual(qa_verdict.evaluate("1", report_400, junit_text=bad_junit,
+                                             tolerations=self.decisions)[0], qa_verdict.ADVISORY)
+
+    def test_stateful_cases_use_the_reproduction_curl(self):
+        body = (BODY_415 + "\nReproduce with:\n    curl -X POST "
+                "http://127.0.0.1:5003/api/orders?x=1")
+        junit = junit_with([("Stateful tests", "ST103, ST202", body)])
+        codes, statuses = qa_verdict.tolerated_codes(junit, self.decisions)
+        self.assertEqual(codes, {"ST103", "ST202"})
+        self.assertEqual(statuses["ST103"], ["415"])
+
+    def test_multiple_failure_elements_are_all_read(self):
+        # st attaches SEVERAL <failure> siblings to one testcase (e.g. an ST201
+        # answered 201 next to the compound ST103+ST202 of the 415 artifact).
+        # A code is decided only if EVERY sibling showing it is decided.
+        multi = ('<testsuites><testsuite name="schemathesis">'
+                 '<testcase classname="schemathesis" name="POST /api/orders" time="1.0">'
+                 '<failure type="failure" message="ST201">ST201 accepted\n[201] Created: ok</failure>'
+                 f'<failure type="failure" message="ST103, ST202">{BODY_415}</failure>'
+                 '</testcase></testsuite></testsuites>')
+        decisions = qa_verdict.parse_tolerations("* 415\nPOST /api/orders 201")
+        codes, _ = qa_verdict.tolerated_codes(multi, decisions)
+        self.assertEqual(codes, {"ST103", "ST201", "ST202"})
+        # ...and an undecided sibling keeps its code open instead of a false green.
+        undecided = multi.replace(BODY_415, BODY_406)
+        codes, _ = qa_verdict.tolerated_codes(undecided, decisions)
+        self.assertNotIn("ST103", codes)
+
+    def test_no_junit_no_tolerated_code(self):
+        codes, _ = qa_verdict.tolerated_codes(None, self.decisions)
+        self.assertEqual(codes, set())
+        result, _, _, _ = qa_verdict.evaluate(
+            "1", self.report_103, junit_text=None, tolerations=self.decisions)
+        self.assertEqual(result, qa_verdict.ADVISORY)
+
+    def test_group_missing_from_junit_stays_open(self):
+        junit = junit_with([("POST /api/orders", "ST103", BODY_415)])
+        two_groups = report(
+            exit_code=1, test_cases={"generated": 10, "unique_failures": 2},
+            failures=[{"code": "ST103", "count": 1}, {"code": "ST201", "count": 1}],
+        )
+        result, _, _, _ = qa_verdict.evaluate(
+            "1", two_groups, junit_text=junit, tolerations=self.decisions)
+        self.assertEqual(result, qa_verdict.ADVISORY)
+
+    def test_blocking_mode_honours_the_decision(self):
+        junit = junit_with([("POST /api/orders", "ST103", BODY_415)])
+        result, code, _, _ = qa_verdict.evaluate(
+            "1", self.report_103, blocking=True, junit_text=junit,
+            tolerations=self.decisions)
+        self.assertEqual((result, code), (qa_verdict.OK, 0))
+
+
 if __name__ == "__main__":
     unittest.main()

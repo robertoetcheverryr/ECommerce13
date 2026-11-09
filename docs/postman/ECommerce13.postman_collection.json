@@ -557,6 +557,93 @@
           ]
         },
         {
+          "name": "Crear producto con precio sobre el tope de decimal → 400 PRD-002",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nombre\": \"Precio gigante {{runId}}\", \"descripcion\": null, \"precio\": 1e+307, \"stock\": 1, \"categoria\": \"Otros\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{productsUrl}}/api/Products",
+              "host": [
+                "{{productsUrl}}"
+              ],
+              "path": [
+                "api",
+                "Products"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('errorCode PRD-002', () => pm.expect(pm.response.json().errorCode).to.eql('PRD-002'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El campo 'precio' tiene un formato inválido.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear producto con precio en el tope declarado → 201",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nombre\": \"Precio tope {{runId}}\", \"descripcion\": null, \"precio\": 7.922816251424674e+28, \"stock\": 1, \"categoria\": \"Otros\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{productsUrl}}/api/Products",
+              "host": [
+                "{{productsUrl}}"
+              ],
+              "path": [
+                "api",
+                "Products"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('id presente', () => pm.expect(pm.response.json().id).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "Listar productos",
           "id": "bf5e1e15-67d7-5628-9c5a-3d4ee15f02e6",
           "request": {
@@ -1421,6 +1508,51 @@
                       "pm.test('status 405', () => pm.response.to.have.status(405));",
                       "pm.test('errorCode vacío', () => pm.expect(pm.response.json().errorCode).to.eql(''));",
                       "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Método no permitido.\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Login con email de subdominio y signo no es 400 → 401 USR-003",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"email\": \"{{runId}}.user+tag@sub.domain.co\", \"password\": \"MiPassword123!\"}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{usersUrl}}/api/users/login",
+                  "host": [
+                    "{{usersUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "users",
+                    "login"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 401', () => pm.response.to.have.status(401));",
+                      "pm.test('errorCode USR-003', () => pm.expect(pm.response.json().errorCode).to.eql('USR-003'));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Credenciales incorrectas.\"));"
                     ]
                   }
                 }
@@ -3061,6 +3193,51 @@
                   }
                 }
               ]
+            },
+            {
+              "name": "Enviar con mensaje de un carácter de control → 400 NTF-002",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"usuarioId\": \"{{userId}}\",\n  \"tipo\": \"Push\",\n  \"mensaje\": \"\\u000b\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{notificationsUrl}}/api/notifications/send",
+                  "host": [
+                    "{{notificationsUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "notifications",
+                    "send"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 400', () => pm.response.to.have.status(400));",
+                      "pm.test('errorCode NTF-002', () => pm.expect(pm.response.json().errorCode).to.eql('NTF-002'));",
+                      "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El mensaje es obligatorio.\"));"
+                    ]
+                  }
+                }
+              ]
             }
           ]
         },
@@ -3207,12 +3384,72 @@
           ]
         },
         {
+          "name": "Filtrar por usuarioId inexistente → 200 []",
+          "request": {
+            "method": "GET",
+            "url": "{{ordersUrl}}/api/orders?usuarioId=no-es-un-guid"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('lista vacia: un id que no es Guid no puede existir', () => pm.expect(pm.response.json()).to.eql([]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Filtrar con usuarioId vacío lista todas → 200",
+          "request": {
+            "method": "GET",
+            "url": "{{ordersUrl}}/api/orders?usuarioId="
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200: vacio = sin filtro', () => pm.response.to.have.status(200));",
+                  "pm.test('es una lista (puede estar vacia segun la corrida)', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "Orden inexistente → 404 ORD-001",
           "id": "7e4610e8-63cf-5a7a-98c5-2407ca5c1b23",
           "request": {
             "method": "GET",
             "header": [],
             "url": "{{ordersUrl}}/api/orders/3fa85f64-5717-4562-b3fc-2c963f66afa6"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('errorCode ORD-001', () => pm.expect(pm.response.json().errorCode).to.eql('ORD-001'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Orden no encontrada.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Orden con id que no es Guid → 404 ORD-001",
+          "id": "c0ffee4a-9901-4d01-8e22-0badcafe9901",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{ordersUrl}}/api/orders/99"
           },
           "event": [
             {
@@ -3253,7 +3490,69 @@
                 "exec": [
                   "pm.test('status 400', () => pm.response.to.have.status(400));",
                   "pm.test('errorCode ORD-002', () => pm.expect(pm.response.json().errorCode).to.eql('ORD-002'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El campo 'items' debe contener al menos un ítem.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear orden con ítem nulo → 400 ORD-002",
+          "id": "8fae5b91-6be5-4ef6-8603-76838956137b",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{ordersUrl}}/api/orders",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": \"{{userId}}\",\n  \"items\": [null, { \"productoId\": \"{{productId2}}\", \"cantidad\": 1 }]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('errorCode ORD-002', () => pm.expect(pm.response.json().errorCode).to.eql('ORD-002'));",
                   "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Los datos de la orden son inválidos.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear orden con items null → 400 ORD-002",
+          "id": "60932f19-0e1f-4557-af0f-c4cc8abcb876",
+          "request": {
+            "method": "POST",
+            "url": "{{ordersUrl}}/api/orders",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": \"{{userId}}\",\n  \"items\": null\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('errorCode ORD-002', () => pm.expect(pm.response.json().errorCode).to.eql('ORD-002'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El campo 'items' es obligatorio.\"));"
                 ]
               }
             }
@@ -3353,6 +3652,129 @@
           ]
         },
         {
+          "name": "Actualizar estado con estado nulo → 400 ORD-002",
+          "id": "7bb37d32-d026-4151-8aa9-12cb4a00f871",
+          "request": {
+            "method": "PUT",
+            "url": "{{ordersUrl}}/api/orders/{{orderId}}/status",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": null\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('errorCode ORD-002', () => pm.expect(pm.response.json().errorCode).to.eql('ORD-002'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El campo 'estado' es obligatorio.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Actualizar estado sin campo estado → 400 ORD-002",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{ordersUrl}}/api/orders/{{orderId}}/status",
+              "host": [
+                "{{ordersUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "{{orderId}}",
+                "status"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('errorCode ORD-002', () => pm.expect(pm.response.json().errorCode).to.eql('ORD-002'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El campo 'estado' es obligatorio.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Actualizar estado con solo espacios → 400 ORD-002",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"estado\": \"   \"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{ordersUrl}}/api/orders/{{orderId}}/status",
+              "host": [
+                "{{ordersUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "{{orderId}}",
+                "status"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('errorCode ORD-002', () => pm.expect(pm.response.json().errorCode).to.eql('ORD-002'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El estado es obligatorio.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "Cancelar orden (Pendiente → Cancelada)",
           "id": "2d8c400d-e5bb-5af8-9624-9f52f016cb8a",
           "request": {
@@ -3378,6 +3800,246 @@
                 "exec": [
                   "pm.test('status 200', () => pm.response.to.have.status(200));",
                   "pm.test('orden cancelada', () => pm.expect(pm.response.json()).to.include({ id: pm.collectionVariables.get('orderId'), estado: 'Cancelada' }));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Suma de líneas pasa int.MaxValue → 400 ORD-002",
+          "id": "a27b8d1d-cddf-4af2-a984-53f51cab6786",
+          "request": {
+            "method": "POST",
+            "url": "{{ordersUrl}}/api/orders",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": \"{{userId}}\",\n  \"items\": [\n    { \"productoId\": \"{{productId2}}\", \"cantidad\": 2147483647 },\n    { \"productoId\": \"{{productId2}}\", \"cantidad\": 1 }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('errorCode ORD-002', () => pm.expect(pm.response.json().errorCode).to.eql('ORD-002'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear producto int.MaxValue",
+          "id": "a8d1d2e8-0ef8-45bb-98ec-63cce9b3a92d",
+          "request": {
+            "method": "POST",
+            "url": "{{productsUrl}}/api/products",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nombre\": \"Limite producto int.MaxValue\", \"descripcion\": \"producto de borde para desbordes\", \"precio\": 1, \"stock\": 2147483647, \"categoria\": \"qa-limites\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('productIdLimitInt', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Suma exacta en int.MaxValue es válida → 201",
+          "id": "8f06c7df-d7e9-4b3f-a5a9-047ee8e44e0e",
+          "request": {
+            "method": "POST",
+            "url": "{{ordersUrl}}/api/orders",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": \"{{userId}}\",\n  \"items\": [\n    { \"productoId\": \"{{productIdLimitInt}}\", \"cantidad\": 2147483646 },\n    { \"productoId\": \"{{productIdLimitInt}}\", \"cantidad\": 1 }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('total es int.MaxValue', () => pm.expect(pm.response.json().total).to.eql(2147483647));",
+                  "pm.collectionVariables.set('orderIdLimitInt', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cancelar orden límite int",
+          "id": "beb25792-56ef-4bf1-a685-750f2b71798b",
+          "request": {
+            "method": "PUT",
+            "url": "{{ordersUrl}}/api/orders/{{orderIdLimitInt}}/status",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": \"Cancelada\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear producto decimal.MaxValue",
+          "id": "c677f9e9-8284-4496-b49d-98278e578a3c",
+          "request": {
+            "method": "POST",
+            "url": "{{productsUrl}}/api/products",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nombre\": \"Limite producto decimal.MaxValue\", \"descripcion\": \"producto de borde para desbordes\", \"precio\": \"79228162514264337593543950335\", \"stock\": 2147483647, \"categoria\": \"qa-limites\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('productIdDecimalMax', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "cantidad × precio pasa decimal.MaxValue → 400 ORD-002",
+          "id": "47c87081-b667-47ad-bf4e-a0a3d8134579",
+          "request": {
+            "method": "POST",
+            "url": "{{ordersUrl}}/api/orders",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": \"{{userId}}\",\n  \"items\": [\n    { \"productoId\": \"{{productIdDecimalMax}}\", \"cantidad\": 2 }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('errorCode ORD-002', () => pm.expect(pm.response.json().errorCode).to.eql('ORD-002'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Línea exacta en decimal.MaxValue es válida → 201",
+          "id": "075a921a-54df-4f70-90cb-3f6d3dfd926c",
+          "request": {
+            "method": "POST",
+            "url": "{{ordersUrl}}/api/orders",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": \"{{userId}}\",\n  \"items\": [\n    { \"productoId\": \"{{productIdDecimalMax}}\", \"cantidad\": 1 }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('total es decimal.MaxValue', () => pm.expect(pm.response.text()).to.include('79228162514264337593543950335'));",
+                  "pm.collectionVariables.set('orderIdDecimalMax', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cancelar orden límite decimal",
+          "id": "60156642-030e-4b8f-8c70-592308e2f57f",
+          "request": {
+            "method": "PUT",
+            "url": "{{ordersUrl}}/api/orders/{{orderIdDecimalMax}}/status",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": \"Cancelada\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));"
                 ]
               }
             }

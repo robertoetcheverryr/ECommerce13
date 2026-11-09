@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Serialization;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace Orders.API.DTOs;
 
@@ -22,5 +23,6 @@ public class CreateOrderRequest
     /// Lista de productos y cantidades incluidos en la orden. Requerida.
     /// </summary>
     [JsonRequired]
+    [MinLength(1, ErrorMessage = "El campo 'items' debe contener al menos un ítem.")]
     public List<CreateOrderItemRequest> Items { get; set; } = [];
 }

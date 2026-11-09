@@ -86,7 +86,7 @@ public class CorrelationIdHeaderTests
 
     private static WebApplicationFactory<Program> CreateFactory(INotificationService service)
     {
-        return new WebApplicationFactory<Program>()
+        return new NotificationsApiFactory()
             .WithWebHostBuilder(builder =>
             {
                 builder.ConfigureTestServices(services =>
