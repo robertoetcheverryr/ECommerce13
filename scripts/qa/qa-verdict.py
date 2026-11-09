@@ -85,28 +85,31 @@ def tolerated_codes(junit_text, decisions):
         return set(), {}
     per_code = {}
     for case in root.iter("testcase"):
-        failure = case.find("failure")
-        if failure is None:
-            continue
-        # The `st --report junit` format names each testcase with the operation
-        # ("PUT /api/cart/{userId}/items"). Stateful-test cases have no op in
-        # the name; their ops come from the reproduction curls instead. A case
-        # with no op evidence cannot be tied to a decision and stays open.
-        op = CASE_NAME_OP.match(case.get("name", ""))
-        text = f"{failure.get('message') or ''} {failure.text or ''}"
-        codes = set(CASE_CODE.findall(text))
-        statuses = {g for match in RECEIVED_STATUS.findall(text) for g in match if g}
-        if not codes or not statuses:
-            continue
-        if op:
-            ops = [(op[1], op[2])]
-        else:
-            ops = [(m, re.split(r"[?#]", p)[0])
-                   for m, p in re.findall(r"-X (GET|POST|PUT|PATCH|DELETE) https?://[^/\s]+(\S+)", text)]
-            if not ops:
+        # A testcase can carry SEVERAL failure elements (one per failure kind,
+        # e.g. ST201 and a compound ST103+ST202 under the same operation).
+        # Reading only the first one hides statuses the gate must also decide,
+        # both toward red (a tolerated case never seen) and toward green (an
+        # undecided sibling never seen), so every failure is read.
+        for failure in case.findall("failure"):
+            # The `st --report junit` format names each testcase with the operation
+            # ("PUT /api/cart/{userId}/items"). Stateful-test cases have no op in
+            # the name; their ops come from the reproduction curls instead. A case
+            # with no op evidence cannot be tied to a decision and stays open.
+            op = CASE_NAME_OP.match(case.get("name", ""))
+            text = f"{failure.get('message') or ''} {failure.text or ''}"
+            codes = set(CASE_CODE.findall(text))
+            statuses = {g for match in RECEIVED_STATUS.findall(text) for g in match if g}
+            if not codes or not statuses:
                 continue
-        for code in codes:
-            per_code.setdefault(code, []).extend((m, p, statuses) for m, p in ops)
+            if op:
+                ops = [(op[1], op[2])]
+            else:
+                ops = [(m, re.split(r"[?#]", p)[0])
+                       for m, p in re.findall(r"-X (GET|POST|PUT|PATCH|DELETE) https?://[^/\s]+(\S+)", text)]
+                if not ops:
+                    continue
+            for code in codes:
+                per_code.setdefault(code, []).extend((m, p, statuses) for m, p in ops)
     codes, statuses_out = set(), {}
     for code, entries in per_code.items():
         if entries and all(_case_allowed(m, p, s, decisions) for m, p, sts in entries for s in sts):

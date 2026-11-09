@@ -228,6 +228,23 @@ class ToleranceTests(unittest.TestCase):
         self.assertEqual(codes, {"ST103", "ST202"})
         self.assertEqual(statuses["ST103"], ["415"])
 
+    def test_multiple_failure_elements_are_all_read(self):
+        # st attaches SEVERAL <failure> siblings to one testcase (e.g. an ST201
+        # answered 201 next to the compound ST103+ST202 of the 415 artifact).
+        # A code is decided only if EVERY sibling showing it is decided.
+        multi = ('<testsuites><testsuite name="schemathesis">'
+                 '<testcase classname="schemathesis" name="POST /api/orders" time="1.0">'
+                 '<failure type="failure" message="ST201">ST201 accepted\n[201] Created: ok</failure>'
+                 f'<failure type="failure" message="ST103, ST202">{BODY_415}</failure>'
+                 '</testcase></testsuite></testsuites>')
+        decisions = qa_verdict.parse_tolerations("* 415\nPOST /api/orders 201")
+        codes, _ = qa_verdict.tolerated_codes(multi, decisions)
+        self.assertEqual(codes, {"ST103", "ST201", "ST202"})
+        # ...and an undecided sibling keeps its code open instead of a false green.
+        undecided = multi.replace(BODY_415, BODY_406)
+        codes, _ = qa_verdict.tolerated_codes(undecided, decisions)
+        self.assertNotIn("ST103", codes)
+
     def test_no_junit_no_tolerated_code(self):
         codes, _ = qa_verdict.tolerated_codes(None, self.decisions)
         self.assertEqual(codes, set())

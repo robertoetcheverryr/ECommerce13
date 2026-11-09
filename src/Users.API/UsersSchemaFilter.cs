@@ -36,7 +36,7 @@ public class UsersSchemaFilter : ISchemaFilter
     /// UpdateOrderStatusRequest para la explicación completa).
     /// </summary>
     public const string NonBlankPattern =
-        @"[\s\S]*[^\u0000-\u0020\u007f-\u009f\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff][\s\S]*";
+        @"[\s\S]*[^\u0009-\u000D\u0020\u0085\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000][\s\S]*";
 
     /// <inheritdoc />
     public void Apply(IOpenApiSchema schema, SchemaFilterContext context)
