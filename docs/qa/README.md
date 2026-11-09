@@ -218,7 +218,7 @@ Local smoke run with `run-local.sh` on `master` at `17336cc`, with a budget **re
 | Cart | 3,457 | 4 | ST202 ×2, ST103 ×2 |
 | Notifications | 2,807 | 4 | ST202 ×2, ST201 ×1, ST103 ×1 |
 
-- **ST101 (500) in Orders:** `POST /api/orders` with `"items": [null, null]` returns 500 ORD-007 instead of 400 ORD-002.
+- **ST101 (500) in Orders (fixed):** the initial run returned 500 ORD-007 for `POST /api/orders` with `"items": [null, null]`. Null entries now answer 400 ORD-002 in `CreateAsync`, before the Products call or persistence; the Newman collection covers the regression (`Crear orden con ítem nulo → 400 ORD-002`).
 - **ST103, undocumented status code:** 415 with no body on the POST/PUT endpoints of every API, and 400 on `GET /api/orders` with an invalid `usuarioId` (the Swagger does not declare that 400).
 - **ST201, invalid request accepted:** unknown body properties are ignored (Products PUT, Users login, Notifications send), and `GET /api/orders?usuarioId=` (empty) returns 200 `[]`.
 - **ST202, schema-valid request rejected:** the Swagger does not declare constraints the API does enforce (maximum length, formats, a price outside the `decimal` range, `estado: null`, `items: []`), so Schemathesis considers data valid that the API rejects with 400. These are mostly gaps in the contract documentation, not logic failures.

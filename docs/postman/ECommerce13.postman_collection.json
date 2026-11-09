@@ -3260,6 +3260,37 @@
           ]
         },
         {
+          "name": "Crear orden con ítem nulo → 400 ORD-002",
+          "id": "8fae5b91-6be5-4ef6-8603-76838956137b",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{ordersUrl}}/api/orders",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": \"{{userId}}\",\n  \"items\": [null, { \"productoId\": \"{{productId2}}\", \"cantidad\": 1 }]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('errorCode ORD-002', () => pm.expect(pm.response.json().errorCode).to.eql('ORD-002'));",
+                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"Los datos de la orden son inválidos.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "Producto inexistente → 404 ORD-004",
           "id": "c5de7034-0546-5502-aebb-f4defc586d73",
           "request": {

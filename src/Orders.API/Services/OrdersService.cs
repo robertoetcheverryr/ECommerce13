@@ -158,7 +158,11 @@ public class OrdersService : IOrdersService
             // Cart rejects this with CRT-004; the Orders catalog has no quantity
             // code, so invalid values (0 or negative) answer as ORD-002. Checked
             // before the Products call: a bad quantity needs no catalog to reject.
-            if (item.Cantidad <= 0)
+            // A null element is JSON-legal for a List<T>, so the binding layer's
+            // null doctrine cannot cover it: [JsonRequired] only checks that the
+            // "items" field is present and DataAnnotations never run on elements.
+            // The service layer rejects it.
+            if (item is null || item.Cantidad <= 0)
                 throw new OrderException(
                     ErrorCodes.ORD_002,
                     ErrorCodes.ORD_002_Message,
