@@ -264,19 +264,33 @@ again by itself.
 - **Revisit if:** the TP adds 415 to a table, the body stops following the
   error contract, or a framework change moves who emits the 415.
 
-### `GET /api/orders` answers 400 for a malformed `usuarioId`
+### The APIs silently ignore unknown properties (ST201)
 
-- **How it was found:** the same Schemathesis run (ST103 on that endpoint).
-- **What actually happens:** query-model binding rejects a `usuarioId` that is
-  not a Guid and answers 400 with a Spanish body and `ORD-002`.
-- **Why it is not declared:** the TP table for that endpoint admits
-  `200, 500` only. A well-behaved 400 is more honest than a 500, but adding it
-  to Swagger documents a code the assignment's own table does not list. The
-  behavior stays pinned by Newman and explained here instead.
-- **Tolerance:** `GET /api/orders 400` (every 400 of that endpoint comes from
-  this same binding decision).
-- **Revisit if:** the course confirms a 400 there is correct (then it gets
-  declared) or prefers a malformed id to behave like empty (then the runtime
-  changes and this entry is deleted).
+- **How it was found:** Schemathesis (ST201) on the 2026-11-09 QA pass, on
+  `POST`/`PUT /api/Products`, `POST /api/Users/register`, `POST /api/Users/login`,
+  `POST /api/notifications/send` and `GET /api/orders`, by sending body members
+  and query parameters the schemas never mention.
+- **What actually happens:** the deserializer (System.Text.Json default) and the
+  query binder drop unknown members and the request completes as if they were
+  absent: `201`/`200`, contract-shaped bodies. Nothing validates them and
+  nothing complains.
+- **Why it is not fixed:** rejecting them means
+  `[JsonUnmappedMemberHandling(Disallow)]` on every request DTO plus a Spanish
+  translation for a `JsonException` that never reaches `ModelState`, a per-DTO
+  error-message surface the TP has no text for (no error code covers "unknown
+  property"), and a forward-compatibility contract between our own services: a
+  field one teammate ships before the peer updates turns working calls into
+  400s. Lenient-unknown is the framework default and the mainstream HTTP
+  behavior; the TP never mentions the case.
+- **Tolerance:** the success statuses of exactly those endpoints
+  (`GET /api/orders 200`, `POST /api/Users/register 201`,
+  `POST /api/Users/login 200`, `POST /api/Products 201`,
+  `PUT /api/Products/{id} 200`, `POST /api/notifications/send 201`).
+  Accepted trade-off: the gate grammar matches status codes, so a future
+  response-shape finding on those exact endpoints would be silenced too. That
+  is the price of a gate that stays useful instead of permanently red.
+- **Revisit if:** the TP specifies unknown-property handling, the course
+  prefers strict DTOs, or a response-shape finding on one of these six
+  endpoints needs to stay visible (then this tolerance narrows).
 
 API response texts (`errorMessage`, `detail`) are part of the API contract and stay in Spanish; this document does not translate them.

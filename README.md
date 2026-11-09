@@ -123,6 +123,7 @@ No llama a otros servicios.
 
 **Orders.API (5003)** - Creación y gestión de órdenes sobre `orders.db`.
 `GET` lista (filtro opcional `usuarioId`), `GET` por id, `POST` y `PUT` del estado.
+Un `usuarioId` de filtro que no es un Guid responde `200 []` (un id imposible es un usuario sin órdenes, como el ejemplo `GET /api/products/99 → PRD-001` del TP); vacío o ausente lista todas.
 Antes de crear consulta a Products.API por cada producto y el stock; el Total y el PrecioUnitario salen del precio de Products.
 Si el producto no existe responde ORD-004; si no hay stock, ORD-005. Si el mismo `productoId` viene en más de una línea, se juntan las cantidades: ORD-005 se valida contra la suma y la orden guarda una sola fila por producto.
 Todavía no llama a Users.API para validar el `UsuarioId` (ORD-003 pendiente).

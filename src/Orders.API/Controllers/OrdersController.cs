@@ -41,11 +41,24 @@ public class OrdersController : ControllerBase
     [ProducesResponseType(typeof(IEnumerable<Order>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> GetAll(
-        [FromQuery] Guid? usuarioId,
+        [FromQuery] string? usuarioId,
         CancellationToken cancellationToken)
     {
+        // El ejemplo del TP para un id imposible es "GET /api/products/99 →
+        // 404 (PRD-001)": lo trata como inexistente, no como request
+        // malformado. Un filtro no puede responder 404, pero es lo mismo:
+        // un valor que no es Guid no matchea con ninguna orden y se responde
+        // 200 con []. Vacío o ausente sigue siendo sin filtro.
+        Guid? filtro = null;
+        if (!string.IsNullOrWhiteSpace(usuarioId))
+        {
+            if (!Guid.TryParse(usuarioId, out var parsed))
+                return Ok(Enumerable.Empty<Order>());
+            filtro = parsed;
+        }
+
         var orders = await _ordersService.GetAllAsync(
-            usuarioId, cancellationToken);
+            filtro, cancellationToken);
 
         return Ok(orders);
     }

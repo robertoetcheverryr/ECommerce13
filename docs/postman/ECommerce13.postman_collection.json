@@ -3384,8 +3384,7 @@
           ]
         },
         {
-          "name": "Filtrar por usuarioId inválido → 400 ORD-002",
-          "id": "ef2c0fdc-3c53-458a-a442-e38329923fe0",
+          "name": "Filtrar por usuarioId inexistente → 200 []",
           "request": {
             "method": "GET",
             "url": "{{ordersUrl}}/api/orders?usuarioId=no-es-un-guid"
@@ -3396,9 +3395,27 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('status 400', () => pm.response.to.have.status(400));",
-                  "pm.test('errorCode ORD-002', () => pm.expect(pm.response.json().errorCode).to.eql('ORD-002'));",
-                  "pm.test('errorMessage', () => pm.expect(pm.response.json().errorMessage).to.eql(\"El valor 'no-es-un-guid' no es un Guid válido.\"));"
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('lista vacia: un id que no es Guid no puede existir', () => pm.expect(pm.response.json()).to.eql([]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Filtrar con usuarioId vacío lista todas → 200",
+          "request": {
+            "method": "GET",
+            "url": "{{ordersUrl}}/api/orders?usuarioId="
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200: vacio = sin filtro', () => pm.response.to.have.status(200));",
+                  "pm.test('es una lista (puede estar vacia segun la corrida)', () => pm.expect(pm.response.json()).to.be.an('array'));"
                 ]
               }
             }
