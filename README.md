@@ -341,6 +341,9 @@ La cobertura es informativa: una cobertura baja no hace fallar el workflow.
 
 El workflow `API QA` levanta las cinco APIs con bases de datos descartables y ejecuta la colección principal de Postman con Newman (obligatorio) y Schemathesis contra el OpenAPI de cada API (obligatorio). Ver [QA automatizado de APIs](docs/qa/README.md).
 
+Las dos capas de prueba conviven a propósito y no son dos copias de lo mismo: xUnit valida la lógica de negocio en proceso (coverage, límites numéricos, máquinas de estado) y Newman la experiencia HTTP de punta a punta —que además demuestra las APIs funcionando sin Swagger—. Están en altitudes distintas, como en un proyecto más grande donde se sumarían capas encima, no se reemplazaría una con la otra.
+Como el tiempo para el TP ya basicamente termino, no le doy cobertura total a ninguna de las API, con entender para que se usan y donde viven me alcanza. Ver [Why both xUnit and Newman](docs/qa/README.md#why-both-xunit-and-newman-postman).
+
 Además, Dependabot abre PRs semanales para actualizar dependencias (NuGet, GitHub Actions, npm y pip), cada PR pasa por una revisión de dependencias vulnerables, y el workflow `Code Quality` informa la complejidad ciclomática del código de las APIs (informativo por ahora).
 
 El workflow `Code Quality` también valida con linters los workflows y los scripts de QA (actionlint, shellcheck y yamllint) y publica un SBOM CycloneDX de las dependencias de las APIs como artefacto. El workflow `Scorecard` publica semanalmente el puntaje de OpenSSF Scorecard sobre las prácticas de seguridad del repo (informativo). La cobertura por API está en [Tests](#7-tests).

@@ -7,6 +7,15 @@ Added as a learning change: it tests the five APIs **actually running** (Develop
 | [Newman](https://github.com/postmanlabs/newman) | 6.2.3 (`scripts/qa/package.json` + `package-lock.json`) | Runs the main Postman collection (`docs/postman/ECommerce13.postman_collection.json`): the demo flows across services, with all their assertions. | **Mandatory**: any failed assertion fails the job. |
 | [Schemathesis](https://schemathesis.readthedocs.io/) | 4.33.1 (`scripts/qa/requirements.txt`) | Reads each API's OpenAPI (`/swagger/v1/swagger.json`) and generates valid and invalid requests (nulls, numeric extremes, odd strings, extra or missing fields), looking for 500s, undocumented status codes and responses that break the contract. | **Mandatory**: any API finding fails the job (see below). A manual run can uncheck `schemathesis_blocking` to keep findings advisory. |
 
+## Why both xUnit and Newman (Postman)
+
+They are not two copies of the same checks: they test at different altitudes and they fail for different reasons.
+
+- **xUnit** (`tests/*.API.Tests`): in-process tests of services and controllers with fakes for the HTTP clients (`IProductsClient`, `IProductCatalog`). Deterministic and fast; they check the decision logic the wire rarely exercises like state transitions, `int`/`decimal` boundaries, guard order before persistence. Coverage is measured only here.
+- **Newman** (the main Postman collection): real HTTP against the five running APIs with real SQLite, chaining data across services. It checks what the wire adds (status codes, `ErrorResponse` bodies, correlation headers) and doubles as the live demonstration that the APIs work: Swagger *describes* the endpoints, the collection *proves* them.
+
+A larger project would not collapse these into one; it would keep both at the same altitudes and add layers around them (contract tests, load tests, UI E2E). The design goal here is that each assertion in the collection fails for a reason no in-process test can produce, and vice versa.
+
 ## Architecture
 
 ```
