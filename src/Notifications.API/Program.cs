@@ -93,6 +93,7 @@ builder.Services.AddSwaggerGen(options =>
 
     options.IncludeXmlComments(xmlPath);
     options.ExampleFilters();
+    options.SchemaFilter<Notifications.API.Swagger.NotificationsSchemaFilter>();
 });
 
 builder.Services.AddSwaggerExamplesFromAssemblyOf<Program>();

@@ -39,6 +39,7 @@ builder.Services.AddSwaggerGen(options =>
     // does not have the ? operator
     options.SupportNonNullableReferenceTypes();
     options.OperationFilter<Products.API.ProductsSwaggerExamplesFilter>();
+    options.SchemaFilter<Products.API.ProductsSchemaFilter>();
 });
 
 // Disable automatic 400 so we can return our custom error format (PRD-002)

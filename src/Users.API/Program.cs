@@ -35,6 +35,7 @@ builder.Services.AddSwaggerGen(options =>
     options.IncludeXmlComments(xmlPath);
     options.SupportNonNullableReferenceTypes();
     options.OperationFilter<Users.API.UsersSwaggerExamplesFilter>();
+    options.SchemaFilter<Users.API.UsersSchemaFilter>();
 });
 
 builder.Services.Configure<Microsoft.AspNetCore.Mvc.ApiBehaviorOptions>(options =>

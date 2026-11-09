@@ -30,7 +30,10 @@ public class CreateProductRequest
     /// </summary>
     /// <example>1500.00</example>
     [JsonRequired]
-    [Range(0.01, double.MaxValue, ErrorMessage = "El precio debe ser mayor a 0.")]
+    // Rango exacto en decimal idealmente usariamos decimal.MaxValue.ToString()
+    // pero no podemos porque tienen que ser constantes al momento de compilar
+    // asi que magic number sera
+    [Range(typeof(decimal), "0.01", "79228162514264337593543950335", ErrorMessage = "El precio debe ser mayor a 0.")]
     public decimal Precio { get; set; }
 
     /// <summary>

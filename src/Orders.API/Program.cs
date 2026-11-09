@@ -100,6 +100,10 @@ builder.Services.AddSwaggerGen(options =>
 
     options.IncludeXmlComments(xmlPath);
     options.ExampleFilters();
+    // Sin esto, los campos no nullable de los DTOs (items, estado) salen como
+    // "nullable": true en el OpenAPI y Schemathesis manda nulls que el runtime
+    // ya rechaza (implicit required). Mismo ajuste que Products/Users/Cart.
+    options.SupportNonNullableReferenceTypes();
 });
 
 builder.Services.AddSwaggerExamplesFromAssemblyOf<Program>();
